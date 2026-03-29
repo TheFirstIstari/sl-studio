@@ -76,10 +76,10 @@ fn detect_rotation(img: &DynamicImage) -> Option<i32> {
 
     for (i, &count) in histogram.iter().enumerate() {
         let line_score = count as i32 * (i as i32 - 128).abs();
-        if i < 64 || i > 192 {
+        if !(64..=192).contains(&i) {
             score_h += line_score;
         }
-        if i > 96 && i < 160 {
+        if (96..160).contains(&i) {
             score_v += line_score;
         }
     }

@@ -24,7 +24,7 @@ pub struct AudioMetadata {
     pub file_size_bytes: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AudioExtractor {
     pub model_path: Option<String>,
     model_loaded: bool,
@@ -136,15 +136,6 @@ fn estimate_duration(ext: &str, file_size: u64) -> Option<f64> {
     };
 
     Some((file_size * 8) as f64 / (bitrate_kbps * 1000) as f64)
-}
-
-impl Default for AudioExtractor {
-    fn default() -> Self {
-        AudioExtractor {
-            model_path: None,
-            model_loaded: false,
-        }
-    }
 }
 
 #[cfg(test)]
