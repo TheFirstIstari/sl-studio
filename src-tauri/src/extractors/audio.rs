@@ -33,7 +33,7 @@ pub struct AudioExtractor {
 impl AudioExtractor {
     pub fn new(model_path: &Path) -> Result<Self, AudioError> {
         let model_path_str = model_path.to_string_lossy().to_string();
-        
+
         if !model_path.exists() {
             return Err(AudioError::FileNotFound(format!(
                 "Model not found at: {}",
@@ -42,7 +42,7 @@ impl AudioExtractor {
         }
 
         info!("Audio extractor initialized with model: {}", model_path_str);
-        
+
         Ok(AudioExtractor {
             model_path: Some(model_path_str),
             model_loaded: true,
@@ -52,7 +52,8 @@ impl AudioExtractor {
     pub fn transcribe(&self, path: &Path) -> Result<String, AudioError> {
         if !self.model_loaded {
             return Err(AudioError::NotAvailable(
-                "Audio transcription requires whisper-rs to be compiled with cmake support".to_string(),
+                "Audio transcription requires whisper-rs to be compiled with cmake support"
+                    .to_string(),
             ));
         }
 
@@ -60,8 +61,10 @@ impl AudioExtractor {
         info!("Transcribing audio: {}", path_str);
 
         let metadata = self.get_metadata(path)?;
-        info!("Audio metadata: duration={:?}s, format={}", 
-            metadata.duration_seconds, metadata.format);
+        info!(
+            "Audio metadata: duration={:?}s, format={}",
+            metadata.duration_seconds, metadata.format
+        );
 
         Ok(format!(
             "[Audio transcription placeholder]\n\
@@ -71,9 +74,7 @@ impl AudioExtractor {
             \n\
             NOTE: Full transcription requires whisper-rs compiled with cmake support.\n\
             Install cmake and rebuild to enable audio transcription.",
-            path_str,
-            metadata.duration_seconds,
-            metadata.format
+            path_str, metadata.duration_seconds, metadata.format
         ))
     }
 
@@ -84,9 +85,7 @@ impl AudioExtractor {
             .map(|e| e.to_lowercase())
             .unwrap_or_default();
 
-        let file_size = std::fs::metadata(path)
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let file_size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
 
         let format = match ext.as_str() {
             "mp3" => "MP3",
@@ -96,7 +95,8 @@ impl AudioExtractor {
             "ogg" => "OGG Vorbis",
             "flac" => "FLAC",
             _ => "Unknown",
-        }.to_string();
+        }
+        .to_string();
 
         let duration_seconds = estimate_duration(&ext, file_size);
 
@@ -163,7 +163,9 @@ mod tests {
 
     #[test]
     fn test_metadata_estimate() {
-        let metadata = AudioExtractor::default().get_metadata(Path::new("test.mp3")).unwrap();
+        let metadata = AudioExtractor::default()
+            .get_metadata(Path::new("test.mp3"))
+            .unwrap();
         assert_eq!(metadata.format, "MP3");
         assert!(metadata.sample_rate.is_some());
     }
