@@ -2697,11 +2697,11 @@ steinline/
 
 ### 3.1 LLM Infrastructure
 
-- [ ] Integrate llama.cpp bindings
-- [ ] Implement model download from HuggingFace
-- [ ] Create model manager (list, select, delete)
-- [ ] Add quantization selection (Q4, Q5, Q8)
-- [ ] Implement model loading/unloading
+- [x] Integrate llama.cpp bindings
+- [x] Implement model download from HuggingFace
+- [x] Create model manager (list, select, delete)
+- [x] Add quantization selection (Q4, Q5, Q8)
+- [x] Implement model loading/unloading
 
 ### 3.2 Pipeline Framework
 
@@ -2715,8 +2715,8 @@ steinline/
 
 - [x] Implement Basic Facts pipeline (1 pass)
 - [x] Implement Financial Crimes pipeline (2 passes)
-- [ ] Create pipeline configuration UI
-- [ ] Add custom pipeline editor
+- [x] Create pipeline configuration UI
+- [x] Add custom pipeline editor
 
 **Milestone: LLM can extract facts from text** ✅
 
@@ -2726,27 +2726,27 @@ steinline/
 
 ### 4.1 Intelligence Database
 
-- [ ] Implement intelligence table schema
-- [ ] Create fact storage and retrieval
-- [ ] Add entity extraction (NER)
-- [ ] Implement multi-language support
-- [ ] Add source attribution tracking
+- [x] Implement intelligence table schema
+- [x] Create fact storage and retrieval
+- [x] Add entity extraction (NER)
+- [x] Implement multi-language support
+- [x] Add source attribution tracking
 
 ### 4.2 Quality & Deduplication
 
-- [ ] Implement quality scoring algorithm
-- [ ] Create deduplication logic
-- [ ] Add merge strategy options
-- [ ] Implement quality threshold warnings
+- [x] Implement quality scoring algorithm
+- [x] Create deduplication logic
+- [x] Add merge strategy options
+- [x] Implement quality threshold warnings
 
 ### 4.3 Incremental Processing
 
-- [ ] Implement file change detection
-- [ ] Create priority queue system
-- [ ] Add checkpoint/resume logic
-- [ ] Implement error queue with retry
+- [x] Implement file change detection
+- [x] Create priority queue system
+- [x] Add checkpoint/resume logic
+- [x] Implement error queue with retry
 
-**Milestone: Complete two-stage pipeline working**
+**Milestone: Complete two-stage pipeline working** ✅
 
 ---
 
