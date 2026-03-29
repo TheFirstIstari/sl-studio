@@ -1,0 +1,78 @@
+[package]
+name = "steinline"
+version = "0.1.0"
+description = "SL Studio - Forensic Document Analysis Platform"
+authors = ["SL Studio Team"]
+edition = "2021"
+
+[lib]
+name = "steinline_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["devtools"] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-shell = "2"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+tokio = { version = "1", features = ["full"] }
+
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+sha2 = "0.10"
+hex = "0.4"
+
+rayon = "1.10"
+
+sysinfo = "0.32"
+
+dirs = "5"
+walkdir = "2"
+
+reqwest = { version = "0.12", features = ["stream", "json", "blocking"] }
+tokio-util = "0.7"
+futures = "0.3"
+
+chrono = { version = "0.4", features = ["serde"] }
+
+thiserror = "1"
+anyhow = "1"
+
+num_cpus = "1"
+
+pdf-extract = "0.7"
+ocrs = "0.12"
+image = "0.25"
+whisper-cpp-plus = { version = "0.1", optional = true }
+llama_cpp = "0.3"
+
+[dev-dependencies]
+tempfile = "3"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+whisper = ["dep:whisper-cpp-plus"]
+
+[profile.dev]
+opt-level = 0
+
+[profile.test]
+opt-level = 0
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true

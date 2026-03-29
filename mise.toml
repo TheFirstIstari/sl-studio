@@ -1,0 +1,156 @@
+[env]
+RUSTUP_HOME = "~/.rustup"
+
+[tools]
+node = "22"
+rust = "stable"
+
+[tasks.dev]
+description = "Start Tauri dev server"
+run = "npm run tauri dev"
+
+[tasks.dev_frontend]
+description = "Start SvelteKit dev server"
+run = "npm run dev"
+
+[tasks.build]
+description = "Build the Tauri application"
+run = "npm run tauri build"
+
+[tasks.build_frontend]
+description = "Build the SvelteKit frontend"
+run = "npm run build"
+
+[tasks.build_rust]
+description = "Build Rust backend only"
+run = "cd src-tauri && cargo build --release"
+
+[tasks.test]
+description = "Run all tests (Rust + TypeScript)"
+run = [
+    "cargo test --manifest-path src-tauri/Cargo.toml",
+    "npm run check",
+]
+
+[tasks.test_rust]
+description = "Run Rust tests only"
+run = "cargo test --manifest-path src-tauri/Cargo.toml"
+alias = "t"
+
+[tasks.test_frontend]
+description = "Run TypeScript checks"
+run = "npm run check"
+
+[tasks.lint]
+description = "Run linting and type checks"
+run = "npm run check"
+
+[tasks.lint_rust]
+description = "Run Rust clippy"
+run = "cd src-tauri && cargo clippy -- -D warnings"
+
+[tasks.lint_frontend]
+description = "Run SvelteKit check"
+run = "npm run check"
+
+[tasks.release]
+description = "Create production release"
+run = "npm run tauri build"
+
+[tasks.release_dmg]
+description = "Build macOS app bundle (DMG may fail, app works)"
+run = "npm run tauri build -- --bundles app"
+
+[tasks.release_app]
+description = "Build macOS app bundle only"
+run = "npm run tauri build -- --bundles app"
+
+[tasks.setup]
+description = "Initial project setup"
+run = [
+    "echo 'Installing Rust dependencies...'",
+    "cargo fetch --manifest-path src-tauri/Cargo.toml",
+    "echo 'Installing Node dependencies...'",
+    "npm install",
+]
+
+[tasks.clean]
+description = "Clean build artifacts"
+run = [
+    "rm -rf src-tauri/target/release/build",
+    "rm -rf .svelte-kit",
+    "rm -rf build",
+]
+
+[tasks.clean_all]
+description = "Full clean including Rust target"
+run = [
+    "rm -rf src-tauri/target",
+    "rm -rf .svelte-kit",
+    "rm -rf build",
+]
+
+[tasks.check]
+description = "Quick check (compile without tests)"
+run = "cargo check --manifest-path src-tauri/Cargo.toml"
+alias = "c"
+
+[tasks.tauri]
+description = "Run Tauri CLI directly"
+run = "npm run tauri"
+alias = "t"
+
+[tasks.watch]
+description = "Watch mode for development"
+run = "npm run tauri dev -- --watch"
+
+[tasks.open]
+description = "Open built application"
+run = "open src-tauri/target/release/SL Studio.app"
+
+[tasks.logs]
+description = "View application logs"
+run = "tail -f ~/.local/share/slstudio/logs/*.log"
+
+[tasks.db_reg]
+description = "Open registry database"
+run = "sqlite3 ~/.local/share/slstudio/registry.db"
+
+[tasks.db_intel]
+description = "Open intelligence database"
+run = "sqlite3 ~/.local/share/slstudio/intelligence.db"
+
+[tasks.db_test]
+description = "Create test databases"
+run = "mkdir -p /tmp/slstudio_test && touch /tmp/slstudio_test/registry.db /tmp/slstudio_test/intelligence.db"
+
+[tasks.test_coverage]
+description = "Run tests with coverage report (requires tarpaulin)"
+run = "cargo tarpaulin --manifest-path src-tauri/Cargo.toml --out Html --target-dir target/coverage"
+
+[tasks.test_ci]
+description = "Run tests in CI mode (no debug output)"
+run = "cargo test --manifest-path src-tauri/Cargo.toml -- --nocapture=false"
+
+[tasks.benchmark]
+description = "Run benchmarks if any exist"
+run = "cargo bench --manifest-path src-tauri/Cargo.toml"
+
+[tasks.watch_rust]
+description = "Watch and build Rust with bacon"
+run = "cd src-tauri && bacon build"
+alias = "w"
+
+[tasks.watch_tests]
+description = "Watch and run tests with bacon"
+run = "cd src-tauri && bacon test"
+alias = "wt"
+
+[tasks.watch_clippy]
+description = "Watch and run clippy with bacon"
+run = "cd src-tauri && bacon clippy"
+alias = "wc"
+
+[settings]
+jobs = 4
+http_timeout = "60s"
