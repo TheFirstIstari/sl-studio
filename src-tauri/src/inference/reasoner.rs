@@ -1,10 +1,9 @@
 use crate::extractors::{Deconstructor, ExtractionResult, ExtractorConfig};
 use crate::inference::llama::{LlamaConfig, LlamaModel};
-use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use thiserror::Error;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 #[derive(Error, Debug)]
 pub enum ReasonerError {
@@ -116,7 +115,7 @@ impl Reasoner {
             model.unload();
         }
 
-        let mut llama_config = LlamaConfig {
+        let llama_config = LlamaConfig {
             model_path: model_path.to_string(),
             context_size: self.config.context_size,
             gpu_layers: self.config.gpu_layers,

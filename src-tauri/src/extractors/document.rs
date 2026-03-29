@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 use thiserror::Error;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 #[derive(Error, Debug)]
 pub enum DocumentError {
