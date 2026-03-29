@@ -2911,6 +2911,7 @@ steinline/
 ### Files Created
 
 **Backend (src-tauri/src/)**
+
 - `inference/mod.rs` - Module exports with Fact alias, PipelineRunner, get_builtin_pipelines, get_pipeline_by_id
 - `inference/pipeline.rs` - Pipeline, PipelinePass, PipelineResult, PipelineRunner structs, Fact parsing, text sampling
 - `inference/llama.rs` - LlamaModel stub with GGUF loading
@@ -2943,9 +2944,11 @@ steinline/
 - `utils/logging.rs` - Logging setup
 
 **Frontend (src/)**
+
 - SvelteKit pages and components (dashboard, analysis, pipeline, results, map, settings)
 
 **GitHub Actions**
+
 - `.github/workflows/ci.yml` - Optimized CI pipeline (3 sequential jobs)
 
 ### Current Status
