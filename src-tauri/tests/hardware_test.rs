@@ -1,4 +1,4 @@
-use steinline_lib::gpu::{detect, GpuBackend, GpuInfo, HardwareStatus};
+use steinline_lib::gpu::{detect, GpuBackend, HardwareStatus};
 
 #[test]
 fn test_hardware_detection() {
@@ -18,9 +18,9 @@ fn test_hardware_status_fields() {
 
 #[test]
 fn test_gpu_backend_enum() {
-    assert_eq!(GpuBackend::from_str("metal"), GpuBackend::Metal);
-    assert_eq!(GpuBackend::from_str("cuda"), GpuBackend::Cuda);
-    assert_eq!(GpuBackend::from_str("cpu"), GpuBackend::Cpu);
+    assert_eq!(GpuBackend::parse("metal"), GpuBackend::Metal);
+    assert_eq!(GpuBackend::parse("cuda"), GpuBackend::Cuda);
+    assert_eq!(GpuBackend::parse("cpu"), GpuBackend::Cpu);
 }
 
 #[test]

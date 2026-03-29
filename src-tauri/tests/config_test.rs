@@ -1,5 +1,4 @@
-use std::fs;
-use steinline_lib::config::{AppConfig, ValidationResult};
+use steinline_lib::config::AppConfig;
 use tempfile::TempDir;
 
 #[test]
@@ -13,7 +12,7 @@ fn test_config_default_creation() {
 #[test]
 fn test_config_save_and_load() {
     let tmp_dir = TempDir::new().unwrap();
-    let config_path = tmp_dir.path().join("config.json");
+    let _config_path = tmp_dir.path().join("config.json");
 
     let mut config = AppConfig::default();
     config.project.evidence_root = "/tmp".to_string();

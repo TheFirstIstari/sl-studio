@@ -253,7 +253,6 @@ impl Default for PdfExtractor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
 
     #[test]
     fn test_pdf_extractor_creation() {

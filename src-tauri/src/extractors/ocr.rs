@@ -156,7 +156,6 @@ impl Default for OcrExtractor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
 
     #[test]
     fn test_ocr_extractor_creation() {

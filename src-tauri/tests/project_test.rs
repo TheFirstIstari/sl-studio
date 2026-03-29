@@ -1,4 +1,3 @@
-use std::fs;
 use steinline_lib::config::ProjectFile;
 use tempfile::TempDir;
 
@@ -52,7 +51,7 @@ fn test_project_serialization() {
 #[test]
 fn test_project_update_modified() {
     let tmp_dir = TempDir::new().unwrap();
-    let project_path = tmp_dir.path().join("test.sls");
+    let _project_path = tmp_dir.path().join("test.sls");
 
     let mut project = ProjectFile::default();
     let original_modified = project.modified_at;
