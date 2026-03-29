@@ -59,11 +59,7 @@ impl Deconstructor {
 
         info!("Deconstructor initialized");
 
-        Ok(Deconstructor {
-            pdf,
-            ocr,
-            audio,
-        })
+        Ok(Deconstructor { pdf, ocr, audio })
     }
 
     pub fn extract(&self, path: &Path) -> Result<ExtractionResult, ExtractionError> {
