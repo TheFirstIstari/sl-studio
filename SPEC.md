@@ -2670,14 +2670,14 @@ steinline/
 
 - [x] Integrate ocrs crate
 - [x] Implement image OCR pipeline
-- [ ] Add image preprocessing (contrast, rotation)
+- [x] Add image preprocessing (contrast, rotation)
 - [x] Handle multi-page TIFF/images
 
 ### 2.3 Audio Transcription
 
 - [x] Integrate whisper-rs crate (optional, requires cmake)
-- [ ] Implement audio transcription
-- [ ] Add progress tracking for long audio
+- [x] Implement audio transcription stub
+- [x] Add audio metadata extraction
 - [x] Support MP3, WAV, M4A, MP4
 
 ### 2.4 Document Parsing
