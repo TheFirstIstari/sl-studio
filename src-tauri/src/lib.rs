@@ -3,12 +3,14 @@ pub mod core;
 pub mod extractors;
 pub mod gpu;
 pub mod inference;
+pub mod models;
 pub mod utils;
 
 use config::{AppConfig, ProjectFile, ValidationResult};
 use core::{Database, RegistryProgress, RegistryWorker};
 use gpu::HardwareStatus;
 use inference::{Reasoner, ReasonerConfig};
+pub use models::{ModelManager, Quantization};
 
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
