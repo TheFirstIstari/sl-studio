@@ -1,12 +1,12 @@
 pub mod config;
 pub mod core;
-pub mod gpu;
-pub mod utils;
 pub mod extractors;
+pub mod gpu;
 pub mod inference;
+pub mod utils;
 
-use config::{AppConfig, ValidationResult, ProjectFile};
-use core::{Database, RegistryWorker, RegistryProgress};
+use config::{AppConfig, ProjectFile, ValidationResult};
+use core::{Database, RegistryProgress, RegistryWorker};
 use gpu::HardwareStatus;
 use inference::{Reasoner, ReasonerConfig};
 
@@ -95,7 +95,8 @@ async fn init_project(
         &config.project.evidence_root,
         &config.project.registry_db,
         &config.project.intelligence_db,
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     *state.registry_worker.lock().unwrap() = Some(worker);
 
@@ -161,7 +162,10 @@ fn get_stats(state: State<AppState>) -> Result<Stats, String> {
 }
 
 #[tauri::command]
-fn get_unprocessed_files(state: State<AppState>, limit: i64) -> Result<Vec<core::RegistryEntry>, String> {
+fn get_unprocessed_files(
+    state: State<AppState>,
+    limit: i64,
+) -> Result<Vec<core::RegistryEntry>, String> {
     let db = state.db.lock().unwrap();
     if let Some(db) = db.as_ref() {
         db.get_unprocessed_files(limit).map_err(|e| e.to_string())
@@ -250,24 +254,25 @@ pub struct HuggingFaceFile {
 
 fn get_huggingface_files(repo_id: &str) -> Result<Vec<HuggingFaceFile>, String> {
     let url = format!("https://huggingface.co/api/models/{}", repo_id);
-    
+
     let client = reqwest::blocking::Client::new();
-    let response = client.get(&url)
+    let response = client
+        .get(&url)
         .header("Accept", "application/json")
         .send()
         .map_err(|e| format!("Failed to fetch model info: {}", e))?;
-    
+
     if !response.status().is_success() {
         return Err(format!("HTTP error: {}", response.status()));
     }
-    
+
     #[derive(Deserialize)]
     struct ModelInfo {
         siblings: Option<Vec<HuggingFaceFile>>,
     }
-    
+
     let info: ModelInfo = response.json().map_err(|e| e.to_string())?;
-    
+
     info.siblings.ok_or_else(|| "No files found".to_string())
 }
 
@@ -299,20 +304,19 @@ async fn download_model(
     filename: String,
 ) -> Result<ModelInfo, String> {
     let files = get_huggingface_files(&repo_id)?;
-    
+
     let (download_url, total_size) = if filename.contains(".gguf") {
-        files.iter()
+        files
+            .iter()
             .find(|f| f.path == filename)
             .and_then(|f| f.download_url.as_ref().map(|url| (url.clone(), f.size)))
             .ok_or_else(|| "File not found in repository".to_string())?
     } else {
-        let file = files.iter()
+        let file = files
+            .iter()
             .find(|f| f.path.to_lowercase().ends_with(".gguf"))
             .ok_or_else(|| "No GGUF files found".to_string())?;
-        (
-            file.download_url.as_ref().unwrap().clone(),
-            file.size,
-        )
+        (file.download_url.as_ref().unwrap().clone(), file.size)
     };
 
     let actual_filename = download_url.split('/').last().unwrap_or(&filename);
@@ -328,16 +332,21 @@ async fn download_model(
 
     info!("Starting download from: {}", download_url);
 
-    app.emit("download_status", DownloadProgress {
-        bytes_downloaded: 0,
-        total_bytes: 0,
-        filename: actual_filename.to_string(),
-        status: "starting".to_string(),
-    }).ok();
+    app.emit(
+        "download_status",
+        DownloadProgress {
+            bytes_downloaded: 0,
+            total_bytes: 0,
+            filename: actual_filename.to_string(),
+            status: "starting".to_string(),
+        },
+    )
+    .ok();
 
     let client = reqwest::Client::new();
-    
-    let response = client.get(&download_url)
+
+    let response = client
+        .get(&download_url)
         .header("Accept", "application/octet-stream")
         .send()
         .await
@@ -346,11 +355,11 @@ async fn download_model(
     if !response.status().is_success() {
         return Err(format!("HTTP error: {}", response.status()));
     }
-    
+
     let total_size = response.content_length().unwrap_or(total_size);
-    
-    let mut file = std::fs::File::create(&output_path)
-        .map_err(|e| format!("Failed to create file: {}", e))?;
+
+    let mut file =
+        std::fs::File::create(&output_path).map_err(|e| format!("Failed to create file: {}", e))?;
 
     use futures::stream::StreamExt;
     use std::io::Write;
@@ -361,25 +370,33 @@ async fn download_model(
         let chunk = chunk.map_err(|e| format!("Download error: {}", e))?;
         file.write_all(&chunk)
             .map_err(|e| format!("Failed to write: {}", e))?;
-        
+
         bytes_downloaded += chunk.len() as u64;
-        
-        app.emit("download_status", DownloadProgress {
-            bytes_downloaded,
-            total_bytes: total_size,
-            filename: actual_filename.to_string(),
-            status: "downloading".to_string(),
-        }).ok();
+
+        app.emit(
+            "download_status",
+            DownloadProgress {
+                bytes_downloaded,
+                total_bytes: total_size,
+                filename: actual_filename.to_string(),
+                status: "downloading".to_string(),
+            },
+        )
+        .ok();
     }
 
     file.flush().map_err(|e| e.to_string())?;
 
-    app.emit("download_status", DownloadProgress {
-        bytes_downloaded,
-        total_bytes: total_size,
-        filename: actual_filename.to_string(),
-        status: "complete".to_string(),
-    }).ok();
+    app.emit(
+        "download_status",
+        DownloadProgress {
+            bytes_downloaded,
+            total_bytes: total_size,
+            filename: actual_filename.to_string(),
+            status: "complete".to_string(),
+        },
+    )
+    .ok();
 
     info!("Download complete: {:?}", output_path);
 
@@ -400,7 +417,7 @@ fn list_downloaded_models() -> Vec<ModelInfo> {
     };
 
     let mut models = Vec::new();
-    
+
     if let Ok(entries) = std::fs::read_dir(&models_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
@@ -408,7 +425,8 @@ fn list_downloaded_models() -> Vec<ModelInfo> {
                 if let Ok(metadata) = std::fs::metadata(&path) {
                     models.push(ModelInfo {
                         id: "local".to_string(),
-                        filename: path.file_name()
+                        filename: path
+                            .file_name()
                             .map(|n| n.to_string_lossy().to_string())
                             .unwrap_or_default(),
                         size: metadata.len(),
@@ -418,7 +436,7 @@ fn list_downloaded_models() -> Vec<ModelInfo> {
             }
         }
     }
-    
+
     models
 }
 
@@ -427,8 +445,7 @@ fn extract_file(path: String) -> Result<extractors::ExtractionResult, String> {
     use extractors::{Deconstructor, ExtractorConfig};
 
     let config = ExtractorConfig::default();
-    let deconstructor = Deconstructor::new(config)
-        .map_err(|e| e.to_string())?;
+    let deconstructor = Deconstructor::new(config).map_err(|e| e.to_string())?;
 
     let path = std::path::Path::new(&path);
     deconstructor.extract(path).map_err(|e| e.to_string())
@@ -443,15 +460,18 @@ fn get_supported_extensions() -> Vec<String> {
 }
 
 #[tauri::command]
-fn init_reasoner(state: State<AppState>, model_path: String, context_size: u32) -> Result<bool, String> {
+fn init_reasoner(
+    state: State<AppState>,
+    model_path: String,
+    context_size: u32,
+) -> Result<bool, String> {
     let config = ReasonerConfig {
         model_path,
         context_size,
         ..Default::default()
     };
 
-    let reasoner = Reasoner::new(config)
-        .map_err(|e| e.to_string())?;
+    let reasoner = Reasoner::new(config).map_err(|e| e.to_string())?;
 
     let mut cached = state.reasoner.lock().unwrap();
     *cached = Some(Arc::new(reasoner));
@@ -470,14 +490,16 @@ fn analyze_file(state: State<AppState>, path: String) -> Result<inference::Analy
     let reasoner = reasoner_arc.ok_or("Reasoner not initialized. Call init_reasoner first.")?;
 
     let file_path = std::path::Path::new(&path);
-    reasoner.analyze_file(file_path)
-        .map_err(|e| e.to_string())
+    reasoner.analyze_file(file_path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn is_model_loaded(state: State<AppState>) -> bool {
     let cached = state.reasoner.lock().unwrap();
-    cached.as_ref().map(|r| r.is_model_loaded()).unwrap_or(false)
+    cached
+        .as_ref()
+        .map(|r| r.is_model_loaded())
+        .unwrap_or(false)
 }
 
 #[tauri::command]
@@ -487,7 +509,8 @@ fn get_reasoner_config(state: State<AppState>) -> Option<ReasonerConfig> {
 }
 
 // Global logging guard - kept alive for app lifetime
-static LOG_GUARD: std::sync::OnceLock<tracing_appender::non_blocking::WorkerGuard> = std::sync::OnceLock::new();
+static LOG_GUARD: std::sync::OnceLock<tracing_appender::non_blocking::WorkerGuard> =
+    std::sync::OnceLock::new();
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

@@ -1,5 +1,5 @@
-use steinline_lib::extractors::{Deconstructor, ExtractorConfig, ExtractionResult};
 use std::fs;
+use steinline_lib::extractors::{Deconstructor, ExtractionResult, ExtractorConfig};
 use tempfile::TempDir;
 
 #[test]
@@ -13,7 +13,7 @@ fn test_extractor_config_default() {
 fn test_deconstructor_with_nonexistent_file() {
     let config = ExtractorConfig::default();
     let deconstructor = Deconstructor::new(config).unwrap();
-    
+
     let result = deconstructor.extract(std::path::Path::new("/nonexistent/file.pdf"));
     assert!(result.is_err());
 }
@@ -21,7 +21,7 @@ fn test_deconstructor_with_nonexistent_file() {
 #[test]
 fn test_deconstructor_supported_extensions() {
     let extensions = Deconstructor::supported_extensions();
-    
+
     assert!(extensions.contains(&"pdf"));
     assert!(extensions.contains(&"txt"));
     assert!(extensions.contains(&"mp3"));
@@ -37,7 +37,7 @@ fn test_extraction_result_struct() {
         char_count: 9,
         is_partial: false,
     };
-    
+
     assert_eq!(result.char_count, 9);
     assert_eq!(result.file_type, "pdf");
 }
@@ -47,13 +47,13 @@ fn test_text_file_extraction() {
     let tmp_dir = TempDir::new().unwrap();
     let file_path = tmp_dir.path().join("test.txt");
     fs::write(&file_path, "Hello, World!").unwrap();
-    
+
     let config = ExtractorConfig::default();
     let deconstructor = Deconstructor::new(config).unwrap();
-    
+
     let result = deconstructor.extract(&file_path);
     assert!(result.is_ok());
-    
+
     let extracted = result.unwrap();
     assert!(extracted.text.contains("Hello"));
 }

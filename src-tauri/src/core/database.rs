@@ -1,4 +1,4 @@
-use rusqlite::{Connection, Result, params};
+use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tracing::info;
@@ -39,12 +39,12 @@ impl Database {
     pub fn new(registry_path: &str, intelligence_path: &str) -> Result<Self> {
         let reg_conn = Connection::open(registry_path)?;
         let intel_conn = Connection::open(intelligence_path)?;
-        
+
         let db = Database {
             registry_conn: Mutex::new(reg_conn),
             intelligence_conn: Mutex::new(intel_conn),
         };
-        
+
         db.init_schema()?;
         Ok(db)
     }
@@ -52,7 +52,7 @@ impl Database {
     fn init_schema(&self) -> Result<()> {
         let reg_conn = self.registry_conn.lock().unwrap();
         let intel_conn = self.intelligence_conn.lock().unwrap();
-        
+
         // Registry schema - optimized for fingerprint lookup and file tracking
         reg_conn.execute(
             "CREATE TABLE IF NOT EXISTS registry (
@@ -68,14 +68,29 @@ impl Database {
             )",
             [],
         )?;
-        
+
         // Efficient indexes
-        reg_conn.execute("CREATE INDEX IF NOT EXISTS idx_registry_fingerprint ON registry(fingerprint)", [])?;
-        reg_conn.execute("CREATE INDEX IF NOT EXISTS idx_registry_filetype ON registry(file_type)", [])?;
-        reg_conn.execute("CREATE INDEX IF NOT EXISTS idx_registry_path ON registry(path)", [])?;
-        reg_conn.execute("CREATE INDEX IF NOT EXISTS idx_registry_processed ON registry(processed)", [])?;
+        reg_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_registry_fingerprint ON registry(fingerprint)",
+            [],
+        )?;
+        reg_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_registry_filetype ON registry(file_type)",
+            [],
+        )?;
+        reg_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_registry_path ON registry(path)",
+            [],
+        )?;
+        reg_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_registry_processed ON registry(processed)",
+            [],
+        )?;
         // Composite index for efficient processed file queries
-        reg_conn.execute("CREATE INDEX IF NOT EXISTS idx_registry_processed_id ON registry(processed, id)", [])?;
+        reg_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_registry_processed_id ON registry(processed, id)",
+            [],
+        )?;
 
         // Intelligence schema - optimized for fact retrieval
         intel_conn.execute(
@@ -97,12 +112,21 @@ impl Database {
             )",
             [],
         )?;
-        
-        intel_conn.execute("CREATE INDEX IF NOT EXISTS idx_intelligence_registry ON intelligence(registry_id)", [])?;
-        intel_conn.execute("CREATE INDEX IF NOT EXISTS idx_intelligence_fingerprint ON intelligence(fingerprint)", [])?;
-        intel_conn.execute("CREATE INDEX IF NOT EXISTS idx_intelligence_category ON intelligence(category)", [])?;
+
+        intel_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_intelligence_registry ON intelligence(registry_id)",
+            [],
+        )?;
+        intel_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_intelligence_fingerprint ON intelligence(fingerprint)",
+            [],
+        )?;
+        intel_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_intelligence_category ON intelligence(category)",
+            [],
+        )?;
         intel_conn.execute("CREATE INDEX IF NOT EXISTS idx_intelligence_severity ON intelligence(severity_score DESC)", [])?;
-        
+
         // Composite index for uniqueness and efficient lookups
         intel_conn.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_intelligence_unique ON intelligence(fingerprint, filename, fact_summary)",
@@ -124,9 +148,15 @@ impl Database {
             )",
             [],
         )?;
-        
-        intel_conn.execute("CREATE INDEX IF NOT EXISTS idx_checkpoints_job ON checkpoints(job_type, status)", [])?;
-        intel_conn.execute("CREATE INDEX IF NOT EXISTS idx_checkpoints_job_id ON checkpoints(job_id)", [])?;
+
+        intel_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_checkpoints_job ON checkpoints(job_type, status)",
+            [],
+        )?;
+        intel_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_checkpoints_job_id ON checkpoints(job_id)",
+            [],
+        )?;
 
         // Audit log
         intel_conn.execute(
@@ -139,9 +169,15 @@ impl Database {
             )",
             [],
         )?;
-        
-        intel_conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action)", [])?;
-        intel_conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp)", [])?;
+
+        intel_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action)",
+            [],
+        )?;
+        intel_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp)",
+            [],
+        )?;
 
         // Text cache for extracted text
         reg_conn.execute(
@@ -159,8 +195,14 @@ impl Database {
             [],
         )?;
 
-        reg_conn.execute("CREATE INDEX IF NOT EXISTS idx_text_cache_fingerprint ON text_cache(fingerprint)", [])?;
-        reg_conn.execute("CREATE INDEX IF NOT EXISTS idx_text_cache_hash ON text_cache(text_hash)", [])?;
+        reg_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_text_cache_fingerprint ON text_cache(fingerprint)",
+            [],
+        )?;
+        reg_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_text_cache_hash ON text_cache(text_hash)",
+            [],
+        )?;
 
         // Metadata extraction cache
         reg_conn.execute(
@@ -174,14 +216,27 @@ impl Database {
             [],
         )?;
 
-        reg_conn.execute("CREATE INDEX IF NOT EXISTS idx_metadata_fingerprint ON metadata_cache(fingerprint)", [])?;
-        reg_conn.execute("CREATE INDEX IF NOT EXISTS idx_metadata_type ON metadata_cache(metadata_type)", [])?;
+        reg_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_metadata_fingerprint ON metadata_cache(fingerprint)",
+            [],
+        )?;
+        reg_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_metadata_type ON metadata_cache(metadata_type)",
+            [],
+        )?;
 
         info!("Database schema initialized");
         Ok(())
     }
 
-    pub fn insert_fingerprint(&self, fingerprint: &str, path: &str, file_type: &str, file_size: i64, file_name: &str) -> Result<i64> {
+    pub fn insert_fingerprint(
+        &self,
+        fingerprint: &str,
+        path: &str,
+        file_type: &str,
+        file_size: i64,
+        file_name: &str,
+    ) -> Result<i64> {
         let conn = self.registry_conn.lock().unwrap();
         conn.execute(
             "INSERT OR IGNORE INTO registry (fingerprint, path, file_type, file_size, file_name) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -190,23 +245,29 @@ impl Database {
         Ok(conn.last_insert_rowid())
     }
 
-    pub fn insert_fingerprints_batch(&self, entries: &[(String, String, String, i64, String)]) -> Result<usize> {
+    pub fn insert_fingerprints_batch(
+        &self,
+        entries: &[(String, String, String, i64, String)],
+    ) -> Result<usize> {
         let mut conn = self.registry_conn.lock().unwrap();
         let tx = conn.transaction()?;
         let mut count = 0;
-        
+
         {
             let mut stmt = tx.prepare_cached(
                 "INSERT OR IGNORE INTO registry (fingerprint, path, file_type, file_size, file_name) VALUES (?1, ?2, ?3, ?4, ?5)"
             )?;
-            
+
             for (fingerprint, path, file_type, file_size, file_name) in entries {
-                if stmt.execute(params![fingerprint, path, file_type, file_size, file_name]).is_ok() {
+                if stmt
+                    .execute(params![fingerprint, path, file_type, file_size, file_name])
+                    .is_ok()
+                {
                     count += 1;
                 }
             }
         }
-        
+
         tx.commit()?;
         Ok(count)
     }
@@ -215,7 +276,7 @@ impl Database {
         let conn = self.registry_conn.lock().unwrap();
         let mut stmt = conn.prepare("SELECT fingerprint FROM registry")?;
         let fingerprints = stmt.query_map([], |row| row.get(0))?;
-        
+
         let mut set = std::collections::HashSet::new();
         for fp in fingerprints {
             if let Ok(f) = fp {
@@ -240,9 +301,9 @@ impl Database {
             "SELECT id, fingerprint, path, file_size, file_type, processed
              FROM registry
              WHERE processed = 0
-             LIMIT ?1"
+             LIMIT ?1",
         )?;
-        
+
         let entries = stmt.query_map([limit], |row| {
             Ok(RegistryEntry {
                 id: row.get(0)?,
@@ -253,7 +314,7 @@ impl Database {
                 processed: row.get(5)?,
             })
         })?;
-        
+
         entries.collect()
     }
 
@@ -266,10 +327,18 @@ impl Database {
               confidence, processing_time_ms)
               VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
-                entry.registry_id, entry.fingerprint, entry.filename,
-                entry.evidence_quote, entry.evidence_full, entry.associated_date,
-                entry.fact_summary, entry.category, entry.identified_crime,
-                entry.severity_score, entry.confidence, entry.processing_time_ms
+                entry.registry_id,
+                entry.fingerprint,
+                entry.filename,
+                entry.evidence_quote,
+                entry.evidence_full,
+                entry.associated_date,
+                entry.fact_summary,
+                entry.category,
+                entry.identified_crime,
+                entry.severity_score,
+                entry.confidence,
+                entry.processing_time_ms
             ],
         )?;
         Ok(())
@@ -283,9 +352,9 @@ impl Database {
                     severity_score, confidence, processing_time_ms
              FROM intelligence
              ORDER BY severity_score DESC, created_at DESC
-             LIMIT ?1 OFFSET ?2"
+             LIMIT ?1 OFFSET ?2",
         )?;
-        
+
         let entries = stmt.query_map(params![limit, offset], |row| {
             Ok(IntelligenceEntry {
                 id: row.get(0)?,
@@ -303,7 +372,7 @@ impl Database {
                 processing_time_ms: row.get(12)?,
             })
         })?;
-        
+
         entries.collect()
     }
 
@@ -316,7 +385,12 @@ impl Database {
         Ok(conn.last_insert_rowid())
     }
 
-    pub fn checkpoint_update(&self, job_id: &str, last_fingerprint: &str, total_processed: i64) -> Result<()> {
+    pub fn checkpoint_update(
+        &self,
+        job_id: &str,
+        last_fingerprint: &str,
+        total_processed: i64,
+    ) -> Result<()> {
         let conn = self.intelligence_conn.lock().unwrap();
         conn.execute(
             "UPDATE checkpoints SET last_fingerprint = ?1, total_processed = ?2, updated_at = CURRENT_TIMESTAMP WHERE job_id = ?3",
@@ -341,9 +415,9 @@ impl Database {
              FROM checkpoints
              WHERE job_type = ?1 AND status = 'running'
              ORDER BY created_at DESC
-             LIMIT 1"
+             LIMIT 1",
         )?;
-        
+
         let mut rows = stmt.query(params![job_type])?;
         if let Some(row) = rows.next()? {
             Ok(Some(JobCheckpoint {
@@ -375,7 +449,11 @@ impl Database {
 
     pub fn get_processed_count(&self) -> Result<i64> {
         let conn = self.registry_conn.lock().unwrap();
-        conn.query_row("SELECT COUNT(*) FROM registry WHERE processed = 1", [], |row| row.get(0))
+        conn.query_row(
+            "SELECT COUNT(*) FROM registry WHERE processed = 1",
+            [],
+            |row| row.get(0),
+        )
     }
 
     pub fn get_intelligence_count(&self) -> Result<i64> {
@@ -386,11 +464,17 @@ impl Database {
     pub fn get_all_counts(&self) -> Result<AllCounts> {
         let reg_conn = self.registry_conn.lock().unwrap();
         let intel_conn = self.intelligence_conn.lock().unwrap();
-        
-        let registry_count: i64 = reg_conn.query_row("SELECT COUNT(*) FROM registry", [], |row| row.get(0))?;
-        let processed_count: i64 = reg_conn.query_row("SELECT COUNT(*) FROM registry WHERE processed = 1", [], |row| row.get(0))?;
-        let intelligence_count: i64 = intel_conn.query_row("SELECT COUNT(*) FROM intelligence", [], |row| row.get(0))?;
-        
+
+        let registry_count: i64 =
+            reg_conn.query_row("SELECT COUNT(*) FROM registry", [], |row| row.get(0))?;
+        let processed_count: i64 = reg_conn.query_row(
+            "SELECT COUNT(*) FROM registry WHERE processed = 1",
+            [],
+            |row| row.get(0),
+        )?;
+        let intelligence_count: i64 =
+            intel_conn.query_row("SELECT COUNT(*) FROM intelligence", [], |row| row.get(0))?;
+
         Ok(AllCounts {
             registry_count,
             processed_count,
@@ -399,7 +483,15 @@ impl Database {
     }
 
     // Text cache operations
-    pub fn save_text_cache(&self, fingerprint: &str, file_name: &str, text: &str, text_hash: &str, extraction_time_ms: i64, quality_score: f64) -> Result<()> {
+    pub fn save_text_cache(
+        &self,
+        fingerprint: &str,
+        file_name: &str,
+        text: &str,
+        text_hash: &str,
+        extraction_time_ms: i64,
+        quality_score: f64,
+    ) -> Result<()> {
         let conn = self.registry_conn.lock().unwrap();
         conn.execute(
             "INSERT OR REPLACE INTO text_cache (fingerprint, file_name, extracted_text, text_hash, extraction_time_ms, quality_score, updated_at)
@@ -415,7 +507,7 @@ impl Database {
             "SELECT id, fingerprint, file_name, extracted_text, text_hash, extraction_time_ms, quality_score
              FROM text_cache WHERE fingerprint = ?1"
         )?;
-        
+
         let mut rows = stmt.query(params![fingerprint])?;
         if let Some(row) = rows.next()? {
             Ok(Some(TextCacheEntry {
@@ -438,7 +530,12 @@ impl Database {
     }
 
     // Metadata cache operations
-    pub fn save_metadata_cache(&self, fingerprint: &str, metadata_type: &str, metadata_json: &str) -> Result<()> {
+    pub fn save_metadata_cache(
+        &self,
+        fingerprint: &str,
+        metadata_type: &str,
+        metadata_json: &str,
+    ) -> Result<()> {
         let conn = self.registry_conn.lock().unwrap();
         conn.execute(
             "INSERT OR REPLACE INTO metadata_cache (fingerprint, metadata_type, metadata_json)
@@ -448,13 +545,17 @@ impl Database {
         Ok(())
     }
 
-    pub fn get_metadata_cache(&self, fingerprint: &str, metadata_type: &str) -> Result<Option<MetadataCacheEntry>> {
+    pub fn get_metadata_cache(
+        &self,
+        fingerprint: &str,
+        metadata_type: &str,
+    ) -> Result<Option<MetadataCacheEntry>> {
         let conn = self.registry_conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT id, fingerprint, metadata_type, metadata_json
-             FROM metadata_cache WHERE fingerprint = ?1 AND metadata_type = ?2"
+             FROM metadata_cache WHERE fingerprint = ?1 AND metadata_type = ?2",
         )?;
-        
+
         let mut rows = stmt.query(params![fingerprint, metadata_type])?;
         if let Some(row) = rows.next()? {
             Ok(Some(MetadataCacheEntry {
@@ -475,7 +576,8 @@ impl Database {
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schema_version'",
             [],
             |_| Ok(0),
-        ).or_else(|_| {
+        )
+        .or_else(|_| {
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY)",
                 [],
@@ -531,19 +633,16 @@ mod tests {
     fn test_database_creation() {
         let tmp_dir = std::env::temp_dir().join("slstudio_test_db");
         fs::create_dir_all(&tmp_dir).unwrap();
-        
+
         let reg_path = tmp_dir.join("test_registry.db");
         let intel_path = tmp_dir.join("test_intel.db");
-        
-        let db = Database::new(
-            reg_path.to_str().unwrap(),
-            intel_path.to_str().unwrap(),
-        ).unwrap();
-        
+
+        let db = Database::new(reg_path.to_str().unwrap(), intel_path.to_str().unwrap()).unwrap();
+
         assert!(db.get_registry_count().unwrap() == 0);
         assert!(db.get_processed_count().unwrap() == 0);
         assert!(db.get_intelligence_count().unwrap() == 0);
-        
+
         let _ = fs::remove_dir_all(tmp_dir);
     }
 }

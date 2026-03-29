@@ -1,9 +1,9 @@
-use steinline_lib::gpu::{HardwareStatus, GpuInfo, GpuBackend, detect};
+use steinline_lib::gpu::{detect, GpuBackend, GpuInfo, HardwareStatus};
 
 #[test]
 fn test_hardware_detection() {
     let status = detect();
-    
+
     assert!(status.cpu_threads > 0);
     assert!(status.total_memory_gb > 0.0);
 }
@@ -11,7 +11,7 @@ fn test_hardware_detection() {
 #[test]
 fn test_hardware_status_fields() {
     let status = HardwareStatus::default();
-    
+
     assert!(status.cpu_threads > 0);
     assert!(status.total_memory_gb > 0.0);
 }

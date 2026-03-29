@@ -1,10 +1,10 @@
-use crate::extractors::{Deconstructor, ExtractorConfig, ExtractionResult};
+use crate::extractors::{Deconstructor, ExtractionResult, ExtractorConfig};
 use crate::inference::llama::{LlamaConfig, LlamaModel};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use thiserror::Error;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 #[derive(Error, Debug)]
 pub enum ReasonerError {
@@ -87,17 +87,21 @@ impl Reasoner {
                 max_tokens: config.max_tokens,
                 repeat_penalty: 1.1,
             };
-            
+
             let mut model = LlamaModel::new(llama_config);
-            model.load()
+            model
+                .load()
                 .map_err(|e| ReasonerError::LlmError(e.to_string()))?;
-            
+
             Some(model)
         } else {
             None
         };
 
-        info!("Reasoner initialized with model: {}", config.model_path.is_empty() == false);
+        info!(
+            "Reasoner initialized with model: {}",
+            config.model_path.is_empty() == false
+        );
 
         Ok(Reasoner {
             deconstructor,
@@ -122,12 +126,13 @@ impl Reasoner {
         };
 
         let mut model = LlamaModel::new(llama_config);
-        model.load()
+        model
+            .load()
             .map_err(|e| ReasonerError::LlmError(e.to_string()))?;
 
         self.model = Some(model);
         self.config.model_path = model_path.to_string();
-        
+
         info!("Model loaded: {}", model_path);
         Ok(())
     }
@@ -143,14 +148,17 @@ impl Reasoner {
     pub fn analyze_file(&self, path: &Path) -> Result<AnalysisResult, ReasonerError> {
         let model = self.model.as_ref().ok_or(ReasonerError::NoModel)?;
 
-        let filename = path.file_name()
+        let filename = path
+            .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("unknown")
             .to_string();
 
         info!("Analyzing file: {}", filename);
 
-        let extraction = self.deconstructor.extract(path)
+        let extraction = self
+            .deconstructor
+            .extract(path)
             .map_err(|e| ReasonerError::ExtractionError(e.to_string()))?;
 
         if extraction.char_count == 0 {
@@ -164,7 +172,7 @@ impl Reasoner {
         }
 
         let chunks = self.chunk_text(&extraction.text, extraction.source_file.clone());
-        
+
         let mut all_facts = Vec::new();
         let mut raw_responses = Vec::new();
 
@@ -186,7 +194,11 @@ impl Reasoner {
 
         let unique_facts = self.deduplicate_facts(all_facts);
 
-        info!("Extracted {} unique facts from {}", unique_facts.len(), filename);
+        info!(
+            "Extracted {} unique facts from {}",
+            unique_facts.len(),
+            filename
+        );
 
         Ok(AnalysisResult {
             filename,
@@ -209,29 +221,33 @@ impl Reasoner {
 
         let mut chunks = Vec::new();
         let mut start = 0;
-        
+
         while start < text.len() {
             let end = std::cmp::min(start + self.config.max_chars_per_chunk, text.len());
             let chunk_text = text[start..end].to_string();
-            
+
             let is_last = end >= text.len();
-            
+
             chunks.push(ExtractionResult {
                 text: chunk_text.clone(),
                 source_file: if start == 0 {
                     source_file.clone()
                 } else {
-                    format!("{} (Part {})", source_file, start / self.config.max_chars_per_chunk + 1)
+                    format!(
+                        "{} (Part {})",
+                        source_file,
+                        start / self.config.max_chars_per_chunk + 1
+                    )
                 },
                 file_type: "chunk".to_string(),
                 char_count: chunk_text.len(),
                 is_partial: !is_last,
             });
-            
+
             if is_last {
                 break;
             }
-            
+
             start += self.config.max_chars_per_chunk - self.config.chunk_overlap;
         }
 
@@ -249,31 +265,34 @@ impl Reasoner {
         let mut facts = Vec::new();
 
         let items = extract_json_objects(response);
-        
+
         for item in items {
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&item) {
                 let fact = Fact {
-                    source: json.get("source")
+                    source: json
+                        .get("source")
                         .and_then(|v| v.as_str())
                         .unwrap_or("unknown")
                         .to_string(),
-                    date: json.get("date")
+                    date: json
+                        .get("date")
                         .and_then(|v| v.as_str())
                         .map(|s| s.to_string()),
-                    summary: json.get("summary")
+                    summary: json
+                        .get("summary")
                         .and_then(|v| v.as_str())
                         .unwrap_or("No summary")
                         .to_string(),
-                    fact_type: json.get("type")
+                    fact_type: json
+                        .get("type")
                         .and_then(|v| v.as_str())
                         .unwrap_or("General")
                         .to_string(),
-                    crime: json.get("crime")
+                    crime: json
+                        .get("crime")
                         .and_then(|v| v.as_str())
                         .map(|s| s.to_string()),
-                    severity: json.get("severity")
-                        .and_then(|v| v.as_i64())
-                        .unwrap_or(1) as i32,
+                    severity: json.get("severity").and_then(|v| v.as_i64()).unwrap_or(1) as i32,
                 };
                 facts.push(fact);
             }
@@ -284,13 +303,13 @@ impl Reasoner {
 
     fn deduplicate_facts(&self, mut facts: Vec<Fact>) -> Vec<Fact> {
         use std::collections::HashSet;
-        
+
         let mut seen = HashSet::new();
         facts.retain(|f| {
             let key = format!("{}:{}", f.source, f.summary);
             seen.insert(key)
         });
-        
+
         facts
     }
 
@@ -314,7 +333,7 @@ fn extract_json_objects(text: &str) -> Vec<String> {
     let mut results = Vec::new();
     let mut depth = 0;
     let mut start = None;
-    
+
     for (i, c) in text.chars().enumerate() {
         match c {
             '{' => {
@@ -338,7 +357,7 @@ fn extract_json_objects(text: &str) -> Vec<String> {
             _ => {}
         }
     }
-    
+
     results
 }
 

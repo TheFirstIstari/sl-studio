@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectFile {
@@ -70,10 +70,8 @@ pub struct InvestigationMetadata {
 
 impl Default for ProjectFile {
     fn default() -> Self {
-        let app_dir = dirs::data_dir()
-            .unwrap_or_default()
-            .join("slstudio");
-        
+        let app_dir = dirs::data_dir().unwrap_or_default().join("slstudio");
+
         let models_dir = std::path::Path::new(".")
             .join("models")
             .to_string_lossy()
@@ -92,7 +90,10 @@ impl Default for ProjectFile {
             paths: ProjectPaths {
                 evidence_root: String::new(),
                 registry_db: app_dir.join("registry.db").to_string_lossy().to_string(),
-                intelligence_db: app_dir.join("intelligence.db").to_string_lossy().to_string(),
+                intelligence_db: app_dir
+                    .join("intelligence.db")
+                    .to_string_lossy()
+                    .to_string(),
                 export_dir: app_dir.join("exports").to_string_lossy().to_string(),
                 models_dir,
             },

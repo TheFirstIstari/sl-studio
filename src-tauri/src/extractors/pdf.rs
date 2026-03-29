@@ -1,7 +1,7 @@
 use pdf_extract::extract_text;
 use std::path::Path;
 use thiserror::Error;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 #[derive(Error, Debug)]
 pub enum PdfError {
@@ -34,11 +34,11 @@ impl ExtractionQuality {
         let char_count = text.len();
         let word_count = text.split_whitespace().count();
         let line_count = text.lines().count();
-        
+
         // Calculate confidence based on various factors
         let mut confidence: f64 = 1.0;
         let mut issues = Vec::new();
-        
+
         // Low character count
         if char_count < 100 {
             confidence *= 0.3;
@@ -46,22 +46,29 @@ impl ExtractionQuality {
         } else if char_count < 500 {
             confidence *= 0.7;
         }
-        
+
         // Check for scanned document indicators
-        let is_scanned = char_count < 50 || text.chars().all(|c| c.is_whitespace() || c.is_ascii_punctuation());
-        
+        let is_scanned = char_count < 50
+            || text
+                .chars()
+                .all(|c| c.is_whitespace() || c.is_ascii_punctuation());
+
         if is_scanned {
             confidence *= 0.2;
             issues.push("Document appears to be scanned (no text layer)".to_string());
         }
-        
+
         // Check for reasonable word density
-        let avg_word_len = if word_count > 0 { char_count as f64 / word_count as f64 } else { 0.0 };
+        let avg_word_len = if word_count > 0 {
+            char_count as f64 / word_count as f64
+        } else {
+            0.0
+        };
         if avg_word_len > 20.0 {
             confidence *= 0.5;
             issues.push("Unusual word length distribution".to_string());
         }
-        
+
         ExtractionQuality {
             char_count,
             word_count,
@@ -72,7 +79,7 @@ impl ExtractionQuality {
             issues,
         }
     }
-    
+
     pub fn overall_score(&self) -> f64 {
         self.confidence
     }
@@ -94,8 +101,8 @@ impl PdfExtractor {
     }
 
     pub fn with_limits(max_pages: usize, max_file_size_mb: f64) -> Self {
-        PdfExtractor { 
-            max_pages, 
+        PdfExtractor {
+            max_pages,
             streaming: false,
             max_file_size_mb,
         }
@@ -114,7 +121,10 @@ impl PdfExtractor {
         if let Ok(metadata) = std::fs::metadata(path) {
             let size_mb = metadata.len() as f64 / (1024.0 * 1024.0);
             if size_mb > self.max_file_size_mb {
-                error!("PDF too large: {} MB (max: {} MB)", size_mb, self.max_file_size_mb);
+                error!(
+                    "PDF too large: {} MB (max: {} MB)",
+                    size_mb, self.max_file_size_mb
+                );
                 let page_count = 0;
                 return Err(PdfError::TooLarge(page_count, self.max_pages));
             }
@@ -141,9 +151,15 @@ impl PdfExtractor {
         Ok(trimmed.to_string())
     }
 
-    pub fn extract_with_quality(&self, path: &Path) -> Result<(String, ExtractionQuality), PdfError> {
+    pub fn extract_with_quality(
+        &self,
+        path: &Path,
+    ) -> Result<(String, ExtractionQuality), PdfError> {
         let path_str = path.to_string_lossy();
-        info!("Extracting text with quality assessment from PDF: {}", path_str);
+        info!(
+            "Extracting text with quality assessment from PDF: {}",
+            path_str
+        );
 
         // Check file size first
         if let Ok(metadata) = std::fs::metadata(path) {
@@ -175,7 +191,11 @@ impl PdfExtractor {
             warn!("PDF appears to be scanned: {}", path_str);
         }
 
-        info!("Extracted {} chars with quality score {:.2}", trimmed.len(), quality.confidence);
+        info!(
+            "Extracted {} chars with quality score {:.2}",
+            trimmed.len(),
+            quality.confidence
+        );
         Ok((trimmed, quality))
     }
 
@@ -184,7 +204,10 @@ impl PdfExtractor {
         if let Ok(metadata) = std::fs::metadata(path) {
             let size_mb = metadata.len() as f64 / (1024.0 * 1024.0);
             if size_mb > 100.0 {
-                warn!("Large PDF detected ({} MB), using limited extraction", size_mb);
+                warn!(
+                    "Large PDF detected ({} MB), using limited extraction",
+                    size_mb
+                );
                 return self.extract_text_limited(path, 100);
             }
         }
@@ -192,7 +215,10 @@ impl PdfExtractor {
         let text = self.extract_text(path)?;
 
         if text.len() < 100 {
-            warn!("PDF has minimal text ({} chars), may be scanned", text.len());
+            warn!(
+                "PDF has minimal text ({} chars), may be scanned",
+                text.len()
+            );
         }
 
         Ok(text)
@@ -231,16 +257,18 @@ mod tests {
     #[test]
     fn test_pdf_extractor_creation() {
         let extractor = PdfExtractor::new();
-        assert!(extractor.extract_text(Path::new("nonexistent.pdf")).is_err());
+        assert!(extractor
+            .extract_text(Path::new("nonexistent.pdf"))
+            .is_err());
     }
-    
+
     #[test]
     fn test_quality_calculation() {
         let quality = ExtractionQuality::calculate("This is a test document with some content.", 1);
         assert!(quality.confidence > 0.7);
         assert!(!quality.is_scanned);
     }
-    
+
     #[test]
     fn test_quality_scanned() {
         let quality = ExtractionQuality::calculate("", 1);

@@ -78,17 +78,18 @@ pub struct ProcessingConfig {
 
 impl Default for AppConfig {
     fn default() -> Self {
-            let app_dir = dirs::data_dir()
-                .unwrap_or_default()
-                .join("slstudio");
-        
+        let app_dir = dirs::data_dir().unwrap_or_default().join("slstudio");
+
         AppConfig {
             version: "0.1.0".to_string(),
             project: ProjectConfig {
                 name: "New Investigation".to_string(),
                 evidence_root: String::new(),
                 registry_db: app_dir.join("registry.db").to_string_lossy().to_string(),
-                intelligence_db: app_dir.join("intelligence.db").to_string_lossy().to_string(),
+                intelligence_db: app_dir
+                    .join("intelligence.db")
+                    .to_string_lossy()
+                    .to_string(),
             },
             model: ModelConfig {
                 source: ModelSource::HuggingFace,
@@ -144,17 +145,20 @@ impl AppConfig {
 
     pub fn validate(&self) -> ValidationResult {
         let mut errors = Vec::new();
-        
+
         if self.project.evidence_root.is_empty() {
             errors.push("Evidence root path is required".to_string());
         } else if !std::path::Path::new(&self.project.evidence_root).exists() {
-            errors.push(format!("Evidence root path does not exist: {}", self.project.evidence_root));
+            errors.push(format!(
+                "Evidence root path does not exist: {}",
+                self.project.evidence_root
+            ));
         }
-        
+
         if self.project.registry_db.is_empty() {
             errors.push("Registry database path is required".to_string());
         }
-        
+
         if self.project.intelligence_db.is_empty() {
             errors.push("Intelligence database path is required".to_string());
         }

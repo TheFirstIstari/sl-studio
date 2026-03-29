@@ -1,4 +1,4 @@
-use steinline_lib::inference::{Reasoner, ReasonerConfig, Fact, AnalysisResult};
+use steinline_lib::inference::{AnalysisResult, Fact, Reasoner, ReasonerConfig};
 
 #[test]
 fn test_reasoner_config_default() {
@@ -13,7 +13,7 @@ fn test_reasoner_config_default() {
 fn test_reasoner_without_model() {
     let config = ReasonerConfig::default();
     let result = Reasoner::new(config);
-    
+
     // Either succeeds (stub mode) or fails - both acceptable
     match result {
         Ok(_r) => {
@@ -35,7 +35,7 @@ fn test_fact_struct_creation() {
         crime: Some("Fraud".to_string()),
         severity: 8,
     };
-    
+
     assert_eq!(fact.severity, 8);
     assert_eq!(fact.fact_type, "Financial");
 }
@@ -48,7 +48,7 @@ fn test_analysis_result_struct() {
         raw_response: "".to_string(),
         tokens_used: 0,
     };
-    
+
     assert_eq!(result.facts.len(), 0);
     assert_eq!(result.filename, "test.pdf");
 }
@@ -73,14 +73,14 @@ fn test_analysis_result_with_facts() {
             severity: 9,
         },
     ];
-    
+
     let result = AnalysisResult {
         filename: "combined.pdf".to_string(),
         facts,
         raw_response: "raw output".to_string(),
         tokens_used: 150,
     };
-    
+
     assert_eq!(result.facts.len(), 2);
     assert_eq!(result.tokens_used, 150);
 }

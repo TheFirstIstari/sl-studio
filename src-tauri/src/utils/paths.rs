@@ -1,9 +1,7 @@
 use std::path::PathBuf;
 
 pub fn app_data_dir() -> PathBuf {
-    dirs::data_dir()
-        .unwrap_or_default()
-        .join("slstudio")
+    dirs::data_dir().unwrap_or_default().join("slstudio")
 }
 
 pub fn models_dir() -> PathBuf {

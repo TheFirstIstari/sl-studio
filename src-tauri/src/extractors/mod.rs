@@ -1,8 +1,10 @@
-pub mod pdf;
-pub mod ocr;
 pub mod audio;
-pub mod document;
 pub mod deconstructor;
+pub mod document;
+pub mod ocr;
+pub mod pdf;
 
-pub use deconstructor::{Deconstructor, ExtractorConfig, ExtractionResult};
-pub use document::{extract_text, extract_docx, detect_encoding, DocumentExtraction, DocumentError};
+pub use deconstructor::{Deconstructor, ExtractionResult, ExtractorConfig};
+pub use document::{
+    detect_encoding, extract_docx, extract_text, DocumentError, DocumentExtraction,
+};

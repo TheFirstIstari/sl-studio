@@ -31,15 +31,18 @@ impl OcrExtractor {
     pub fn new() -> Result<Self, OcrError> {
         let engine = ocrs::OcrEngine::new(Default::default())
             .map_err(|e| OcrError::ProcessingError(format!("{:?}", e)))?;
-        
+
         info!("OCR engine initialized");
-        Ok(OcrExtractor { engine, batch_size: 8 })
+        Ok(OcrExtractor {
+            engine,
+            batch_size: 8,
+        })
     }
 
     pub fn with_batch_size(batch_size: usize) -> Result<Self, OcrError> {
         let engine = ocrs::OcrEngine::new(Default::default())
             .map_err(|e| OcrError::ProcessingError(format!("{:?}", e)))?;
-        
+
         info!("OCR engine initialized with batch size {}", batch_size);
         Ok(OcrExtractor { engine, batch_size })
     }
@@ -48,18 +51,22 @@ impl OcrExtractor {
         let path_str = path.to_string_lossy();
         info!("Running OCR on: {}", path_str);
 
-        let img = image::open(path)
-            .map_err(|e| OcrError::ImageError(e.to_string()))?;
-        
+        let img = image::open(path).map_err(|e| OcrError::ImageError(e.to_string()))?;
+
         let rgb = img.to_rgb8();
         let (width, height) = rgb.dimensions();
-        
-        let input = self.engine.prepare_input(
-            ocrs::ImageSource::from_bytes(rgb.as_raw(), (width, height))
-                .map_err(|e| OcrError::ProcessingError(format!("{:?}", e)))?
-        ).map_err(|e| OcrError::ProcessingError(format!("{:?}", e)))?;
 
-        let text = self.engine.get_text(&input)
+        let input = self
+            .engine
+            .prepare_input(
+                ocrs::ImageSource::from_bytes(rgb.as_raw(), (width, height))
+                    .map_err(|e| OcrError::ProcessingError(format!("{:?}", e)))?,
+            )
+            .map_err(|e| OcrError::ProcessingError(format!("{:?}", e)))?;
+
+        let text = self
+            .engine
+            .get_text(&input)
             .map_err(|e| OcrError::ProcessingError(format!("{:?}", e)))?;
 
         let trimmed = text.trim();
@@ -74,7 +81,7 @@ impl OcrExtractor {
 
     pub fn extract_batch(&self, paths: &[PathBuf]) -> Vec<OcrResult> {
         let mut results = Vec::new();
-        
+
         for path in paths {
             match self.extract_text(path) {
                 Ok(text) => {
@@ -94,7 +101,7 @@ impl OcrExtractor {
                 }
             }
         }
-        
+
         results
     }
 
@@ -102,24 +109,28 @@ impl OcrExtractor {
         let path_str = path.to_string_lossy();
         info!("Running OCR on multi-page TIFF: {}", path_str);
 
-        let img = image::open(path)
-            .map_err(|e| OcrError::ImageError(e.to_string()))?;
-        
+        let img = image::open(path).map_err(|e| OcrError::ImageError(e.to_string()))?;
+
         let rgb = img.to_rgb8();
         let (width, height) = rgb.dimensions();
-        
-        info!("Processing TIFF ({}x{})", width, height);
-        
-        let input = self.engine.prepare_input(
-            ocrs::ImageSource::from_bytes(rgb.as_raw(), (width, height))
-                .map_err(|e| OcrError::ProcessingError(format!("{:?}", e)))?
-        ).map_err(|e| OcrError::ProcessingError(format!("{:?}", e)))?;
 
-        let text = self.engine.get_text(&input)
+        info!("Processing TIFF ({}x{})", width, height);
+
+        let input = self
+            .engine
+            .prepare_input(
+                ocrs::ImageSource::from_bytes(rgb.as_raw(), (width, height))
+                    .map_err(|e| OcrError::ProcessingError(format!("{:?}", e)))?,
+            )
+            .map_err(|e| OcrError::ProcessingError(format!("{:?}", e)))?;
+
+        let text = self
+            .engine
+            .get_text(&input)
             .map_err(|e| OcrError::ProcessingError(format!("{:?}", e)))?;
 
         let trimmed = text.trim();
-        
+
         if trimmed.is_empty() {
             warn!("TIFF returned empty text: {}", path_str);
         } else {

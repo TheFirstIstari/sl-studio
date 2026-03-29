@@ -1,6 +1,6 @@
-use crate::extractors::pdf::PdfExtractor;
-use crate::extractors::ocr::OcrExtractor;
 use crate::extractors::audio::AudioExtractor;
+use crate::extractors::ocr::OcrExtractor;
+use crate::extractors::pdf::PdfExtractor;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
@@ -56,18 +56,19 @@ pub struct Deconstructor {
 impl Deconstructor {
     pub fn new(config: ExtractorConfig) -> Result<Self, ExtractionError> {
         let pdf = PdfExtractor::new();
-        let ocr = OcrExtractor::new()
-            .map_err(|e| ExtractionError::OcrError(e.to_string()))?;
-        
+        let ocr = OcrExtractor::new().map_err(|e| ExtractionError::OcrError(e.to_string()))?;
+
         let audio = if let Some(model_path) = &config.whisper_model_path {
-            Some(AudioExtractor::new(model_path)
-                .map_err(|e| ExtractionError::AudioError(e.to_string()))?)
+            Some(
+                AudioExtractor::new(model_path)
+                    .map_err(|e| ExtractionError::AudioError(e.to_string()))?,
+            )
         } else {
             None
         };
 
         info!("Deconstructor initialized");
-        
+
         Ok(Deconstructor {
             pdf,
             ocr,
@@ -77,35 +78,42 @@ impl Deconstructor {
     }
 
     pub fn extract(&self, path: &Path) -> Result<ExtractionResult, ExtractionError> {
-        let file_name = path.file_name()
+        let file_name = path
+            .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("unknown")
             .to_string();
-        
-        let ext = path.extension()
+
+        let ext = path
+            .extension()
             .and_then(|e| e.to_str())
             .map(|e| e.to_lowercase())
             .unwrap_or_default();
 
         let (text, file_type) = match ext.as_str() {
             "pdf" => {
-                let text = self.pdf.extract_text_with_fallback(path)
+                let text = self
+                    .pdf
+                    .extract_text_with_fallback(path)
                     .map_err(|e| ExtractionError::PdfError(e.to_string()))?;
                 (text, "pdf".to_string())
             }
             "jpg" | "jpeg" | "png" | "bmp" | "tiff" | "tif" => {
-                let text = self.ocr.extract_text(path)
+                let text = self
+                    .ocr
+                    .extract_text(path)
                     .map_err(|e| ExtractionError::OcrError(e.to_string()))?;
                 (text, "image".to_string())
             }
             "mp3" | "wav" | "mp4" | "m4a" | "m4v" | "ogg" | "flac" => {
                 if let Some(audio) = &self.audio {
-                    let text = audio.transcribe(path)
+                    let text = audio
+                        .transcribe(path)
                         .map_err(|e| ExtractionError::AudioError(e.to_string()))?;
                     (text, "audio".to_string())
                 } else {
                     return Err(ExtractionError::AudioError(
-                        "Audio extractor not initialized (no model path)".to_string()
+                        "Audio extractor not initialized (no model path)".to_string(),
                     ));
                 }
             }
@@ -120,7 +128,10 @@ impl Deconstructor {
         };
 
         let char_count = text.len();
-        info!("Extracted {} chars from {} ({})", char_count, file_name, file_type);
+        info!(
+            "Extracted {} chars from {} ({})",
+            char_count, file_name, file_type
+        );
 
         Ok(ExtractionResult {
             text,
@@ -131,9 +142,14 @@ impl Deconstructor {
         })
     }
 
-    pub fn extract_with_chunking(&self, path: &Path, max_chars: usize, overlap: usize) -> Result<Vec<ExtractionResult>, ExtractionError> {
+    pub fn extract_with_chunking(
+        &self,
+        path: &Path,
+        max_chars: usize,
+        overlap: usize,
+    ) -> Result<Vec<ExtractionResult>, ExtractionError> {
         let result = self.extract(path)?;
-        
+
         if result.char_count <= max_chars {
             return Ok(vec![result]);
         }
@@ -141,10 +157,10 @@ impl Deconstructor {
         let text = result.text;
         let file_name = result.source_file.clone();
         let file_type = result.file_type.clone();
-        
+
         let mut chunks = Vec::new();
         let mut start = 0;
-        
+
         while start < text.len() {
             let end = std::cmp::min(start + max_chars, text.len());
             let chunk_text = if end < text.len() {
@@ -152,7 +168,7 @@ impl Deconstructor {
             } else {
                 text[start..].to_string()
             };
-            
+
             chunks.push(ExtractionResult {
                 text: chunk_text.clone(),
                 source_file: if start == 0 {
@@ -164,11 +180,11 @@ impl Deconstructor {
                 char_count: chunk_text.len(),
                 is_partial: end < text.len(),
             });
-            
+
             if end >= text.len() {
                 break;
             }
-            
+
             start += max_chars - overlap;
         }
 
@@ -182,10 +198,8 @@ impl Deconstructor {
 
     pub fn supported_extensions() -> Vec<&'static str> {
         vec![
-            "pdf",
-            "jpg", "jpeg", "png", "bmp", "tiff", "tif",
-            "mp3", "wav", "mp4", "m4a", "m4v", "ogg", "flac",
-            "txt", "md", "json", "xml", "csv",
+            "pdf", "jpg", "jpeg", "png", "bmp", "tiff", "tif", "mp3", "wav", "mp4", "m4a", "m4v",
+            "ogg", "flac", "txt", "md", "json", "xml", "csv",
         ]
     }
 }

@@ -1,6 +1,6 @@
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 use thiserror::Error;
-use serde::{Deserialize, Serialize};
 
 #[derive(Error, Debug)]
 pub enum AudioError {
@@ -19,11 +19,15 @@ pub struct AudioExtractor {
 
 impl AudioExtractor {
     pub fn new(_model_path: &Path) -> Result<Self, AudioError> {
-        Err(AudioError::NotAvailable("Whisper not built (cmake required)".to_string()))
+        Err(AudioError::NotAvailable(
+            "Whisper not built (cmake required)".to_string(),
+        ))
     }
 
     pub fn transcribe(&self, _path: &Path) -> Result<String, AudioError> {
-        Err(AudioError::NotAvailable("Whisper not built (cmake required)".to_string()))
+        Err(AudioError::NotAvailable(
+            "Whisper not built (cmake required)".to_string(),
+        ))
     }
 
     pub fn is_available(&self) -> bool {
@@ -31,11 +35,12 @@ impl AudioExtractor {
     }
 
     pub fn is_supported_format(path: &Path) -> bool {
-        let ext = path.extension()
+        let ext = path
+            .extension()
             .and_then(|e| e.to_str())
             .map(|e| e.to_lowercase());
-        
-        matches!(ext, Some(e) if matches!(e.as_str(), 
+
+        matches!(ext, Some(e) if matches!(e.as_str(),
             "mp3" | "wav" | "mp4" | "m4a" | "m4v" | "ogg" | "flac"
         ))
     }

@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 use thiserror::Error;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 #[derive(Error, Debug)]
 pub enum DocumentError {
@@ -30,12 +30,12 @@ pub fn detect_encoding(bytes: &[u8]) -> &'static str {
             return "UTF-16BE";
         }
     }
-    
+
     // Check for valid UTF-8
     if std::str::from_utf8(bytes).is_ok() {
         return "UTF-8";
     }
-    
+
     // Default to Windows-1252 (Latin-1)
     "WINDOWS-1252"
 }
@@ -45,18 +45,19 @@ pub fn read_text_file(path: &Path) -> Result<String, DocumentError> {
     let mut file = File::open(path)?;
     let mut bytes = Vec::new();
     file.read_to_end(&mut bytes)?;
-    
+
     let encoding = detect_encoding(&bytes);
     info!("Detected encoding: {} for {}", encoding, path.display());
-    
+
     match encoding {
         "UTF-8" => {
             // Remove BOM if present
-            let text = if bytes.len() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF {
-                String::from_utf8_lossy(&bytes[3..]).to_string()
-            } else {
-                String::from_utf8_lossy(&bytes).to_string()
-            };
+            let text =
+                if bytes.len() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF {
+                    String::from_utf8_lossy(&bytes[3..]).to_string()
+                } else {
+                    String::from_utf8_lossy(&bytes).to_string()
+                };
             Ok(text.trim().to_string())
         }
         "WINDOWS-1252" => {
@@ -75,13 +76,13 @@ pub fn read_text_file(path: &Path) -> Result<String, DocumentError> {
 pub fn extract_text(path: &Path) -> Result<String, DocumentError> {
     let path_str = path.to_string_lossy();
     info!("Extracting text from document: {}", path_str);
-    
+
     let text = read_text_file(path)?;
-    
+
     if text.is_empty() {
         warn!("Document is empty: {}", path_str);
     }
-    
+
     info!("Extracted {} chars from document", text.len());
     Ok(text)
 }
@@ -90,22 +91,22 @@ pub fn extract_text(path: &Path) -> Result<String, DocumentError> {
 pub fn extract_docx(path: &Path) -> Result<String, DocumentError> {
     let path_str = path.to_string_lossy();
     info!("Extracting text from DOCX: {}", path_str);
-    
+
     let file = File::open(path)?;
     let mut archive = zip::ZipArchive::new(BufReader::new(file))
         .map_err(|e| DocumentError::Corrupted(e.to_string()))?;
-    
+
     let mut text_parts = Vec::new();
-    
+
     // Read document.xml from the DOCX (it's a ZIP archive)
     if let Ok(mut doc_file) = archive.by_name("word/document.xml") {
         let mut xml_content = String::new();
         doc_file.read_to_string(&mut xml_content)?;
-        
+
         // Simple XML parsing - extract text between <w:t> tags
         let mut in_text = false;
         let mut current_text = String::new();
-        
+
         for chunk in xml_content.split_inclusive('<') {
             if chunk.contains("<w:t") {
                 in_text = true;
@@ -130,15 +131,17 @@ pub fn extract_docx(path: &Path) -> Result<String, DocumentError> {
             }
         }
     }
-    
+
     let text = text_parts.join(" ");
     let trimmed = text.trim();
-    
+
     if trimmed.is_empty() {
         warn!("DOCX extracted empty text: {}", path_str);
-        return Err(DocumentError::ParseError("No text content found in DOCX".to_string()));
+        return Err(DocumentError::ParseError(
+            "No text content found in DOCX".to_string(),
+        ));
     }
-    
+
     info!("Extracted {} chars from DOCX", trimmed.len());
     Ok(trimmed.to_string())
 }
@@ -153,21 +156,27 @@ pub struct DocumentExtraction {
 
 impl DocumentExtraction {
     pub fn from_path(path: &Path) -> Result<Self, DocumentError> {
-        let extension = path.extension()
+        let extension = path
+            .extension()
             .and_then(|e| e.to_str())
             .map(|s| s.to_lowercase())
             .unwrap_or_default();
-        
+
         let text = match extension.as_str() {
             "docx" => extract_docx(path)?,
             "txt" | "md" | "rtf" => extract_text(path)?,
-            _ => return Err(DocumentError::ParseError(format!("Unsupported extension: {}", extension))),
+            _ => {
+                return Err(DocumentError::ParseError(format!(
+                    "Unsupported extension: {}",
+                    extension
+                )))
+            }
         };
-        
+
         let encoding = "UTF-8".to_string(); // We convert everything to UTF-8
         let char_count = text.len();
         let word_count = text.split_whitespace().count();
-        
+
         Ok(DocumentExtraction {
             text,
             encoding,
@@ -188,16 +197,16 @@ mod tests {
         let text = "Hello, World!";
         let mut file = NamedTempFile::new().unwrap();
         file.write_all(text.as_bytes()).unwrap();
-        
+
         let encoding = detect_encoding(&text.as_bytes());
         assert_eq!(encoding, "UTF-8");
     }
-    
+
     #[test]
     fn test_encoding_detection_latin1() {
         let text = "Héllo, Wörld!";
         let bytes: Vec<u8> = text.chars().map(|c| c as u8).collect();
-        
+
         let encoding = detect_encoding(&bytes);
         // Will default to Windows-1252 for non-UTF-8
         assert!(!encoding.is_empty());

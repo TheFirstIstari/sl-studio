@@ -47,10 +47,11 @@ impl LlamaModel {
 
     pub fn load(&mut self) -> Result<(), LlamaError> {
         let model_path = Path::new(&self.config.model_path);
-        
+
         if !model_path.exists() {
             return Err(LlamaError::NotAvailable(format!(
-                "Model not found: {}", self.config.model_path
+                "Model not found: {}",
+                self.config.model_path
             )));
         }
 
@@ -68,7 +69,7 @@ impl LlamaModel {
         if !self.loaded {
             return Err(LlamaError::NotAvailable("Model not loaded".to_string()));
         }
-        
+
         info!("Generate called with prompt length: {} chars", prompt.len());
         Ok(r#"{"findings": [{"source": "stub", "date": "2024-01-01", "summary": "Test fact", "type": "General", "crime": "None", "severity": 1}]}"#.to_string())
     }

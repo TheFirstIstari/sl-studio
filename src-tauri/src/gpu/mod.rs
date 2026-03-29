@@ -1,5 +1,5 @@
-pub mod detect;
 pub mod backend;
+pub mod detect;
 
-pub use detect::*;
 pub use backend::*;
+pub use detect::*;
