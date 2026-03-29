@@ -38,16 +38,16 @@ SL Studio processes evidence files (PDFs, images, audio/video) through a pipelin
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-------------|
+| Layer    | Technology                         |
+| -------- | ---------------------------------- |
 | Frontend | SvelteKit + TypeScript + SVG Icons |
-| Desktop | Tauri 2 |
-| Backend | Rust |
-| Database | SQLite (rusqlite) |
-| OCR | ocrs |
-| PDF | pdf-extract |
-| LLM | llama.cpp (GGUF models) |
-| Audio | whisper.cpp (optional) |
+| Desktop  | Tauri 2                            |
+| Backend  | Rust                               |
+| Database | SQLite (rusqlite)                  |
+| OCR      | ocrs                               |
+| PDF      | pdf-extract                        |
+| LLM      | llama.cpp (GGUF models)            |
+| Audio    | whisper.cpp (optional)             |
 
 ## Getting Started
 
@@ -106,17 +106,17 @@ mise run release_app   # macOS app
 
 ### Mise Tasks
 
-| Task | Description |
-|------|-------------|
-| `mise run dev` | Start Tauri dev server |
-| `mise run test` | Run all tests |
-| `mise run build` | Build Tauri app |
-| `mise run check` | Quick compile check |
-| `mise run watch_rust` | Watch + build with bacon |
-| `mise run watch_tests` | Watch + test with bacon |
-| `mise run lint_rust` | Run clippy |
-| `mise run release` | Production build |
-| `mise run clean` | Clean build artifacts |
+| Task                   | Description              |
+| ---------------------- | ------------------------ |
+| `mise run dev`         | Start Tauri dev server   |
+| `mise run test`        | Run all tests            |
+| `mise run build`       | Build Tauri app          |
+| `mise run check`       | Quick compile check      |
+| `mise run watch_rust`  | Watch + build with bacon |
+| `mise run watch_tests` | Watch + test with bacon  |
+| `mise run lint_rust`   | Run clippy               |
+| `mise run release`     | Production build         |
+| `mise run clean`       | Clean build artifacts    |
 
 ## Project File Format
 
@@ -124,57 +124,58 @@ SL Studio uses `.sls` JSON project files to store investigation settings:
 
 ```json
 {
-  "version": "1.0.0",
-  "created_at": "2024-01-15T10:30:00Z",
-  "modified_at": "2024-01-15T12:45:00Z",
-  "investigator": {
-    "name": "John Doe",
-    "agency": "FBI",
-    "case_number": "CASE-2024-001",
-    "notes": ""
-  },
-  "paths": {
-    "evidence_root": "/path/to/evidence",
-    "registry_db": "./data/registry.db",
-    "intelligence_db": "./data/intelligence.db",
-    "export_dir": "./exports",
-    "models_dir": "./models"
-  },
-  "model": {
-    "source": "huggingface",
-    "model_id": "TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
-    "quantization": "Q4_K_M",
-    "context_length": 16384,
-    "local_path": "./models/mistral-7b.gguf"
-  },
-  "hardware": {
-    "gpu_backend": "metal",
-    "gpu_memory_fraction": 0.45,
-    "cpu_workers": 8,
-    "ocr_provider": "onnx",
-    "whisper_size": "base"
-  },
-  "processing": {
-    "batch_size": 24,
-    "max_image_resolution": 2048,
-    "enable_ocr": true,
-    "enable_audio": true,
-    "enable_pdf_extraction": true
-  },
-  "metadata": {
-    "total_files": 150,
-    "processed_files": 45,
-    "facts_extracted": 127,
-    "last_scan_date": "2024-01-15T10:30:00Z",
-    "last_analysis_date": "2024-01-15T12:45:00Z",
-    "tags": ["financial", "suspect-xyz"]
-  }
+	"version": "1.0.0",
+	"created_at": "2024-01-15T10:30:00Z",
+	"modified_at": "2024-01-15T12:45:00Z",
+	"investigator": {
+		"name": "John Doe",
+		"agency": "FBI",
+		"case_number": "CASE-2024-001",
+		"notes": ""
+	},
+	"paths": {
+		"evidence_root": "/path/to/evidence",
+		"registry_db": "./data/registry.db",
+		"intelligence_db": "./data/intelligence.db",
+		"export_dir": "./exports",
+		"models_dir": "./models"
+	},
+	"model": {
+		"source": "huggingface",
+		"model_id": "TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
+		"quantization": "Q4_K_M",
+		"context_length": 16384,
+		"local_path": "./models/mistral-7b.gguf"
+	},
+	"hardware": {
+		"gpu_backend": "metal",
+		"gpu_memory_fraction": 0.45,
+		"cpu_workers": 8,
+		"ocr_provider": "onnx",
+		"whisper_size": "base"
+	},
+	"processing": {
+		"batch_size": 24,
+		"max_image_resolution": 2048,
+		"enable_ocr": true,
+		"enable_audio": true,
+		"enable_pdf_extraction": true
+	},
+	"metadata": {
+		"total_files": 150,
+		"processed_files": 45,
+		"facts_extracted": 127,
+		"last_scan_date": "2024-01-15T10:30:00Z",
+		"last_analysis_date": "2024-01-15T12:45:00Z",
+		"tags": ["financial", "suspect-xyz"]
+	}
 }
 ```
 
 ## Database Schema
 
 ### Registry DB
+
 ```sql
 CREATE TABLE registry (
     id INTEGER PRIMARY KEY,
@@ -193,6 +194,7 @@ CREATE INDEX idx_registry_processed_id ON registry(processed, id);
 ```
 
 ### Intelligence DB
+
 ```sql
 CREATE TABLE intelligence (
     id INTEGER PRIMARY KEY,
@@ -229,6 +231,7 @@ The application includes several optimizations for large-scale evidence processi
 - **Test Coverage**: 45+ tests
 
 Run tests:
+
 ```bash
 mise run test_rust    # 45+ tests
 mise run test_ci      # CI mode
@@ -257,14 +260,14 @@ This project is a Rust migration of the original Python/Qt `Project-SteinLine`.
 
 ### Changes from Qt Version
 
-| Component | Qt (Python) | Rust/Tauri |
-|-----------|-------------|------------|
-| UI | Qt Widgets | SvelteKit |
-| Database | sqlite3 | rusqlite |
-| OCR | EasyOCR | ocrs |
-| Audio | Faster Whisper | whisper.cpp |
-| LLM | vLLM (HTTP) | llama.cpp (local) |
-| Hardware | psutil + pynvml | sysinfo |
+| Component | Qt (Python)     | Rust/Tauri        |
+| --------- | --------------- | ----------------- |
+| UI        | Qt Widgets      | SvelteKit         |
+| Database  | sqlite3         | rusqlite          |
+| OCR       | EasyOCR         | ocrs              |
+| Audio     | Faster Whisper  | whisper.cpp       |
+| LLM       | vLLM (HTTP)     | llama.cpp (local) |
+| Hardware  | psutil + pynvml | sysinfo           |
 
 ## License
 

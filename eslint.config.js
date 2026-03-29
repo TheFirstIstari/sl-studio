@@ -44,10 +44,10 @@ export default [
 	svelteTsConfig,
 	tsConfig,
 	{
-	rules: {
-		'svelte/no-at-html-tags': 'error',
-		'svelte/no-navigation-without-resolve': 'off',
-		'svelte/require-each-key': 'off'
-	}
+		rules: {
+			'svelte/no-at-html-tags': 'error',
+			'svelte/no-navigation-without-resolve': 'off',
+			'svelte/require-each-key': 'off'
+		}
 	}
 ];
