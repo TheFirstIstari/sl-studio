@@ -9,14 +9,15 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Frontend linting and type checking
   frontend:
-    name: Frontend (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [self-hosted, macos-latest]
+    name: Frontend
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,23 +40,13 @@ jobs:
       - name: Format check
         run: npm run format:check
 
-  # Rust backend
-  rust:
-    name: Rust (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [self-hosted, macos-latest]
-        rust: [stable, nightly]
+  # Build frontend for Rust jobs (cached)
+  frontend-build:
+    name: Build Frontend
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.rust }}
-          components: clippy, rustfmt
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -63,11 +54,42 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install frontend deps
+      - name: Install dependencies
         run: npm ci
 
       - name: Build frontend
         run: npm run build
+
+      - name: Upload frontend
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: build
+          retention-days: 1
+
+  # Rust backend (stable only for CI)
+  rust:
+    name: Rust (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: frontend-build
+    strategy:
+      matrix:
+        os: [macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+
+      - name: Download frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: build
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
@@ -86,10 +108,11 @@ jobs:
         working-directory: src-tauri
         run: cargo build --release
 
-  # Test
+  # Tests (only on main)
   test:
     name: Tests
-    runs-on: self-hosted
+    runs-on: macos-latest
+    needs: frontend-build
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -100,17 +123,11 @@ jobs:
           toolchain: stable
           components: clippy
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Download frontend
+        uses: actions/download-artifact@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install frontend deps
-        run: npm ci
-
-      - name: Build frontend
-        run: npm run build
+          name: frontend-build
+          path: build
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
@@ -121,18 +138,16 @@ jobs:
         working-directory: src-tauri
         run: cargo test
 
-  # Build Tauri app
-  build-tauri:
-    name: Build Tauri (${{ matrix.os }})
+  # Build Tauri app (only on main branch)
+  build:
+    name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    needs: [rust, test]
+    if: github.ref == 'refs/heads/main'
     strategy:
       matrix:
         include:
-          - os: self-hosted
-            args: --target x86_64-unknown-linux-gnu
           - os: macos-latest
-            args: ''
-          - os: windows-latest
             args: ''
     steps:
       - name: Checkout
@@ -143,16 +158,11 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Install dependencies (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
-      - name: Install dependencies (Fedora)
-        if: matrix.os == 'self-hosted'
-        run: |
-          sudo dnf install -y webkit2gtk4.1-devel libappindicator-gtk3-devel librsvg2-devel patchelf
+      - name: Download frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: build
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -162,9 +172,6 @@ jobs:
 
       - name: Install frontend deps
         run: npm ci
-
-      - name: Build frontend
-        run: npm run build
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
