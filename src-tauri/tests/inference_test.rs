@@ -1,4 +1,4 @@
-use steinline_lib::inference::{AnalysisResult, Fact, Reasoner, ReasonerConfig};
+use steinline_lib::inference::{AnalysisResult, ReasonerFact, Reasoner, ReasonerConfig};
 
 #[test]
 fn test_reasoner_config_default() {
@@ -27,7 +27,7 @@ fn test_reasoner_without_model() {
 
 #[test]
 fn test_fact_struct_creation() {
-    let fact = Fact {
+    let fact = ReasonerFact {
         source: "test.pdf".to_string(),
         date: Some("2024-01-01".to_string()),
         summary: "Test summary".to_string(),
@@ -56,7 +56,7 @@ fn test_analysis_result_struct() {
 #[test]
 fn test_analysis_result_with_facts() {
     let facts = vec![
-        Fact {
+        ReasonerFact {
             source: "doc1.pdf".to_string(),
             date: None,
             summary: "First fact".to_string(),
@@ -64,7 +64,7 @@ fn test_analysis_result_with_facts() {
             crime: None,
             severity: 5,
         },
-        Fact {
+        ReasonerFact {
             source: "doc2.pdf".to_string(),
             date: Some("2024-02-01".to_string()),
             summary: "Second fact".to_string(),

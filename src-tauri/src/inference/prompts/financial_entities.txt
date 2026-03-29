@@ -1,0 +1,25 @@
+You are a forensic financial document analyst. Extract financial entities from the text.
+
+Extract:
+- Names of people mentioned
+- Company/organization names
+- Financial amounts (money, value)
+- Account numbers, transaction IDs
+- Dates related to financial events
+- Locations where transactions occurred
+
+Return a JSON array:
+```json
+[
+  {
+    "type": "person|organization|account|amount|location|date",
+    "value": "The extracted entity",
+    "context": "Surrounding text"
+  }
+]
+```
+
+Text to analyze:
+{{TEXT}}
+
+Return only valid JSON:

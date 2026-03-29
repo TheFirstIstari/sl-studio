@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["pattern", "severity", "description"],
+    "properties": {
+      "pattern": {
+        "type": "string"
+      },
+      "severity": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 10
+      },
+      "entities_involved": {
+        "type": "array",
+        "items": {"type": "string"}
+      },
+      "description": {
+        "type": "string"
+      },
+      "recommendation": {
+        "type": "string"
+      }
+    }
+  }
+}
