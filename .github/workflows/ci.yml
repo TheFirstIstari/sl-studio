@@ -16,7 +16,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        os: [self-hosted, macos-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,7 +45,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        os: [self-hosted, macos-latest]
         rust: [stable, nightly]
     steps:
       - name: Checkout
@@ -77,7 +77,7 @@ jobs:
   # Test
   test:
     name: Tests
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -104,7 +104,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: self-hosted
             args: --target x86_64-unknown-linux-gnu
           - os: macos-latest
             args: ''
@@ -124,6 +124,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install dependencies (Fedora)
+        if: matrix.os == 'self-hosted'
+        run: |
+          sudo dnf install -y webkit2gtk4.1-devel libappindicator-gtk3-devel librsvg2-devel patchelf
 
       - name: Setup Node
         uses: actions/setup-node@v4
