@@ -81,5 +81,5 @@ strip = true
 [lints.rust]
 unsafe_code = "forbid"
 
-[toolclippy]
+[package.metadata.clippy]
 msrv = "1.75"

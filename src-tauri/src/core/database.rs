@@ -143,6 +143,40 @@ impl Database {
         intel_conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action)", [])?;
         intel_conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp)", [])?;
 
+        // Text cache for extracted text
+        reg_conn.execute(
+            "CREATE TABLE IF NOT EXISTS text_cache (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fingerprint TEXT NOT NULL UNIQUE,
+                file_name TEXT NOT NULL,
+                extracted_text TEXT,
+                text_hash TEXT,
+                extraction_time_ms INTEGER,
+                quality_score REAL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )?;
+
+        reg_conn.execute("CREATE INDEX IF NOT EXISTS idx_text_cache_fingerprint ON text_cache(fingerprint)", [])?;
+        reg_conn.execute("CREATE INDEX IF NOT EXISTS idx_text_cache_hash ON text_cache(text_hash)", [])?;
+
+        // Metadata extraction cache
+        reg_conn.execute(
+            "CREATE TABLE IF NOT EXISTS metadata_cache (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fingerprint TEXT NOT NULL UNIQUE,
+                metadata_type TEXT NOT NULL,
+                metadata_json TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )?;
+
+        reg_conn.execute("CREATE INDEX IF NOT EXISTS idx_metadata_fingerprint ON metadata_cache(fingerprint)", [])?;
+        reg_conn.execute("CREATE INDEX IF NOT EXISTS idx_metadata_type ON metadata_cache(metadata_type)", [])?;
+
         info!("Database schema initialized");
         Ok(())
     }
@@ -363,6 +397,112 @@ impl Database {
             intelligence_count,
         })
     }
+
+    // Text cache operations
+    pub fn save_text_cache(&self, fingerprint: &str, file_name: &str, text: &str, text_hash: &str, extraction_time_ms: i64, quality_score: f64) -> Result<()> {
+        let conn = self.registry_conn.lock().unwrap();
+        conn.execute(
+            "INSERT OR REPLACE INTO text_cache (fingerprint, file_name, extracted_text, text_hash, extraction_time_ms, quality_score, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, CURRENT_TIMESTAMP)",
+            params![fingerprint, file_name, text, text_hash, extraction_time_ms, quality_score],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_text_cache(&self, fingerprint: &str) -> Result<Option<TextCacheEntry>> {
+        let conn = self.registry_conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, fingerprint, file_name, extracted_text, text_hash, extraction_time_ms, quality_score
+             FROM text_cache WHERE fingerprint = ?1"
+        )?;
+        
+        let mut rows = stmt.query(params![fingerprint])?;
+        if let Some(row) = rows.next()? {
+            Ok(Some(TextCacheEntry {
+                id: row.get(0)?,
+                fingerprint: row.get(1)?,
+                file_name: row.get(2)?,
+                extracted_text: row.get(3)?,
+                text_hash: row.get(4)?,
+                extraction_time_ms: row.get(5)?,
+                quality_score: row.get(6)?,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn get_text_cache_count(&self) -> Result<i64> {
+        let conn = self.registry_conn.lock().unwrap();
+        conn.query_row("SELECT COUNT(*) FROM text_cache", [], |row| row.get(0))
+    }
+
+    // Metadata cache operations
+    pub fn save_metadata_cache(&self, fingerprint: &str, metadata_type: &str, metadata_json: &str) -> Result<()> {
+        let conn = self.registry_conn.lock().unwrap();
+        conn.execute(
+            "INSERT OR REPLACE INTO metadata_cache (fingerprint, metadata_type, metadata_json)
+             VALUES (?1, ?2, ?3)",
+            params![fingerprint, metadata_type, metadata_json],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_metadata_cache(&self, fingerprint: &str, metadata_type: &str) -> Result<Option<MetadataCacheEntry>> {
+        let conn = self.registry_conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, fingerprint, metadata_type, metadata_json
+             FROM metadata_cache WHERE fingerprint = ?1 AND metadata_type = ?2"
+        )?;
+        
+        let mut rows = stmt.query(params![fingerprint, metadata_type])?;
+        if let Some(row) = rows.next()? {
+            Ok(Some(MetadataCacheEntry {
+                id: row.get(0)?,
+                fingerprint: row.get(1)?,
+                metadata_type: row.get(2)?,
+                metadata_json: row.get(3)?,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    // Migration support
+    pub fn get_schema_version(&self) -> Result<i32> {
+        let conn = self.registry_conn.lock().unwrap();
+        conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schema_version'",
+            [],
+            |_| Ok(0),
+        ).or_else(|_| {
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY)",
+                [],
+            )?;
+            conn.execute("INSERT INTO schema_version (version) VALUES (1)", [])?;
+            Ok(1)
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TextCacheEntry {
+    pub id: i64,
+    pub fingerprint: String,
+    pub file_name: String,
+    pub extracted_text: String,
+    pub text_hash: String,
+    pub extraction_time_ms: i64,
+    pub quality_score: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetadataCacheEntry {
+    pub id: i64,
+    pub fingerprint: String,
+    pub metadata_type: String,
+    pub metadata_json: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
