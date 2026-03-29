@@ -2465,24 +2465,24 @@ steinline/
 ## Phase 1: Foundation (Weeks 1-4)
 
 ### 1.1 Project Setup
-- [ ] Initialize Tauri 2 + SvelteKit project
-- [ ] Configure TypeScript and Rust tooling
+- [x] Initialize Tauri 2 + SvelteKit project
+- [x] Configure TypeScript and Rust tooling
 - [ ] Set up ESLint, Prettier, Cargo clippy
 - [ ] Configure GitHub Actions CI/CD pipeline
-- [ ] Set up logging infrastructure (tracing)
+- [x] Set up logging infrastructure (tracing)
 
 ### 1.2 Core Infrastructure
-- [ ] Set up SQLite database with rusqlite
+- [x] Set up SQLite database with rusqlite
 - [ ] Create database migration system
-- [ ] Implement registry table schema
+- [x] Implement registry table schema
 - [ ] Implement text_cache table schema
-- [ ] Create config management module
+- [x] Create config management module
 
 ### 1.3 File System Basics
 - [ ] Implement file walker with walkdir
 - [ ] Create fingerprinting (MD5/SHA256)
-- [ ] Implement file import/registry logic
-- [ ] Add basic file metadata extraction
+- [x] Implement file import/registry logic
+- [x] Add basic file metadata extraction
 
 **Milestone: Basic file import and tracking working**
 
