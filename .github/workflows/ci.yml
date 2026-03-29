@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Frontend linting and type checking
+  # Frontend linting, type checking, and build
   frontend:
     name: Frontend
     runs-on: macos-latest
@@ -40,38 +40,21 @@ jobs:
       - name: Format check
         run: npm run format:check
 
-  # Build frontend for Rust jobs (cached)
-  frontend-build:
-    name: Build Frontend
-    runs-on: macos-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build frontend
+      - name: Build
         run: npm run build
 
       - name: Upload frontend
         uses: actions/upload-artifact@v4
         with:
-          name: frontend-build
+          name: frontend
           path: build
           retention-days: 1
 
-  # Rust backend (stable only for CI)
+  # Rust backend
   rust:
     name: Rust (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    needs: frontend-build
+    needs: frontend
     strategy:
       matrix:
         os: [macos-latest]
@@ -88,7 +71,7 @@ jobs:
       - name: Download frontend
         uses: actions/download-artifact@v4
         with:
-          name: frontend-build
+          name: frontend
           path: build
 
       - name: Cache cargo
@@ -108,11 +91,11 @@ jobs:
         working-directory: src-tauri
         run: cargo build --release
 
-  # Tests (only on main)
+  # Tests
   test:
     name: Tests
     runs-on: macos-latest
-    needs: frontend-build
+    needs: frontend
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -126,7 +109,7 @@ jobs:
       - name: Download frontend
         uses: actions/download-artifact@v4
         with:
-          name: frontend-build
+          name: frontend
           path: build
 
       - name: Cache cargo
@@ -138,7 +121,7 @@ jobs:
         working-directory: src-tauri
         run: cargo test
 
-  # Build Tauri app (only on main branch)
+  # Build Tauri app (all platforms, only on main)
   build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -161,7 +144,7 @@ jobs:
       - name: Download frontend
         uses: actions/download-artifact@v4
         with:
-          name: frontend-build
+          name: frontend
           path: build
 
       - name: Setup Node
