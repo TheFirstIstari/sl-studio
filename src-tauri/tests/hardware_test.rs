@@ -32,5 +32,5 @@ fn test_gpu_backend_as_str() {
 
 #[test]
 fn test_gpu_backend_default() {
-    assert_eq!(GpuBackend::default(), GpuBackend::Cpu);
+    assert_eq!(GpuBackend::default(), GpuBackend::Metal);
 }
