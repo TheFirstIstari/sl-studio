@@ -57,6 +57,18 @@ jobs:
           toolchain: ${{ matrix.rust }}
           components: clippy, rustfmt
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
@@ -87,6 +99,18 @@ jobs:
         with:
           toolchain: stable
           components: clippy
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
