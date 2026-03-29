@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum GpuBackend {
+    #[default]
     Metal,
     Cuda,
     Vulkan,
@@ -10,7 +11,7 @@ pub enum GpuBackend {
 }
 
 impl GpuBackend {
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "metal" => GpuBackend::Metal,
             "cuda" => GpuBackend::Cuda,
@@ -28,11 +29,5 @@ impl GpuBackend {
             GpuBackend::OpenCl => "opencl",
             GpuBackend::Cpu => "cpu",
         }
-    }
-}
-
-impl Default for GpuBackend {
-    fn default() -> Self {
-        GpuBackend::Cpu
     }
 }

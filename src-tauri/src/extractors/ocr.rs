@@ -22,6 +22,7 @@ pub struct OcrResult {
     pub char_count: usize,
 }
 
+#[allow(dead_code)]
 pub struct OcrExtractor {
     engine: ocrs::OcrEngine,
     batch_size: usize,

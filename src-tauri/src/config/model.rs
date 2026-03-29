@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::gpu::GpuBackend;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub version: String,
@@ -27,18 +29,13 @@ pub struct ModelConfig {
     pub local_path: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum ModelSource {
+    #[default]
     #[serde(rename = "huggingface")]
     HuggingFace,
     #[serde(rename = "local")]
     Local,
-}
-
-impl Default for ModelSource {
-    fn default() -> Self {
-        ModelSource::HuggingFace
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,26 +45,6 @@ pub struct HardwareConfig {
     pub cpu_workers: u32,
     pub ocr_provider: String,
     pub whisper_size: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum GpuBackend {
-    #[serde(rename = "metal")]
-    Metal,
-    #[serde(rename = "cuda")]
-    Cuda,
-    #[serde(rename = "vulkan")]
-    Vulkan,
-    #[serde(rename = "opencl")]
-    OpenCl,
-    #[serde(rename = "cpu")]
-    Cpu,
-}
-
-impl Default for GpuBackend {
-    fn default() -> Self {
-        GpuBackend::Cpu
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

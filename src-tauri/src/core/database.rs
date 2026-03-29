@@ -278,10 +278,8 @@ impl Database {
         let fingerprints = stmt.query_map([], |row| row.get(0))?;
 
         let mut set = std::collections::HashSet::new();
-        for fp in fingerprints {
-            if let Ok(f) = fp {
-                set.insert(f);
-            }
+        for f in fingerprints.flatten() {
+            set.insert(f);
         }
         Ok(set)
     }

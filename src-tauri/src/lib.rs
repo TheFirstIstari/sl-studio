@@ -276,6 +276,7 @@ fn get_huggingface_files(repo_id: &str) -> Result<Vec<HuggingFaceFile>, String> 
     info.siblings.ok_or_else(|| "No files found".to_string())
 }
 
+#[allow(dead_code)]
 fn find_gguf_file(files: &[HuggingFaceFile]) -> Option<(String, u64)> {
     for file in files {
         if file.path.to_lowercase().ends_with(".gguf") {
@@ -319,7 +320,7 @@ async fn download_model(
         (file.download_url.as_ref().unwrap().clone(), file.size)
     };
 
-    let actual_filename = download_url.split('/').last().unwrap_or(&filename);
+    let actual_filename = download_url.split('/').next_back().unwrap_or(&filename);
     let models_dir = if IS_DEV {
         utils::dev_models_dir()
     } else {

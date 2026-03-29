@@ -99,7 +99,7 @@ impl Reasoner {
 
         info!(
             "Reasoner initialized with model: {}",
-            config.model_path.is_empty() == false
+            !config.model_path.is_empty()
         );
 
         Ok(Reasoner {
@@ -333,7 +333,7 @@ fn extract_json_objects(text: &str) -> Vec<String> {
     let mut depth = 0;
     let mut start = None;
 
-    for (i, c) in text.chars().enumerate() {
+    for (i, c) in text.char_indices() {
         match c {
             '{' => {
                 if depth == 0 {

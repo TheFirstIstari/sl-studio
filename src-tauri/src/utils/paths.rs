@@ -25,6 +25,6 @@ pub fn ensure_app_dirs() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn ensure_dev_models_dir() -> Result<(), Box<dyn std::error::Error>> {
-    std::fs::create_dir_all(&dev_models_dir())?;
+    std::fs::create_dir_all(dev_models_dir())?;
     Ok(())
 }

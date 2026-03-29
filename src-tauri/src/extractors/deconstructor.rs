@@ -31,26 +31,16 @@ pub struct ExtractionResult {
     pub is_partial: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ExtractorConfig {
     pub use_gpu_ocr: bool,
     pub whisper_model_path: Option<PathBuf>,
-}
-
-impl Default for ExtractorConfig {
-    fn default() -> Self {
-        ExtractorConfig {
-            use_gpu_ocr: false,
-            whisper_model_path: None,
-        }
-    }
 }
 
 pub struct Deconstructor {
     pdf: PdfExtractor,
     ocr: OcrExtractor,
     audio: Option<AudioExtractor>,
-    config: ExtractorConfig,
 }
 
 impl Deconstructor {
@@ -73,7 +63,6 @@ impl Deconstructor {
             pdf,
             ocr,
             audio,
-            config,
         })
     }
 

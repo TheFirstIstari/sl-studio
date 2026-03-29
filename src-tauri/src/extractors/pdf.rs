@@ -85,6 +85,7 @@ impl ExtractionQuality {
     }
 }
 
+#[allow(dead_code)]
 pub struct PdfExtractor {
     max_pages: usize,
     streaming: bool,
