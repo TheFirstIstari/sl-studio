@@ -1,4 +1,4 @@
-use steinline_lib::inference::{AnalysisResult, ReasonerFact, Reasoner, ReasonerConfig};
+use steinline_lib::inference::{AnalysisResult, Reasoner, ReasonerConfig, ReasonerFact};
 
 #[test]
 fn test_reasoner_config_default() {

@@ -5072,6 +5072,7 @@ dependencies = [
  "num_cpus",
  "ocrs",
  "pdf-extract",
+ "rand 0.8.5",
  "rayon",
  "reqwest 0.12.28",
  "rusqlite",
