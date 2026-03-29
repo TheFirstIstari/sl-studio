@@ -271,7 +271,7 @@
         <h2>Model</h2>
         
         <div class="form-group">
-          <label>Download Model from HuggingFace</label>
+          <label for="modelSelect">Download Model from HuggingFace</label>
           <select 
             id="modelSelect" 
             bind:value={selectedModel}
@@ -314,7 +314,7 @@
         </div>
         
         <div class="form-group">
-          <label>Or Select Local Model</label>
+          <label for="modelPath">Or Select Local Model</label>
           <div class="input-with-button">
             <input 
               type="text" 

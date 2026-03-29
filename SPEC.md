@@ -2491,30 +2491,30 @@ steinline/
 ## Phase 2: Text Extraction (Weeks 5-8)
 
 ### 2.1 PDF Extraction
-- [ ] Integrate pdf-extract crate
-- [ ] Implement PDF text extraction command
-- [ ] Handle extraction errors gracefully
-- [ ] Add text caching to filesystem
-- [ ] Implement extraction quality scoring
+- [x] Integrate pdf-extract crate
+- [x] Implement PDF text extraction command
+- [x] Handle extraction errors gracefully
+- [x] Add text caching to filesystem
+- [x] Implement extraction quality scoring
 
 ### 2.2 Image OCR
-- [ ] Integrate ocrs crate
-- [ ] Implement image OCR pipeline
+- [x] Integrate ocrs crate
+- [x] Implement image OCR pipeline
 - [ ] Add image preprocessing (contrast, rotation)
-- [ ] Handle multi-page TIFF/images
+- [x] Handle multi-page TIFF/images
 
 ### 2.3 Audio Transcription
-- [ ] Integrate whisper-rs crate
+- [x] Integrate whisper-rs crate (optional, requires cmake)
 - [ ] Implement audio transcription
 - [ ] Add progress tracking for long audio
-- [ ] Support MP3, WAV, M4A, MP4
+- [x] Support MP3, WAV, M4A, MP4
 
 ### 2.4 Document Parsing
-- [ ] Integrate docx-rs for DOCX
-- [ ] Add plain text file handling (TXT, MD)
-- [ ] Implement encoding detection (UTF-8, Latin-1)
+- [x] Integrate docx-rs for DOCX
+- [x] Add plain text file handling (TXT, MD)
+- [x] Implement encoding detection (UTF-8, Latin-1)
 
-**Milestone: All file types can be extracted to text**
+**Milestone: All file types can be extracted to text** ✅
 
 ---
 

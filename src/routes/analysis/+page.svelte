@@ -21,6 +21,7 @@
   interface RegistryProgress {
     total: number;
     processed: number;
+    current: number;
     current_file: string;
     phase: string;
   }
@@ -32,6 +33,7 @@
   let progress = $state<RegistryProgress>({
     total: 0,
     processed: 0,
+    current: 0,
     current_file: '',
     phase: ''
   });
@@ -89,7 +91,7 @@
     }
     
     scanning = true;
-    progress = { phase: 'Initializing...', current: 0, total: 0, current_file: '' };
+    progress = { phase: 'Initializing...', current: 0, processed: 0, total: 0, current_file: '' };
     
     try {
       await invoke('start_registry');
@@ -109,7 +111,7 @@
     }
     
     analyzing = true;
-    progress = { phase: 'Loading model...', current: 0, total: 0, current_file: '' };
+    progress = { phase: 'Loading model...', current: 0, processed: 0, total: 0, current_file: '' };
     
     try {
       if (!modelLoaded) {

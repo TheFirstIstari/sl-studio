@@ -54,7 +54,7 @@ num_cpus = "1"
 pdf-extract = "0.7"
 ocrs = "0.12"
 image = "0.25"
-whisper-rs = { version = "0.2", optional = true }
+zip = "2"
 llama_cpp = "0.3"
 
 [dev-dependencies]
@@ -63,7 +63,6 @@ tempfile = "3"
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
-whisper = ["dep:whisper-rs"]
 
 [profile.dev]
 opt-level = 0

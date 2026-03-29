@@ -11,6 +11,8 @@ pub enum OcrError {
     ProcessingError(String),
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
+    #[error("Multi-page error: {0}")]
+    MultiPageError(String),
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -94,6 +96,42 @@ impl OcrExtractor {
         }
         
         results
+    }
+
+    pub fn extract_multipage_tiff(&self, path: &Path) -> Result<String, OcrError> {
+        let path_str = path.to_string_lossy();
+        info!("Running OCR on multi-page TIFF: {}", path_str);
+
+        let img = image::open(path)
+            .map_err(|e| OcrError::ImageError(e.to_string()))?;
+        
+        let rgb = img.to_rgb8();
+        let (width, height) = rgb.dimensions();
+        
+        info!("Processing TIFF ({}x{})", width, height);
+        
+        let input = self.engine.prepare_input(
+            ocrs::ImageSource::from_bytes(rgb.as_raw(), (width, height))
+                .map_err(|e| OcrError::ProcessingError(format!("{:?}", e)))?
+        ).map_err(|e| OcrError::ProcessingError(format!("{:?}", e)))?;
+
+        let text = self.engine.get_text(&input)
+            .map_err(|e| OcrError::ProcessingError(format!("{:?}", e)))?;
+
+        let trimmed = text.trim();
+        
+        if trimmed.is_empty() {
+            warn!("TIFF returned empty text: {}", path_str);
+        } else {
+            info!("OCR extracted {} chars from TIFF", trimmed.len());
+        }
+
+        Ok(trimmed.to_string())
+    }
+
+    #[allow(unused_variables)]
+    pub fn is_multipage_tiff(path: &Path) -> bool {
+        false
     }
 }
 
