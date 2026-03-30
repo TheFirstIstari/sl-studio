@@ -7,6 +7,7 @@
 		{ href: '/results', label: 'Results', icon: 'list' },
 		{ href: '/timeline', label: 'Timeline', icon: 'timeline' },
 		{ href: '/stats', label: 'Statistics', icon: 'chart' },
+		{ href: '/network', label: 'Network', icon: 'network' },
 		{ href: '/anomalies', label: 'Anomalies', icon: 'alert' },
 		{ href: '/settings', label: 'Settings', icon: 'settings' }
 	];
@@ -67,6 +68,12 @@
 								<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
 								<line x1="12" y1="9" x2="12" y2="13" />
 								<line x1="12" y1="17" x2="12.01" y2="17" />
+							{:else if item.icon === 'network'}
+								<circle cx="12" cy="5" r="3" />
+								<circle cx="5" cy="19" r="3" />
+								<circle cx="19" cy="19" r="3" />
+								<line x1="12" y1="8" x2="5" y2="16" />
+								<line x1="12" y1="8" x2="19" y2="16" />
 							{:else if item.icon === 'settings'}
 									<circle cx="12" cy="12" r="3" />
 									<path

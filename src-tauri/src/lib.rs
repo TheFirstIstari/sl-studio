@@ -325,6 +325,36 @@ fn get_weighted_evidence(
 }
 
 #[tauri::command]
+fn get_entity_relationships(
+    state: State<AppState>,
+    entity_id: Option<i64>,
+    min_confidence: f64,
+) -> Result<Vec<core::EntityRelationship>, String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.get_entity_relationships(entity_id, min_confidence)
+            .map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_connected_entities(
+    state: State<AppState>,
+    entity_id: i64,
+    min_confidence: f64,
+) -> Result<Vec<core::ConnectedEntity>, String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.get_connected_entities(entity_id, 1, min_confidence)
+            .map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
 fn get_models_dir() -> String {
     if IS_DEV {
         utils::dev_models_dir().to_string_lossy().to_string()
@@ -699,6 +729,8 @@ pub fn run() {
             get_entity_centrality,
             detect_anomalies,
             get_weighted_evidence,
+            get_entity_relationships,
+            get_connected_entities,
         ])
         .setup(|_app| {
             info!("Tauri app setup complete");

@@ -19,6 +19,8 @@
 	let filter = $state('');
 	let sortBy = $state<'severity' | 'date'>('severity');
 	let selectedFact = $state<Fact | null>(null);
+	let selectedIds = $state<Set<number>>(new Set());
+	let selectAll = $state(false);
 
 	onMount(async () => {
 		await loadFacts();
@@ -27,46 +29,32 @@
 	async function loadFacts() {
 		loading = true;
 		try {
-			// Mock data for now - in real app, would call Tauri command
-			facts = [
-				{
-					id: 1,
-					fingerprint: 'abc123',
-					filename: 'document1.pdf',
-					fact_summary: 'Financial transaction of $50,000 identified',
-					category: 'Financial',
-					identified_crime: 'Money Laundering',
-					severity_score: 8,
-					confidence: 0.92,
-					created_at: '2024-01-15'
-				},
-				{
-					id: 2,
-					fingerprint: 'def456',
-					filename: 'email_archive.pdf',
-					fact_summary: 'Communication about offshore accounts',
-					category: 'Digital',
-					identified_crime: 'Tax Evasion',
-					severity_score: 7,
-					confidence: 0.85,
-					created_at: '2024-01-14'
-				},
-				{
-					id: 3,
-					fingerprint: 'ghi789',
-					filename: 'contract_signed.pdf',
-					fact_summary: 'Signed agreement with known entity',
-					category: 'Legal',
-					identified_crime: null,
-					severity_score: 3,
-					confidence: 0.95,
-					created_at: '2024-01-13'
-				}
-			];
+			facts = await invoke<Fact[]>('search_facts', { query: '*', limit: 500 });
 		} catch (e) {
 			console.error('Error loading facts:', e);
+			facts = [];
 		} finally {
 			loading = false;
+		}
+	}
+
+	function toggleSelect(id: number) {
+		const newSet = new Set(selectedIds);
+		if (newSet.has(id)) {
+			newSet.delete(id);
+		} else {
+			newSet.add(id);
+		}
+		selectedIds = newSet;
+	}
+
+	function toggleSelectAll() {
+		if (selectAll) {
+			selectedIds = new Set();
+			selectAll = false;
+		} else {
+			selectedIds = new Set(filteredFacts.map(f => f.id));
+			selectAll = true;
 		}
 	}
 
@@ -146,24 +134,48 @@
 	{:else}
 		<div class="results-grid">
 			<div class="facts-list">
+				<div class="facts-toolbar">
+					<label class="select-all">
+						<input
+							type="checkbox"
+							checked={selectAll}
+							onchange={toggleSelectAll}
+						/>
+						<span>{selectedIds.size} selected</span>
+					</label>
+					{#if selectedIds.size > 0}
+						<div class="bulk-actions">
+							<button class="bulk-btn" onclick={() => console.log('Export selected')}>
+								Export
+							</button>
+							<button class="bulk-btn danger" onclick={() => console.log('Delete selected')}>
+								Delete
+							</button>
+						</div>
+					{/if}
+				</div>
+
 				<div class="facts-count">
 					{filteredFacts.length} of {facts.length} facts
 				</div>
 
 				{#each filteredFacts as fact}
-					<button
+					<div
 						class="fact-card"
 						class:selected={selectedFact?.id === fact.id}
-						onclick={() => (selectedFact = fact)}
 					>
+						<label class="fact-checkbox" onclick={(e) => e.stopPropagation()}>
+							<input
+								type="checkbox"
+								checked={selectedIds.has(fact.id)}
+								onchange={() => toggleSelect(fact.id)}
+							/>
+						</label>
+						<button
+							class="fact-content"
+							onclick={() => (selectedFact = fact)}
+						>
 						<div class="fact-header">
-							<svg
-								class="fact-icon"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-							>
 								{#if getCategoryIcon(fact.category) === 'dollar'}
 									<line x1="12" y1="1" x2="12" y2="23" /><path
 										d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"
@@ -207,7 +219,8 @@
 						{#if fact.identified_crime}
 							<div class="fact-crime">{fact.identified_crime}</div>
 						{/if}
-					</button>
+						</button>
+					</div>
 				{/each}
 			</div>
 
@@ -359,6 +372,54 @@
 		padding: 1rem;
 	}
 
+	.facts-toolbar {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0.75rem;
+		background-color: #1a1a2e;
+		border-radius: 6px;
+		margin-bottom: 1rem;
+	}
+
+	.select-all {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.875rem;
+		color: #9ca3af;
+		cursor: pointer;
+	}
+
+	.select-all input {
+		width: 16px;
+		height: 16px;
+	}
+
+	.bulk-actions {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.bulk-btn {
+		padding: 0.5rem 1rem;
+		background-color: #0f3460;
+		border: none;
+		border-radius: 4px;
+		color: #eaeaea;
+		font-size: 0.75rem;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.bulk-btn:hover {
+		background-color: #e94560;
+	}
+
+	.bulk-btn.danger:hover {
+		background-color: #ef4444;
+	}
+
 	.facts-count {
 		font-size: 0.75rem;
 		color: #6b7280;
@@ -366,6 +427,9 @@
 	}
 
 	.fact-card {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.75rem;
 		width: 100%;
 		text-align: left;
 		padding: 1rem;
@@ -384,6 +448,27 @@
 	.fact-card.selected {
 		border-color: #e94560;
 		background-color: #0f3460;
+	}
+
+	.fact-checkbox {
+		flex-shrink: 0;
+		margin-top: 4px;
+	}
+
+	.fact-checkbox input {
+		width: 18px;
+		height: 18px;
+		cursor: pointer;
+	}
+
+	.fact-content {
+		flex: 1;
+		background: none;
+		border: none;
+		padding: 0;
+		margin: 0;
+		text-align: left;
+		cursor: pointer;
 	}
 
 	.fact-header {

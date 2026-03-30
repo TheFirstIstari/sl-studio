@@ -2792,14 +2792,14 @@ steinline/
 ### 6.2 Visualization
 
 - [x] Implement Timeline visualization
-- [ ] Add Network graph (Cytoscape.js)
+- [x] Add Network graph (Cytoscape.js)
 - [ ] Integrate Leaflet.js for maps
 - [x] Create Charts for statistics
 - [x] Add Anomaly dashboard
 
 ### 6.3 User Experience
 
-- [ ] Implement bulk operations
+- [x] Implement bulk operations
 - [ ] Add keyboard shortcuts
 - [ ] Create annotation system
 - [ ] Add tagging and filtering
