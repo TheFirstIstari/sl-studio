@@ -54,7 +54,7 @@ description = "Run SvelteKit check"
 run = "npm run check"
 
 [tasks.release]
-description = "Create production release"
+description = "Create production release for current platform"
 run = "npm run tauri build"
 
 [tasks.release_dmg]
@@ -64,6 +64,26 @@ run = "npm run tauri build -- --bundles app"
 [tasks.release_app]
 description = "Build macOS app bundle only"
 run = "npm run tauri build -- --bundles app"
+
+[tasks.release_linux_deb]
+description = "Build Linux .deb package"
+run = "npm run tauri build -- --bundles deb"
+
+[tasks.release_linux_appimage]
+description = "Build Linux AppImage"
+run = "npm run tauri build -- --bundles appimage"
+
+[tasks.release_linux]
+description = "Build Linux packages (deb + AppImage)"
+run = "npm run tauri build -- --bundles deb,appimage"
+
+[tasks.release_windows]
+description = "Build Windows installer"
+run = "npm run tauri build -- --bundles msi,exe"
+
+[tasks.release_all]
+description = "Build all platform bundles (for current platform only)"
+run = "npm run tauri build"
 
 [tasks.setup]
 description = "Initial project setup"

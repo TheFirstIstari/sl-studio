@@ -2872,10 +2872,11 @@ steinline/
 
 ### 9.3 Release ✅
 
-- [x] Build Windows installer (MSI target configured)
-- [x] Build macOS DMG (DMG target configured)
-- [x] Build Linux AppImage (DEB and AppImage targets)
+- [x] Build Windows installer (MSI + EXE targets)
+- [x] Build macOS DMG (DMG + APP targets)
+- [x] Build Linux packages (DEB + AppImage targets)
 - [x] Perform security audit (CSP configured)
+- [x] CI/CD pipelines for all platforms (GitHub Actions)
 
 **Milestone: Production release** ✅
 
