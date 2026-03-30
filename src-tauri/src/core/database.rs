@@ -11,7 +11,7 @@ pub struct RegistryEntry {
     pub file_size: Option<i64>,
     pub file_type: Option<String>,
     pub file_name: String,
-    pub last_modified: Option<String>, // DATETIME
+    pub last_modified: Option<String>,   // DATETIME
     pub last_hash_check: Option<String>, // DATETIME
     pub has_extracted_text: bool,
     pub extracted_at: Option<String>, // DATETIME
