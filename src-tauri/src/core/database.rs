@@ -359,6 +359,98 @@ impl Database {
             [],
         )?;
 
+        // FTS5 for facts full-text search
+        intel_conn.execute(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS facts_fts USING fts5(
+                fact_summary,
+                source_quote,
+                category,
+                content='intelligence',
+                content_rowid='id'
+            )",
+            [],
+        )?;
+
+        // FTS5 for entities full-text search
+        intel_conn.execute(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS entities_fts USING fts5(
+                value,
+                normalized_value,
+                entity_type,
+                content='entities',
+                content_rowid='id'
+            )",
+            [],
+        )?;
+
+        // Entity aliases table for entity resolution
+        intel_conn.execute(
+            "CREATE TABLE IF NOT EXISTS entity_aliases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                canonical_entity_id INTEGER NOT NULL,
+                alias_value TEXT NOT NULL,
+                alias_type TEXT NOT NULL,
+                confidence REAL DEFAULT 1.0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (canonical_entity_id) REFERENCES entities(id)
+            )",
+            [],
+        )?;
+
+        intel_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_aliases_canonical ON entity_aliases(canonical_entity_id)",
+            [],
+        )?;
+        intel_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_aliases_value ON entity_aliases(alias_value)",
+            [],
+        )?;
+
+        // Evidence chains table
+        intel_conn.execute(
+            "CREATE TABLE IF NOT EXISTS evidence_chains (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chain_name TEXT NOT NULL,
+                chain_type TEXT NOT NULL,
+                description TEXT,
+                created_by TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )?;
+
+        intel_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_chains_name ON evidence_chains(chain_name)",
+            [],
+        )?;
+
+        // Evidence chain links table
+        intel_conn.execute(
+            "CREATE TABLE IF NOT EXISTS evidence_chain_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chain_id INTEGER NOT NULL,
+                intelligence_id INTEGER NOT NULL,
+                relationship_type TEXT NOT NULL,
+                relationship_strength REAL DEFAULT 1.0,
+                notes TEXT,
+                linked_by TEXT,
+                linked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (chain_id) REFERENCES evidence_chains(id),
+                FOREIGN KEY (intelligence_id) REFERENCES intelligence(id)
+            )",
+            [],
+        )?;
+
+        intel_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_chain_links_chain ON evidence_chain_links(chain_id)",
+            [],
+        )?;
+        intel_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_chain_links_intel ON evidence_chain_links(intelligence_id)",
+            [],
+        )?;
+
         info!("Database schema initialized");
         Ok(())
     }
@@ -1010,6 +1102,217 @@ impl Database {
         Ok(())
     }
 
+    // Search methods using FTS5
+    pub fn search_facts(&self, query: &str, limit: i64) -> Result<Vec<SearchResult>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        
+        // Use FTS5 for full-text search
+        let mut stmt = conn.prepare(
+            "SELECT i.id, i.fingerprint, i.filename, i.fact_summary, i.category, i.severity_score, i.confidence, i.created_at,
+                    bm25(facts_fts) as rank
+             FROM facts_fts f
+             JOIN intelligence i ON f.rowid = i.id
+             WHERE facts_fts MATCH ?1
+             ORDER BY rank
+             LIMIT ?2"
+        )?;
+
+        let entries = stmt.query_map(params![query, limit], |row| {
+            Ok(SearchResult {
+                id: row.get(0)?,
+                fingerprint: row.get(1)?,
+                filename: row.get(2)?,
+                summary: row.get(3)?,
+                category: row.get(4)?,
+                severity: row.get(5)?,
+                confidence: row.get(6)?,
+                rank: row.get(7)?,
+                result_type: "fact".to_string(),
+            })
+        })?;
+
+        entries.collect()
+    }
+
+    pub fn search_entities(&self, query: &str, limit: i64) -> Result<Vec<EntitySearchResult>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        
+        let mut stmt = conn.prepare(
+            "SELECT e.id, e.fingerprint, e.entity_type, e.value, e.normalized_value, e.confidence,
+                    i.filename, bm25(entities_fts) as rank
+             FROM entities_fts f
+             JOIN entities e ON f.rowid = e.id
+             JOIN intelligence i ON e.fingerprint = i.fingerprint
+             WHERE entities_fts MATCH ?1
+             ORDER BY rank
+             LIMIT ?2"
+        )?;
+
+        let entries = stmt.query_map(params![query, limit], |row| {
+            Ok(EntitySearchResult {
+                id: row.get(0)?,
+                fingerprint: row.get(1)?,
+                entity_type: row.get(2)?,
+                value: row.get(3)?,
+                normalized_value: row.get(4)?,
+                confidence: row.get(5)?,
+                source_file: row.get(6)?,
+                rank: row.get(7)?,
+            })
+        })?;
+
+        entries.collect()
+    }
+
+    pub fn search_combined(&self, query: &str, limit: i64) -> Result<Vec<CombinedSearchResult>> {
+        let facts = self.search_facts(query, limit)?;
+        let entities = self.search_entities(query, limit)?;
+
+        let mut combined: Vec<CombinedSearchResult> = facts
+            .into_iter()
+            .map(|f| CombinedSearchResult {
+                id: f.id,
+                result_type: f.result_type,
+                fingerprint: f.fingerprint,
+                filename: f.filename,
+                title: f.summary.clone(),
+                description: Some(f.summary),
+                category: f.category,
+                severity: f.severity,
+                confidence: f.confidence,
+                rank: f.rank,
+            })
+            .collect();
+
+        for e in entities {
+            combined.push(CombinedSearchResult {
+                id: e.id,
+                result_type: "entity".to_string(),
+                fingerprint: e.fingerprint,
+                filename: e.source_file,
+                title: e.value.clone(),
+                description: e.normalized_value,
+                category: Some(e.entity_type),
+                severity: None,
+                confidence: e.confidence,
+                rank: e.rank,
+            });
+        }
+
+        combined.sort_by(|a, b| a.rank.partial_cmp(&b.rank).unwrap_or(std::cmp::Ordering::Equal));
+        combined.truncate(limit as usize);
+        
+        Ok(combined)
+    }
+
+    // Entity alias methods for entity resolution
+    pub fn add_entity_alias(&self, canonical_id: i64, alias: &str, alias_type: &str, confidence: f64) -> Result<()> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO entity_aliases (canonical_entity_id, alias_value, alias_type, confidence) VALUES (?1, ?2, ?3, ?4)",
+            params![canonical_id, alias, alias_type, confidence],
+        )?;
+        Ok(())
+    }
+
+    pub fn resolve_entity(&self, alias: &str) -> Result<Vec<ResolvedEntity>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT e.id, e.entity_type, e.value, e.normalized_value, e.fingerprint, a.confidence
+             FROM entity_aliases a
+             JOIN entities e ON a.canonical_entity_id = e.id
+             WHERE a.alias_value = ?1
+             ORDER BY a.confidence DESC"
+        )?;
+
+        let entries = stmt.query_map(params![alias], |row| {
+            Ok(ResolvedEntity {
+                entity_id: row.get(0)?,
+                entity_type: row.get(1)?,
+                value: row.get(2)?,
+                normalized_value: row.get(3)?,
+                fingerprint: row.get(4)?,
+                confidence: row.get(5)?,
+            })
+        })?;
+
+        entries.collect()
+    }
+
+    // Evidence chain methods
+    pub fn create_chain(&self, name: &str, chain_type: &str, description: &str, created_by: &str) -> Result<i64> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO evidence_chains (chain_name, chain_type, description, created_by) VALUES (?1, ?2, ?3, ?4)",
+            params![name, chain_type, description, created_by],
+        )?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    pub fn add_to_chain(&self, chain_id: i64, intelligence_id: i64, relationship_type: &str, 
+                       strength: f64, notes: &str, linked_by: &str) -> Result<()> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO evidence_chain_links (chain_id, intelligence_id, relationship_type, relationship_strength, notes, linked_by)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![chain_id, intelligence_id, relationship_type, strength, notes, linked_by],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_chain(&self, chain_id: i64) -> Result<Option<EvidenceChain>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, chain_name, chain_type, description, created_by, created_at, updated_at
+             FROM evidence_chains WHERE id = ?1"
+        )?;
+
+        let mut rows = stmt.query(params![chain_id])?;
+        if let Some(row) = rows.next()? {
+            Ok(Some(EvidenceChain {
+                id: row.get(0)?,
+                chain_name: row.get(1)?,
+                chain_type: row.get(2)?,
+                description: row.get(3)?,
+                created_by: row.get(4)?,
+                created_at: row.get(5)?,
+                updated_at: row.get(6)?,
+                items: Vec::new(),
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn get_chain_items(&self, chain_id: i64) -> Result<Vec<ChainItem>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT l.id, l.intelligence_id, l.relationship_type, l.relationship_strength, l.notes, l.linked_by, l.linked_at,
+                    i.filename, i.fact_summary, i.category
+             FROM evidence_chain_links l
+             JOIN intelligence i ON l.intelligence_id = i.id
+             WHERE l.chain_id = ?1
+             ORDER BY l.linked_at DESC"
+        )?;
+
+        let entries = stmt.query_map(params![chain_id], |row| {
+            Ok(ChainItem {
+                link_id: row.get(0)?,
+                intelligence_id: row.get(1)?,
+                relationship_type: row.get(2)?,
+                relationship_strength: row.get(3)?,
+                notes: row.get(4)?,
+                linked_by: row.get(5)?,
+                linked_at: row.get(6)?,
+                filename: row.get(7)?,
+                fact_summary: row.get(8)?,
+                category: row.get(9)?,
+            })
+        })?;
+
+        entries.collect()
+    }
+
     // Migration support
     pub fn get_schema_version(&self) -> Result<i32> {
         let conn = self.registry_conn.lock().unwrap();
@@ -1079,6 +1382,81 @@ pub struct ErrorQueueEntry {
     pub resolved: bool,
     pub resolution: Option<String>,
     pub created_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchResult {
+    pub id: i64,
+    pub fingerprint: String,
+    pub filename: String,
+    pub summary: String,
+    pub category: Option<String>,
+    pub severity: i32,
+    pub confidence: Option<f64>,
+    pub rank: f64,
+    pub result_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EntitySearchResult {
+    pub id: i64,
+    pub fingerprint: String,
+    pub entity_type: String,
+    pub value: String,
+    pub normalized_value: Option<String>,
+    pub confidence: Option<f64>,
+    pub source_file: String,
+    pub rank: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CombinedSearchResult {
+    pub id: i64,
+    pub result_type: String,
+    pub fingerprint: String,
+    pub filename: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub category: Option<String>,
+    pub severity: Option<i32>,
+    pub confidence: Option<f64>,
+    pub rank: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResolvedEntity {
+    pub entity_id: i64,
+    pub entity_type: String,
+    pub value: String,
+    pub normalized_value: Option<String>,
+    pub fingerprint: String,
+    pub confidence: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvidenceChain {
+    pub id: i64,
+    pub chain_name: String,
+    pub chain_type: String,
+    pub description: Option<String>,
+    pub created_by: Option<String>,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
+    pub items: Vec<ChainItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChainItem {
+    pub link_id: i64,
+    pub intelligence_id: i64,
+    pub relationship_type: String,
+    pub relationship_strength: f64,
+    pub notes: Option<String>,
+    pub linked_by: Option<String>,
+    pub linked_at: Option<String>,
+    pub filename: String,
+    pub fact_summary: String,
+    pub category: Option<String>,
 }
 
 #[cfg(test)]
