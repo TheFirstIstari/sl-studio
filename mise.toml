@@ -53,6 +53,127 @@ run = "cd src-tauri && cargo clippy -- -D warnings"
 description = "Run SvelteKit check"
 run = "npm run check"
 
+[tasks.format_check]
+description = "Check code formatting (prettier + rustfmt)"
+run = [
+    "npm run format:check",
+    "cd src-tauri && cargo fmt --check",
+]
+
+[tasks.format_fix]
+description = "Auto-fix formatting (prettier + rustfmt)"
+run = [
+    "npm run format",
+    "cd src-tauri && cargo fmt",
+]
+
+# ============================================================
+# CI Pipeline - Run everything GitHub Actions runs
+# ============================================================
+[tasks.ci]
+description = "Run full CI pipeline (lint, typecheck, build, test)"
+alias = ["ci_all"]
+run = [
+    "mise run ci_frontend",
+    "mise run ci_rust",
+    "mise run ci_test",
+]
+
+[tasks.ci_frontend]
+description = "CI: Frontend checks (lint, typecheck, build)"
+run = [
+    "echo '=== Frontend: Type Check ==='",
+    "npm run check",
+    "echo '=== Frontend: Lint ==='",
+    "npm run lint",
+    "echo '=== Frontend: Format Check ==='",
+    "npm run format:check",
+    "echo '=== Frontend: Build ==='",
+    "npm run build",
+    "echo '=== Frontend checks passed ✓ ==='",
+]
+
+[tasks.ci_rust]
+description = "CI: Rust checks (fmt, clippy, build)"
+run = [
+    "echo '=== Rust: Format Check ==='",
+    "cd src-tauri && cargo fmt --check",
+    "echo '=== Rust: Clippy ==='",
+    "cd src-tauri && cargo clippy -- -D warnings",
+    "echo '=== Rust: Build ==='",
+    "cd src-tauri && cargo build --release",
+    "echo '=== Rust checks passed ✓ ==='",
+]
+
+[tasks.ci_test]
+description = "CI: Run all tests"
+run = [
+    "echo '=== Rust: Tests ==='",
+    "cargo test --manifest-path src-tauri/Cargo.toml",
+    "echo '=== All tests passed ✓ ==='",
+]
+
+[tasks.ci_quick]
+description = "CI: Quick checks only (no build, no tests)"
+run = [
+    "npm run check",
+    "npm run lint",
+    "npm run format:check",
+    "cargo fmt --check --manifest-path src-tauri/Cargo.toml",
+    "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
+]
+
+[tasks.ci_no_lint]
+description = "CI: Build and test only (skip linting)"
+run = [
+    "npm run build",
+    "cargo build --manifest-path src-tauri/Cargo.toml",
+    "cargo test --manifest-path src-tauri/Cargo.toml",
+]
+
+# ============================================================
+# Pre-commit checks (lightweight, fast)
+# ============================================================
+[tasks.precommit]
+description = "Pre-commit checks (quick validation before committing)"
+alias = ["pc"]
+run = [
+    "echo '=== Pre-commit: Format Check ==='",
+    "npm run format:check",
+    "cargo fmt --check --manifest-path src-tauri/Cargo.toml",
+    "echo '=== Pre-commit: Quick Type Check ==='",
+    "npm run check",
+    "echo '=== Pre-commit: Rust Check ==='",
+    "cargo check --manifest-path src-tauri/Cargo.toml",
+    "echo '=== Pre-commit passed ==='",
+]
+
+[tasks.prepush]
+description = "Pre-push checks (full validation before pushing)"
+run = [
+    "mise run ci",
+    "echo '=== Ready to push ==='",
+]
+
+# ============================================================
+# Playwright E2E tests
+# ============================================================
+[tasks.e2e]
+description = "Run Playwright E2E tests"
+run = "npx playwright test"
+
+[tasks.e2e_chromium]
+description = "Run E2E tests (Chromium only)"
+run = "npx playwright test --project=chromium"
+
+[tasks.e2e_headed]
+description = "Run E2E tests in headed mode"
+run = "npx playwright test --headed"
+
+[tasks.e2e_ui]
+description = "Run E2E tests with Playwright UI"
+run = "npx playwright test --ui"
+
 [tasks.release]
 description = "Create production release for current platform"
 run = "npm run tauri build"

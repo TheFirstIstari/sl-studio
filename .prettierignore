@@ -1,0 +1,13 @@
+# Generated files
+playwright-report/
+test-results/
+PERFORMANCE_REPORT.md
+CHANGELOG.md
+
+# Build artifacts
+build/
+.svelte-kit/
+src-tauri/target/
+
+# Dependencies
+node_modules/

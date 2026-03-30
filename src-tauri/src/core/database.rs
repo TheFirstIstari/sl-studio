@@ -829,10 +829,10 @@ impl Database {
                 entry.created_at
             ],
         )?;
-        
+
         // Invalidate cache since data changed
         self.invalidate_cache();
-        
+
         Ok(())
     }
 
@@ -1340,10 +1340,10 @@ impl Database {
         let mut in_phrase = false;
         let mut pos = 0;
         let chars: Vec<char> = input.chars().collect();
-        
+
         while pos < chars.len() {
             let c = chars[pos];
-            
+
             if c == '"' {
                 result.push('"');
                 in_phrase = !in_phrase;
@@ -1356,7 +1356,8 @@ impl Database {
             } else if c == '(' || c == ')' {
                 result.push(c);
                 pos += 1;
-            } else if c.eq_ignore_ascii_case(&'A') && result.ends_with(' ') && pos + 2 < chars.len() {
+            } else if c.eq_ignore_ascii_case(&'A') && result.ends_with(' ') && pos + 2 < chars.len()
+            {
                 let next = chars[pos + 1];
                 let next2 = chars[pos + 2];
                 if next.eq_ignore_ascii_case(&'N') && next2.eq_ignore_ascii_case(&'D') {
@@ -1366,7 +1367,8 @@ impl Database {
                 }
                 result.push(c);
                 pos += 1;
-            } else if c.eq_ignore_ascii_case(&'O') && result.ends_with(' ') && pos + 1 < chars.len() {
+            } else if c.eq_ignore_ascii_case(&'O') && result.ends_with(' ') && pos + 1 < chars.len()
+            {
                 let next = chars[pos + 1];
                 if next.eq_ignore_ascii_case(&'R') {
                     result.push_str("OR ");
@@ -1375,7 +1377,8 @@ impl Database {
                 }
                 result.push(c);
                 pos += 1;
-            } else if c.eq_ignore_ascii_case(&'N') && result.ends_with(' ') && pos + 2 < chars.len() {
+            } else if c.eq_ignore_ascii_case(&'N') && result.ends_with(' ') && pos + 2 < chars.len()
+            {
                 let next = chars[pos + 1];
                 let next2 = chars[pos + 2];
                 if next.eq_ignore_ascii_case(&'O') && next2.eq_ignore_ascii_case(&'T') {
@@ -2303,46 +2306,53 @@ impl Database {
         min_related: i32,
     ) -> Result<Vec<AutoDetectedChain>> {
         let weighted = self.get_weighted_evidence(min_weight, 1000)?;
-        
+
         if weighted.is_empty() {
             return Ok(Vec::new());
         }
 
         let conn = self.intelligence_conn.lock().unwrap();
-        
+
         let fetch_start = std::time::Instant::now();
-        
+
         // Pre-fetch all entity data in ONE query (avoids N+1 problem)
         let mut entities_stmt = conn.prepare(
             "SELECT fingerprint, value FROM entities WHERE fingerprint IN (
                 SELECT fingerprint FROM intelligence WHERE is_deleted = FALSE
-            )"
+            )",
         )?;
-        
+
         let mut entities_by_fp: HashMap<String, Vec<String>> = HashMap::new();
-        entities_stmt.query_map([], |row| {
-            let fp: String = row.get(0)?;
-            let value: String = row.get(1)?;
-            Ok((fp, value))
-        })?.filter_map(|r| r.ok())
-          .for_each(|(fp, value)| {
-               entities_by_fp.entry(fp).or_insert_with(Vec::new).push(value);
-           });
-        
+        entities_stmt
+            .query_map([], |row| {
+                let fp: String = row.get(0)?;
+                let value: String = row.get(1)?;
+                Ok((fp, value))
+            })?
+            .filter_map(|r| r.ok())
+            .for_each(|(fp, value)| {
+                entities_by_fp.entry(fp).or_default().push(value);
+            });
+
         let fetch_time = fetch_start.elapsed();
         let entity_count = entities_by_fp.len();
-        info!(entities_fetched = entity_count, fetch_time_ms = fetch_time.as_millis() as u64, "Fetched entities for chain detection");
-        
+        info!(
+            entities_fetched = entity_count,
+            fetch_time_ms = fetch_time.as_millis() as u64,
+            "Fetched entities for chain detection"
+        );
+
         // Convert to HashSets for faster lookup if entity count is large
         use std::collections::HashSet;
         let entity_sets: HashMap<String, HashSet<String>> = if entity_count > 50 {
-            entities_by_fp.iter()
+            entities_by_fp
+                .iter()
                 .map(|(k, v)| (k.clone(), v.iter().cloned().collect()))
                 .collect()
         } else {
             HashMap::new()
         };
-        
+
         let use_hashset = !entity_sets.is_empty();
         let empty_vec: Vec<String> = Vec::new();
         let empty_set: HashSet<String> = HashSet::new();
@@ -2363,9 +2373,13 @@ impl Database {
                     let other_set = entity_sets.get(&other.fingerprint).unwrap_or(&empty_set);
                     current_set.intersection(other_set).count() as i32
                 } else {
-                    let current_entities = entities_by_fp.get(&current.fingerprint).unwrap_or(&empty_vec);
-                    let other_entities = entities_by_fp.get(&other.fingerprint).unwrap_or(&empty_vec);
-                    current_entities.iter()
+                    let current_entities = entities_by_fp
+                        .get(&current.fingerprint)
+                        .unwrap_or(&empty_vec);
+                    let other_entities =
+                        entities_by_fp.get(&other.fingerprint).unwrap_or(&empty_vec);
+                    current_entities
+                        .iter()
                         .filter(|e| other_entities.contains(e))
                         .count() as i32
                 };
@@ -2394,9 +2408,14 @@ impl Database {
         }
 
         chains.sort_by(|a, b| b.related_count.cmp(&a.related_count));
-        
+
         let total_time = fetch_start.elapsed();
-        info!(chains_found = chains.len(), total_time_ms = total_time.as_millis() as u64, chains_detected = true, "Chain detection completed");
+        info!(
+            chains_found = chains.len(),
+            total_time_ms = total_time.as_millis() as u64,
+            chains_detected = true,
+            "Chain detection completed"
+        );
 
         Ok(chains)
     }
@@ -2860,21 +2879,23 @@ impl Database {
              ORDER BY count DESC"
         )?;
 
-        let entries: Result<Vec<CategoryStats>> = stmt.query_map([], |row| {
-            Ok(CategoryStats {
-                category: row.get(0)?,
-                count: row.get(1)?,
-                avg_severity: row.get(2)?,
-                avg_confidence: row.get(3)?,
-            })
-        })?.collect();
+        let entries: Result<Vec<CategoryStats>> = stmt
+            .query_map([], |row| {
+                Ok(CategoryStats {
+                    category: row.get(0)?,
+                    count: row.get(1)?,
+                    avg_severity: row.get(2)?,
+                    avg_confidence: row.get(3)?,
+                })
+            })?
+            .collect();
 
         let result = entries?;
-        
+
         // Update cache with 60-second TTL
         let mut cache = self.category_cache.lock().unwrap();
         *cache = Some(CacheEntry::new(result.clone(), Duration::from_secs(60)));
-        
+
         Ok(result)
     }
 
@@ -2968,7 +2989,7 @@ impl Database {
         // Update cache with 30-second TTL
         let mut cache = self.overall_stats_cache.lock().unwrap();
         *cache = Some(CacheEntry::new(result.clone(), Duration::from_secs(30)));
-        
+
         Ok(result)
     }
 

@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::time::Duration;
 
 // Mock structures for benchmarking
@@ -33,7 +33,7 @@ fn create_test_facts(n: usize) -> Vec<MockFact> {
 
 fn benchmark_parse_search_query(c: &mut Criterion) {
     let mut group = c.benchmark_group("parse_search_query");
-    
+
     let queries = vec![
         "simple search",
         "financial AND fraud",
@@ -41,14 +41,13 @@ fn benchmark_parse_search_query(c: &mut Criterion) {
         "NOT suspicious AND (financial OR money)",
         "A very long search query with multiple AND OR NOT operators and special characters",
     ];
-    
+
     for query in queries {
-        group.bench_function(
-            BenchmarkId::new("query", query.len()),
-            |b| b.iter(|| parse_search_query_blackbox(black_box(query)))
-        );
+        group.bench_function(BenchmarkId::new("query", query.len()), |b| {
+            b.iter(|| parse_search_query_blackbox(black_box(query)))
+        });
     }
-    
+
     group.finish();
 }
 
@@ -60,7 +59,7 @@ fn parse_search_query_blackbox(input: &str) -> String {
 
     while pos < chars.len() {
         let c = chars[pos];
-        
+
         if c == '"' {
             result.push('"');
             in_phrase = !in_phrase;
@@ -74,7 +73,9 @@ fn parse_search_query_blackbox(input: &str) -> String {
             result.push(c);
             pos += 1;
         } else if c.eq_ignore_ascii_case(&'A') && result.ends_with(' ') && pos + 2 < chars.len() {
-            if chars[pos + 1].eq_ignore_ascii_case(&'N') && chars[pos + 2].eq_ignore_ascii_case(&'D') {
+            if chars[pos + 1].eq_ignore_ascii_case(&'N')
+                && chars[pos + 2].eq_ignore_ascii_case(&'D')
+            {
                 result.push_str("AND ");
                 pos += 3;
                 continue;
@@ -90,7 +91,9 @@ fn parse_search_query_blackbox(input: &str) -> String {
             result.push(c);
             pos += 1;
         } else if c.eq_ignore_ascii_case(&'N') && result.ends_with(' ') && pos + 2 < chars.len() {
-            if chars[pos + 1].eq_ignore_ascii_case(&'O') && chars[pos + 2].eq_ignore_ascii_case(&'T') {
+            if chars[pos + 1].eq_ignore_ascii_case(&'O')
+                && chars[pos + 2].eq_ignore_ascii_case(&'T')
+            {
                 result.push_str("NOT ");
                 pos += 3;
                 continue;
@@ -108,47 +111,48 @@ fn parse_search_query_blackbox(input: &str) -> String {
 
 fn benchmark_entity_overlap(c: &mut Criterion) {
     use std::collections::{HashMap, HashSet};
-    
+
     let mut group = c.benchmark_group("entity_overlap");
     group.measurement_time(Duration::from_secs(5));
-    
+
     // Test with different sizes
     for size in [10, 50, 100, 200].iter() {
         group.bench_with_input(
             BenchmarkId::new("hashset_overlap", size),
             size,
             |b, &size| {
-                let entities1: HashSet<String> = (0..size).map(|i| format!("entity_{}", i)).collect();
-                let entities2: HashSet<String> = (size/2..size + size/2).map(|i| format!("entity_{}", i)).collect();
-                
+                let entities1: HashSet<String> =
+                    (0..size).map(|i| format!("entity_{}", i)).collect();
+                let entities2: HashSet<String> = (size / 2..size + size / 2)
+                    .map(|i| format!("entity_{}", i))
+                    .collect();
+
                 b.iter(|| {
                     let overlap = entities1.intersection(&entities2).count();
                     black_box(overlap);
                 });
-            }
+            },
         );
-        
-        group.bench_with_input(
-            BenchmarkId::new("vec_overlap", size),
-            size,
-            |b, &size| {
-                let entities1: Vec<String> = (0..size).map(|i| format!("entity_{}", i)).collect();
-                let entities2: Vec<String> = (size/2..size + size/2).map(|i| format!("entity_{}", i)).collect();
-                
-                b.iter(|| {
-                    let overlap = entities1.iter().filter(|e| entities2.contains(e)).count();
-                    black_box(overlap);
-                });
-            }
-        );
+
+        group.bench_with_input(BenchmarkId::new("vec_overlap", size), size, |b, &size| {
+            let entities1: Vec<String> = (0..size).map(|i| format!("entity_{}", i)).collect();
+            let entities2: Vec<String> = (size / 2..size + size / 2)
+                .map(|i| format!("entity_{}", i))
+                .collect();
+
+            b.iter(|| {
+                let overlap = entities1.iter().filter(|e| entities2.contains(e)).count();
+                black_box(overlap);
+            });
+        });
     }
-    
+
     group.finish();
 }
 
 fn benchmark_string_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("string_operations");
-    
+
     // Benchmark String formatting
     group.bench_function("format_fingerprint", |b| {
         b.iter(|| {
@@ -156,7 +160,7 @@ fn benchmark_string_operations(c: &mut Criterion) {
             black_box(s);
         });
     });
-    
+
     // Benchmark string clone
     group.bench_function("string_clone", |b| {
         let original = String::from("This is a test string with some content");
@@ -165,7 +169,7 @@ fn benchmark_string_operations(c: &mut Criterion) {
             black_box(cloned);
         });
     });
-    
+
     // Benchmark to_lowercase
     group.bench_function("to_lowercase", |b| {
         let text = "Financial Fraud Case DOCUMENT with Mixed Case TEXT";
@@ -174,7 +178,7 @@ fn benchmark_string_operations(c: &mut Criterion) {
             black_box(lower);
         });
     });
-    
+
     // Benchmark contains
     group.bench_function("contains_check", |b| {
         let haystack = "This is a long text that contains various keywords like fraud, money, financial transactions";
@@ -183,16 +187,16 @@ fn benchmark_string_operations(c: &mut Criterion) {
             black_box(found);
         });
     });
-    
+
     group.finish();
 }
 
 fn benchmark_hashing(c: &mut Criterion) {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
-    
+
     let mut group = c.benchmark_group("hashing");
-    
+
     group.bench_function("hash_string", |b| {
         let s = "test_string_for_hashing_with_some_content";
         b.iter(|| {
@@ -202,9 +206,11 @@ fn benchmark_hashing(c: &mut Criterion) {
             black_box(hash);
         });
     });
-    
+
     group.bench_function("hash_multiple_strings", |b| {
-        let strings: Vec<String> = (0..100).map(|i| format!("string_{}_with_some_content", i)).collect();
+        let strings: Vec<String> = (0..100)
+            .map(|i| format!("string_{}_with_some_content", i))
+            .collect();
         b.iter(|| {
             let mut hasher = DefaultHasher::new();
             for s in &strings {
@@ -214,15 +220,15 @@ fn benchmark_hashing(c: &mut Criterion) {
             black_box(hash);
         });
     });
-    
+
     group.finish();
 }
 
 fn benchmark_collections(c: &mut Criterion) {
     use std::collections::HashMap;
-    
+
     let mut group = c.benchmark_group("collections");
-    
+
     group.bench_function("hashmap_insert_1000", |b| {
         b.iter(|| {
             let mut map = HashMap::new();
@@ -232,7 +238,7 @@ fn benchmark_collections(c: &mut Criterion) {
             black_box(map);
         });
     });
-    
+
     group.bench_function("hashmap_lookup_1000", |b| {
         let mut map = HashMap::new();
         for i in 0..1000 {
@@ -244,7 +250,7 @@ fn benchmark_collections(c: &mut Criterion) {
             }
         });
     });
-    
+
     group.bench_function("vec_sort_severity", |b| {
         let mut facts = create_test_facts(1000);
         b.iter(|| {
@@ -252,13 +258,13 @@ fn benchmark_collections(c: &mut Criterion) {
             black_box(&facts);
         });
     });
-    
+
     group.finish();
 }
 
 fn benchmark_category_icon(c: &mut Criterion) {
     let mut group = c.benchmark_group("category_icon");
-    
+
     // Test with caching
     group.bench_function("icon_lookup_with_cache", |b| {
         use std::collections::HashMap;
@@ -267,7 +273,7 @@ fn benchmark_category_icon(c: &mut Criterion) {
         cache.insert(Some("Legal".to_string()), "scale".to_string());
         cache.insert(Some("Digital".to_string()), "laptop".to_string());
         cache.insert(None, "file".to_string());
-        
+
         let categories = vec![
             Some("Financial".to_string()),
             Some("Legal".to_string()),
@@ -275,7 +281,7 @@ fn benchmark_category_icon(c: &mut Criterion) {
             None,
             Some("Unknown".to_string()),
         ];
-        
+
         b.iter(|| {
             for cat in &categories {
                 let icon = cache.get(cat).unwrap_or(&"file".to_string()).clone();
@@ -283,7 +289,7 @@ fn benchmark_category_icon(c: &mut Criterion) {
             }
         });
     });
-    
+
     // Test without caching (simulating multiple calls)
     group.bench_function("icon_lookup_no_cache", |b| {
         fn get_category_icon(category: &Option<String>) -> &str {
@@ -296,7 +302,7 @@ fn benchmark_category_icon(c: &mut Criterion) {
                 _ => "file",
             }
         }
-        
+
         let categories = vec![
             Some("Financial".to_string()),
             Some("Legal".to_string()),
@@ -304,7 +310,7 @@ fn benchmark_category_icon(c: &mut Criterion) {
             None,
             Some("Unknown".to_string()),
         ];
-        
+
         b.iter(|| {
             for cat in &categories {
                 let icon = get_category_icon(cat);
@@ -312,7 +318,7 @@ fn benchmark_category_icon(c: &mut Criterion) {
             }
         });
     });
-    
+
     group.finish();
 }
 

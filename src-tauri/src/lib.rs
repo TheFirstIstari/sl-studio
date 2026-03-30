@@ -88,10 +88,10 @@ pub struct SystemMonitor {
 #[tauri::command]
 fn get_system_monitor() -> SystemMonitor {
     use sysinfo::System;
-    
+
     let mut sys = System::new_all();
     sys.refresh_all();
-    
+
     let cpu_usage = sys.global_cpu_usage();
     let memory_used = sys.used_memory() as f64 / (1024.0 * 1024.0 * 1024.0);
     let memory_total = sys.total_memory() as f64 / (1024.0 * 1024.0 * 1024.0);
@@ -101,11 +101,11 @@ fn get_system_monitor() -> SystemMonitor {
     } else {
         0.0
     };
-    
+
     let gpu_status = gpu::detect();
     let gpu_usage = gpu_status.gpu_info.first().map(|_| 0.0f32);
     let gpu_memory = gpu_status.gpu_info.first().map(|g| g.vram_mb / 2);
-    
+
     SystemMonitor {
         cpu_usage_percent: cpu_usage,
         memory_used_gb: memory_used,
@@ -129,7 +129,7 @@ fn get_processing_stats(state: State<AppState>) -> Result<ProcessingStats, Strin
     let db = state.db.lock().unwrap();
     if let Some(db) = db.as_ref() {
         let stats = db.get_overall_statistics().map_err(|e| e.to_string())?;
-        
+
         Ok(ProcessingStats {
             files_processed: stats.total_facts,
             files_pending: 0,
@@ -602,10 +602,12 @@ pub struct ExportReport {
 fn export_full_report_json(state: State<AppState>) -> Result<String, String> {
     let db = state.db.lock().unwrap();
     if let Some(db) = db.as_ref() {
-        let facts = db.get_weighted_evidence(0.0, 10000).map_err(|e| e.to_string())?;
+        let facts = db
+            .get_weighted_evidence(0.0, 10000)
+            .map_err(|e| e.to_string())?;
         let statistics = db.get_overall_statistics().map_err(|e| e.to_string())?;
         let categories = db.get_category_distribution().map_err(|e| e.to_string())?;
-        
+
         let report = ExportReport {
             facts,
             statistics,
@@ -621,8 +623,10 @@ fn export_full_report_json(state: State<AppState>) -> Result<String, String> {
 fn export_facts_csv(state: State<AppState>, min_weight: f64, limit: i64) -> Result<String, String> {
     let db = state.db.lock().unwrap();
     if let Some(db) = db.as_ref() {
-        let facts = db.get_weighted_evidence(min_weight, limit).map_err(|e| e.to_string())?;
-        
+        let facts = db
+            .get_weighted_evidence(min_weight, limit)
+            .map_err(|e| e.to_string())?;
+
         let mut csv = String::from("id,fingerprint,filename,category,severity,confidence,quality,weight,summary,created_at\n");
         for f in facts {
             csv.push_str(&format!(
@@ -660,35 +664,90 @@ fn export_pdf_report(state: State<AppState>) -> Result<Vec<u8>, String> {
     let db = state.db.lock().unwrap();
     let db_ref = db.as_ref().ok_or("Database not initialized")?;
 
-    let facts = db_ref.get_weighted_evidence(0.0, 100).map_err(|e| e.to_string())?;
+    let facts = db_ref
+        .get_weighted_evidence(0.0, 100)
+        .map_err(|e| e.to_string())?;
     let stats = db_ref.get_overall_statistics().map_err(|e| e.to_string())?;
-    let categories = db_ref.get_category_distribution().map_err(|e| e.to_string())?;
+    let categories = db_ref
+        .get_category_distribution()
+        .map_err(|e| e.to_string())?;
 
-    let (doc, page1, layer1) = PdfDocument::new(
-        "SL Studio Forensic Report",
-        Mm(210.0),
-        Mm(297.0),
-        "Layer 1",
-    );
+    let (doc, page1, layer1) =
+        PdfDocument::new("SL Studio Forensic Report", Mm(210.0), Mm(297.0), "Layer 1");
 
-    let font = doc.add_builtin_font(BuiltinFont::Helvetica).map_err(|e| e.to_string())?;
-    let font_bold = doc.add_builtin_font(BuiltinFont::HelveticaBold).map_err(|e| e.to_string())?;
+    let font = doc
+        .add_builtin_font(BuiltinFont::Helvetica)
+        .map_err(|e| e.to_string())?;
+    let font_bold = doc
+        .add_builtin_font(BuiltinFont::HelveticaBold)
+        .map_err(|e| e.to_string())?;
 
     let current_layer = doc.get_page(page1).get_layer(layer1);
 
-    current_layer.use_text("SL Studio - Forensic Document Analysis Report", 24.0, Mm(20.0), Mm(277.0), &font_bold);
-    current_layer.use_text(&format!("Generated: {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S")), 10.0, Mm(20.0), Mm(268.0), &font);
+    current_layer.use_text(
+        "SL Studio - Forensic Document Analysis Report",
+        24.0,
+        Mm(20.0),
+        Mm(277.0),
+        &font_bold,
+    );
+    current_layer.use_text(
+        format!(
+            "Generated: {}",
+            chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
+        ),
+        10.0,
+        Mm(20.0),
+        Mm(268.0),
+        &font,
+    );
 
     current_layer.use_text("Summary Statistics", 16.0, Mm(20.0), Mm(250.0), &font_bold);
-    current_layer.use_text(&format!("Total Facts: {}", stats.total_facts), 12.0, Mm(25.0), Mm(240.0), &font);
-    current_layer.use_text(&format!("Total Entities: {}", stats.total_entities), 12.0, Mm(25.0), Mm(232.0), &font);
-    current_layer.use_text(&format!("Unique Entities: {}", stats.unique_entities), 12.0, Mm(25.0), Mm(224.0), &font);
-    current_layer.use_text(&format!("Total Chains: {}", stats.total_chains), 12.0, Mm(25.0), Mm(216.0), &font);
+    current_layer.use_text(
+        format!("Total Facts: {}", stats.total_facts),
+        12.0,
+        Mm(25.0),
+        Mm(240.0),
+        &font,
+    );
+    current_layer.use_text(
+        format!("Total Entities: {}", stats.total_entities),
+        12.0,
+        Mm(25.0),
+        Mm(232.0),
+        &font,
+    );
+    current_layer.use_text(
+        format!("Unique Entities: {}", stats.unique_entities),
+        12.0,
+        Mm(25.0),
+        Mm(224.0),
+        &font,
+    );
+    current_layer.use_text(
+        format!("Total Chains: {}", stats.total_chains),
+        12.0,
+        Mm(25.0),
+        Mm(216.0),
+        &font,
+    );
 
-    current_layer.use_text("Category Distribution", 16.0, Mm(20.0), Mm(198.0), &font_bold);
+    current_layer.use_text(
+        "Category Distribution",
+        16.0,
+        Mm(20.0),
+        Mm(198.0),
+        &font_bold,
+    );
     let mut y_pos = 188.0;
     for cat in categories.iter().take(10) {
-        current_layer.use_text(&format!("{}: {} items", cat.category, cat.count), 11.0, Mm(25.0), Mm(y_pos), &font);
+        current_layer.use_text(
+            format!("{}: {} items", cat.category, cat.count),
+            11.0,
+            Mm(25.0),
+            Mm(y_pos),
+            &font,
+        );
         y_pos -= 7.0;
     }
 
@@ -703,7 +762,18 @@ fn export_pdf_report(state: State<AppState>) -> Result<Vec<u8>, String> {
         } else {
             fact.summary.clone()
         };
-        current_layer.use_text(&format!("{}. [{}] {}", i + 1, fact.category.as_deref().unwrap_or("N/A"), summary), 9.0, Mm(25.0), Mm(y_pos), &font);
+        current_layer.use_text(
+            format!(
+                "{}. [{}] {}",
+                i + 1,
+                fact.category.as_deref().unwrap_or("N/A"),
+                summary
+            ),
+            9.0,
+            Mm(25.0),
+            Mm(y_pos),
+            &font,
+        );
         y_pos -= 6.0;
     }
 
@@ -727,10 +797,18 @@ fn export_excel_data(state: State<AppState>) -> Result<String, String> {
     let db = state.db.lock().unwrap();
     let db_ref = db.as_ref().ok_or("Database not initialized")?;
 
-    let facts = db_ref.get_weighted_evidence(0.0, 1000).map_err(|e| e.to_string())?;
-    let categories = db_ref.get_category_distribution().map_err(|e| e.to_string())?;
-    let entities = db_ref.get_entity_centrality(None, 0.0).map_err(|e| e.to_string())?;
-    let timeline = db_ref.get_timeline_events(None, None, 1000).map_err(|e| e.to_string())?;
+    let facts = db_ref
+        .get_weighted_evidence(0.0, 1000)
+        .map_err(|e| e.to_string())?;
+    let categories = db_ref
+        .get_category_distribution()
+        .map_err(|e| e.to_string())?;
+    let entities = db_ref
+        .get_entity_centrality(None, 0.0)
+        .map_err(|e| e.to_string())?;
+    let timeline = db_ref
+        .get_timeline_events(None, None, 1000)
+        .map_err(|e| e.to_string())?;
 
     let data = ExcelData {
         facts,
@@ -773,18 +851,19 @@ fn open_project_db(path: &str) -> Result<Database, String> {
     if !db_path.exists() {
         return Err(format!("Database file not found: {}", path));
     }
-    
+
     let registry_db = db_path.join("registry.db");
     let intelligence_db = db_path.join("intelligence.db");
-    
+
     if !registry_db.exists() || !intelligence_db.exists() {
         return Err("Invalid project directory - missing database files".to_string());
     }
-    
+
     Database::new(
         registry_db.to_string_lossy().as_ref(),
         intelligence_db.to_string_lossy().as_ref(),
-    ).map_err(|e| e.to_string())
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -794,83 +873,98 @@ fn compare_projects(
 ) -> Result<ProjectComparison, String> {
     let db1 = state.db.lock().unwrap();
     let db_ref1 = db1.as_ref().ok_or("Database not initialized")?;
-    
+
     let config = state.config.lock().unwrap();
     let project1_name = config.project.name.clone();
-    
+
     let db2 = open_project_db(&project2_path)?;
-    
-    let entities1 = db_ref1.get_entity_centrality(None, 0.0).map_err(|e| e.to_string())?;
-    let entities2 = db2.get_entity_centrality(None, 0.0).map_err(|e| e.to_string())?;
-    
+
+    let entities1 = db_ref1
+        .get_entity_centrality(None, 0.0)
+        .map_err(|e| e.to_string())?;
+    let entities2 = db2
+        .get_entity_centrality(None, 0.0)
+        .map_err(|e| e.to_string())?;
+
     let mut entity_overlap = Vec::new();
     let mut common_entities = Vec::new();
-    
+
     let mut entity_map1: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
     for e in &entities1 {
         *entity_map1.entry(e.value.clone()).or_insert(0) += e.occurrence_count;
     }
-    
+
     let mut entity_map2: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
     for e in &entities2 {
         *entity_map2.entry(e.value.clone()).or_insert(0) += e.occurrence_count;
     }
-    
+
     for (value, count1) in &entity_map1 {
         if let Some(&count2) = entity_map2.get(value) {
-            let entity_type = entities1.iter()
+            let entity_type = entities1
+                .iter()
                 .find(|e| &e.value == value)
                 .map(|e| e.entity_type.clone())
                 .unwrap_or_default();
-            
+
             entity_overlap.push(EntityOverlap {
                 entity_value: value.clone(),
                 entity_type,
                 count_project1: *count1,
                 count_project2: count2,
             });
-            
+
             if let Some(e1) = entities1.iter().find(|e| &e.value == value) {
                 common_entities.push(e1.clone());
             }
         }
     }
-    
-    let timeline1 = db_ref1.get_timeline_events(None, None, 1000).map_err(|e| e.to_string())?;
-    let timeline2 = db2.get_timeline_events(None, None, 1000).map_err(|e| e.to_string())?;
-    
+
+    let timeline1 = db_ref1
+        .get_timeline_events(None, None, 1000)
+        .map_err(|e| e.to_string())?;
+    let timeline2 = db2
+        .get_timeline_events(None, None, 1000)
+        .map_err(|e| e.to_string())?;
+
     let mut dates1: std::collections::HashSet<String> = std::collections::HashSet::new();
     for e in &timeline1 {
         dates1.insert(e.date.clone());
     }
-    
+
     let mut dates2: std::collections::HashSet<String> = std::collections::HashSet::new();
     for e in &timeline2 {
         dates2.insert(e.date.clone());
     }
-    
+
     let intersection: std::collections::HashSet<_> = dates1.intersection(&dates2).collect();
     let union: std::collections::HashSet<_> = dates1.union(&dates2).collect();
-    
+
     let correlation_score = if union.is_empty() {
         0.0
     } else {
         intersection.len() as f64 / union.len() as f64
     };
-    
+
     let timeline_correlation = TimelineCorrelation {
         correlation_score,
         aligned_events: intersection.len() as i32,
         project1_date_range: (
-            timeline1.first().map(|e| e.date.clone()).unwrap_or_default(),
+            timeline1
+                .first()
+                .map(|e| e.date.clone())
+                .unwrap_or_default(),
             timeline1.last().map(|e| e.date.clone()).unwrap_or_default(),
         ),
         project2_date_range: (
-            timeline2.first().map(|e| e.date.clone()).unwrap_or_default(),
+            timeline2
+                .first()
+                .map(|e| e.date.clone())
+                .unwrap_or_default(),
             timeline2.last().map(|e| e.date.clone()).unwrap_or_default(),
         ),
     };
-    
+
     let fact_similarity = if common_entities.is_empty() {
         0.0
     } else {
@@ -881,7 +975,7 @@ fn compare_projects(
             2.0 * common_entities.len() as f64 / total_entities as f64
         }
     };
-    
+
     Ok(ProjectComparison {
         project1_name,
         project2_name: std::path::Path::new(&project2_path)
@@ -908,12 +1002,14 @@ pub struct ProjectSummary {
 fn get_project_summary(state: State<AppState>) -> Result<ProjectSummary, String> {
     let db = state.db.lock().unwrap();
     let db_ref = db.as_ref().ok_or("Database not initialized")?;
-    
+
     let stats = db_ref.get_overall_statistics().map_err(|e| e.to_string())?;
-    let timeline = db_ref.get_timeline_events(None, None, 1000).map_err(|e| e.to_string())?;
-    
+    let timeline = db_ref
+        .get_timeline_events(None, None, 1000)
+        .map_err(|e| e.to_string())?;
+
     let config = state.config.lock().unwrap();
-    
+
     Ok(ProjectSummary {
         name: config.project.name.clone(),
         path: config.project.name.clone(),
@@ -932,71 +1028,76 @@ pub struct BackupInfo {
 }
 
 #[tauri::command]
-fn create_backup(
-    state: State<AppState>,
-    include_evidence: bool,
-) -> Result<BackupInfo, String> {
+fn create_backup(state: State<AppState>, include_evidence: bool) -> Result<BackupInfo, String> {
     use std::io::Write;
-    
+
     let config = state.config.lock().unwrap();
     let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
     let backup_name = format!("slstudio_backup_{}.zip", timestamp);
-    
+
     let export_dir = dirs::data_dir()
         .unwrap_or_default()
         .join("slstudio")
         .join("backups");
-    
+
     if !export_dir.exists() {
         std::fs::create_dir_all(&export_dir).map_err(|e| e.to_string())?;
     }
-    
+
     let backup_path = export_dir.join(&backup_name);
     let file = std::fs::File::create(&backup_path).map_err(|e| e.to_string())?;
     let mut zip = zip::ZipWriter::new(file);
     let options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated);
-    
+
     let registry_db = std::path::Path::new(&config.project.registry_db);
     let intelligence_db = std::path::Path::new(&config.project.intelligence_db);
-    
+
     if registry_db.exists() {
         let data = std::fs::read(registry_db).map_err(|e| e.to_string())?;
-        zip.start_file("registry.db", options).map_err(|e| e.to_string())?;
+        zip.start_file("registry.db", options)
+            .map_err(|e| e.to_string())?;
         zip.write_all(&data).map_err(|e| e.to_string())?;
     }
-    
+
     if intelligence_db.exists() {
         let data = std::fs::read(intelligence_db).map_err(|e| e.to_string())?;
-        zip.start_file("intelligence.db", options).map_err(|e| e.to_string())?;
+        zip.start_file("intelligence.db", options)
+            .map_err(|e| e.to_string())?;
         zip.write_all(&data).map_err(|e| e.to_string())?;
     }
-    
+
     let config_data = serde_json::to_string_pretty(&*config).map_err(|e| e.to_string())?;
-    zip.start_file("config.json", options).map_err(|e| e.to_string())?;
-    zip.write_all(config_data.as_bytes()).map_err(|e| e.to_string())?;
-    
+    zip.start_file("config.json", options)
+        .map_err(|e| e.to_string())?;
+    zip.write_all(config_data.as_bytes())
+        .map_err(|e| e.to_string())?;
+
     if include_evidence {
         let evidence_root = std::path::Path::new(&config.project.evidence_root);
         if evidence_root.exists() {
-            for entry in walkdir::WalkDir::new(evidence_root).into_iter().filter_map(|e| e.ok()) {
+            for entry in walkdir::WalkDir::new(evidence_root)
+                .into_iter()
+                .filter_map(|e| e.ok())
+            {
                 if entry.file_type().is_file() {
                     let path = entry.path();
                     let name = path.strip_prefix(evidence_root).unwrap().to_string_lossy();
                     let data = std::fs::read(path).map_err(|e| e.to_string())?;
-                    zip.start_file(format!("evidence/{}", name), options).map_err(|e| e.to_string())?;
+                    zip.start_file(format!("evidence/{}", name), options)
+                        .map_err(|e| e.to_string())?;
                     zip.write_all(&data).map_err(|e| e.to_string())?;
                 }
             }
         }
     }
-    
+
     zip.finish().map_err(|e| e.to_string())?;
-    
+
     let metadata = std::fs::metadata(&backup_path).map_err(|e| e.to_string())?;
-    
+
     info!("Backup created: {}", backup_path.display());
-    
+
     Ok(BackupInfo {
         backup_path: backup_path.to_string_lossy().to_string(),
         size_bytes: metadata.len(),
@@ -1006,19 +1107,16 @@ fn create_backup(
 }
 
 #[tauri::command]
-fn restore_backup(
-    state: State<AppState>,
-    backup_path: String,
-) -> Result<(), String> {
+fn restore_backup(state: State<AppState>, backup_path: String) -> Result<(), String> {
     let file = std::fs::File::open(&backup_path).map_err(|e| e.to_string())?;
     let mut archive = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
-    
+
     let config = state.config.lock().unwrap();
-    
+
     for i in 0..archive.len() {
         let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
         let name = file.name().to_string();
-        
+
         match name.as_str() {
             "registry.db" => {
                 let path = std::path::Path::new(&config.project.registry_db);
@@ -1042,7 +1140,7 @@ fn restore_backup(
             _ => {}
         }
     }
-    
+
     info!("Backup restored from: {}", backup_path);
     Ok(())
 }
@@ -1058,11 +1156,7 @@ pub struct Notification {
 }
 
 #[tauri::command]
-fn send_notification(
-    _app: AppHandle,
-    title: String,
-    message: String,
-) -> Result<(), String> {
+fn send_notification(_app: AppHandle, title: String, message: String) -> Result<(), String> {
     info!("Notification: {} - {}", title, message);
     Ok(())
 }
