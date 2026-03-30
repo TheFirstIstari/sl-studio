@@ -9,8 +9,8 @@ src-tauri/target/
 coverage/
 *.log
 *.pdf
-~/.rustup
 swebok-v4.txt
 specguide.txt
 rfc2119.txt
 src-tauri/~/.rustup
+~/.rustup
