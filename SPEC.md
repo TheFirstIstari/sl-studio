@@ -2860,7 +2860,7 @@ steinline/
 
 - [x] Write unit tests for core modules (56 tests)
 - [x] Create integration tests (8 tests for backup/export/notifications)
-- [ ] Perform E2E testing with Playwright 🔜 FUTURE
+- [x] Perform E2E testing with Playwright (46 tests across 6 files)
 - [ ] Conduct usability testing 🔜 FUTURE
 
 ### 9.2 Documentation ✅

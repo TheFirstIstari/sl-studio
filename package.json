@@ -13,7 +13,13 @@
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
 		"format": "prettier --write .",
-		"format:check": "prettier --check ."
+		"format:check": "prettier --check .",
+		"test": "playwright test",
+		"test:ui": "playwright test --ui",
+		"test:headed": "playwright test --headed",
+		"test:chromium": "playwright test --project=chromium",
+		"test:firefox": "playwright test --project=firefox",
+		"test:webkit": "playwright test --project=webkit"
 	},
 	"license": "MIT",
 	"dependencies": {
@@ -25,6 +31,7 @@
 		"leaflet": "^1.9.4"
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.58.2",
 		"@sveltejs/adapter-static": "^3.0.6",
 		"@sveltejs/kit": "^2.9.0",
 		"@sveltejs/vite-plugin-svelte": "^5.0.0",

@@ -1,0 +1,98 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - img [ref=e6]
+        - generic [ref=e10]: SL Studio
+      - generic [ref=e13]: Ready
+    - generic [ref=e14]:
+      - navigation [ref=e15]:
+        - list [ref=e16]:
+          - listitem [ref=e17]:
+            - link "Dashboard" [ref=e18] [cursor=pointer]:
+              - /url: /
+              - img [ref=e19]
+              - generic [ref=e24]: Dashboard
+          - listitem [ref=e25]:
+            - link "Analysis" [ref=e26] [cursor=pointer]:
+              - /url: /analysis
+              - img [ref=e27]
+              - generic [ref=e30]: Analysis
+          - listitem [ref=e31]:
+            - link "Results" [ref=e32] [cursor=pointer]:
+              - /url: /results
+              - img [ref=e33]
+              - generic [ref=e37]: Results
+          - listitem [ref=e38]:
+            - link "Timeline" [ref=e39] [cursor=pointer]:
+              - /url: /timeline
+              - img [ref=e40]
+              - generic [ref=e43]: Timeline
+          - listitem [ref=e44]:
+            - link "Statistics" [ref=e45] [cursor=pointer]:
+              - /url: /stats
+              - img [ref=e46]
+              - generic [ref=e47]: Statistics
+          - listitem [ref=e48]:
+            - link "Network" [ref=e49] [cursor=pointer]:
+              - /url: /network
+              - img [ref=e50]
+              - generic [ref=e56]: Network
+          - listitem [ref=e57]:
+            - link "Maps" [ref=e58] [cursor=pointer]:
+              - /url: /maps
+              - img [ref=e59]
+              - generic [ref=e62]: Maps
+          - listitem [ref=e63]:
+            - link "Anomalies" [ref=e64] [cursor=pointer]:
+              - /url: /anomalies
+              - img [ref=e65]
+              - generic [ref=e67]: Anomalies
+          - listitem [ref=e68]:
+            - link "Export" [ref=e69] [cursor=pointer]:
+              - /url: /export
+              - img [ref=e70]
+              - generic [ref=e71]: Export
+          - listitem [ref=e72]:
+            - link "Compare" [ref=e73] [cursor=pointer]:
+              - /url: /compare
+              - img [ref=e74]
+              - generic [ref=e75]: Compare
+          - listitem [ref=e76]:
+            - link "Backup" [ref=e77] [cursor=pointer]:
+              - /url: /backup
+              - img [ref=e78]
+              - generic [ref=e79]: Backup
+          - listitem [ref=e80]:
+            - link "Settings" [ref=e81] [cursor=pointer]:
+              - /url: /settings
+              - img [ref=e82]
+              - generic [ref=e85]: Settings
+      - main [ref=e86]:
+        - generic [ref=e87]:
+          - generic [ref=e88]:
+            - heading "Anomaly Detection" [level=1] [ref=e89]
+            - generic [ref=e90]:
+              - generic [ref=e91]:
+                - generic [ref=e92]: "Metric:"
+                - combobox "Metric:" [ref=e93]:
+                  - option "Severity" [selected]
+                  - option "Confidence"
+                  - option "Quality"
+              - generic [ref=e94]:
+                - generic [ref=e95]: "Threshold (σ):"
+                - spinbutton "Threshold (σ):" [ref=e96]: "2"
+          - generic [ref=e97]:
+            - img [ref=e98]
+            - paragraph [ref=e101]: No anomalies detected.
+            - paragraph [ref=e102]: All values are within the normal range.
+    - contentinfo [ref=e103]:
+      - generic [ref=e104]:
+        - generic [ref=e105]: $
+        - generic [ref=e106]: SL Studio v0.1.0
+  - generic [ref=e107]: Press ? for shortcuts
+  - generic [ref=e108]: Tauri + SvelteKit + Typescript App
+```
