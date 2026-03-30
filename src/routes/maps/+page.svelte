@@ -87,12 +87,12 @@
 		});
 
 		if (locations.filter((l) => l.latitude !== null).length > 0) {
-			map.fitBounds(
+			const bounds = L.latLngBounds(
 				locations
 					.filter((l) => l.latitude !== null)
-					.map((l) => [l.latitude!, l.longitude!] as L.LatLngTupleExpression),
-				{ padding: [50, 50] }
+					.map((l) => [l.latitude!, l.longitude!] as L.LatLngTuple)
 			);
+			map.fitBounds(bounds, { padding: [50, 50] });
 		}
 	}
 

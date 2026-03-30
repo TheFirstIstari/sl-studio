@@ -2793,7 +2793,7 @@ steinline/
 
 - [x] Implement Timeline visualization
 - [x] Add Network graph (Cytoscape.js)
-- [ ] Integrate Leaflet.js for maps
+- [x] Integrate Leaflet.js for maps
 - [x] Create Charts for statistics
 - [x] Add Anomaly dashboard
 
