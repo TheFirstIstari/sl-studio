@@ -1599,9 +1599,10 @@ impl Database {
             let mut stmt = conn.prepare(
                 "SELECT DISTINCT i.category FROM evidence_chain_links l
                  JOIN intelligence i ON l.intelligence_id = i.id
-                 WHERE l.chain_id = ?1 AND i.category IS NOT NULL"
+                 WHERE l.chain_id = ?1 AND i.category IS NOT NULL",
             )?;
-            let result: Vec<String> = stmt.query_map([chain_id], |row| row.get(0))?
+            let result: Vec<String> = stmt
+                .query_map([chain_id], |row| row.get(0))?
                 .filter_map(|r| r.ok())
                 .collect();
             result
@@ -1611,7 +1612,8 @@ impl Database {
             let mut stmt = conn.prepare(
                 "SELECT DISTINCT relationship_type FROM evidence_chain_links WHERE chain_id = ?1",
             )?;
-            let result: Vec<String> = stmt.query_map([chain_id], |row| row.get(0))?
+            let result: Vec<String> = stmt
+                .query_map([chain_id], |row| row.get(0))?
                 .filter_map(|r| r.ok())
                 .collect();
             result

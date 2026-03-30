@@ -192,6 +192,139 @@ fn get_app_data_dir() -> String {
 }
 
 #[tauri::command]
+fn search_facts(
+    state: State<AppState>,
+    query: String,
+    limit: i64,
+) -> Result<Vec<core::SearchResult>, String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.search_facts(&query, limit).map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn search_entities(
+    state: State<AppState>,
+    query: String,
+    limit: i64,
+) -> Result<Vec<core::EntitySearchResult>, String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.search_entities(&query, limit).map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn search_combined(
+    state: State<AppState>,
+    query: String,
+    limit: i64,
+) -> Result<Vec<core::CombinedSearchResult>, String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.search_combined(&query, limit).map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_timeline_events(
+    state: State<AppState>,
+    start_date: Option<String>,
+    end_date: Option<String>,
+    limit: i64,
+) -> Result<Vec<core::TimelineEvent>, String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.get_timeline_events(start_date.as_deref(), end_date.as_deref(), limit)
+            .map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_overall_statistics(state: State<AppState>) -> Result<core::OverallStatistics, String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.get_overall_statistics().map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_category_distribution(state: State<AppState>) -> Result<Vec<core::CategoryStats>, String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.get_category_distribution().map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_severity_distribution(state: State<AppState>) -> Result<Vec<core::SeverityStats>, String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.get_severity_distribution().map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_entity_centrality(
+    state: State<AppState>,
+    entity_type: Option<String>,
+    min_confidence: f64,
+) -> Result<Vec<core::EntityCentrality>, String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.get_entity_centrality(entity_type.as_deref(), min_confidence)
+            .map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn detect_anomalies(
+    state: State<AppState>,
+    metric: String,
+    threshold_std: f64,
+) -> Result<Vec<core::Anomaly>, String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.detect_anomalies(&metric, threshold_std)
+            .map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_weighted_evidence(
+    state: State<AppState>,
+    min_weight: f64,
+    limit: i64,
+) -> Result<Vec<core::WeightedEvidence>, String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.get_weighted_evidence(min_weight, limit)
+            .map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
 fn get_models_dir() -> String {
     if IS_DEV {
         utils::dev_models_dir().to_string_lossy().to_string()
@@ -556,6 +689,16 @@ pub fn run() {
             analyze_file,
             is_model_loaded,
             get_reasoner_config,
+            search_facts,
+            search_entities,
+            search_combined,
+            get_timeline_events,
+            get_overall_statistics,
+            get_category_distribution,
+            get_severity_distribution,
+            get_entity_centrality,
+            detect_anomalies,
+            get_weighted_evidence,
         ])
         .setup(|_app| {
             info!("Tauri app setup complete");

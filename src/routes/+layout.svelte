@@ -5,6 +5,9 @@
 		{ href: '/', label: 'Dashboard', icon: 'dashboard' },
 		{ href: '/analysis', label: 'Analysis', icon: 'search' },
 		{ href: '/results', label: 'Results', icon: 'list' },
+		{ href: '/timeline', label: 'Timeline', icon: 'timeline' },
+		{ href: '/stats', label: 'Statistics', icon: 'chart' },
+		{ href: '/anomalies', label: 'Anomalies', icon: 'alert' },
 		{ href: '/settings', label: 'Settings', icon: 'settings' }
 	];
 </script>
@@ -46,14 +49,25 @@
 								{:else if item.icon === 'search'}
 									<circle cx="11" cy="11" r="8" />
 									<path d="M21 21l-4.35-4.35" />
-								{:else if item.icon === 'list'}
-									<line x1="8" y1="6" x2="21" y2="6" />
-									<line x1="8" y1="12" x2="21" y2="12" />
-									<line x1="8" y1="18" x2="21" y2="18" />
-									<circle cx="4" cy="6" r="1" fill="currentColor" />
-									<circle cx="4" cy="12" r="1" fill="currentColor" />
-									<circle cx="4" cy="18" r="1" fill="currentColor" />
-								{:else if item.icon === 'settings'}
+							{:else if item.icon === 'list'}
+								<line x1="8" y1="6" x2="21" y2="6" />
+								<line x1="8" y1="12" x2="21" y2="12" />
+								<line x1="8" y1="18" x2="21" y2="18" />
+								<circle cx="4" cy="6" r="1" fill="currentColor" />
+								<circle cx="4" cy="12" r="1" fill="currentColor" />
+								<circle cx="4" cy="18" r="1" fill="currentColor" />
+							{:else if item.icon === 'timeline'}
+								<circle cx="12" cy="12" r="10" />
+								<polyline points="12 6 12 12 16 14" />
+							{:else if item.icon === 'chart'}
+								<line x1="18" y1="20" x2="18" y2="10" />
+								<line x1="12" y1="20" x2="12" y2="4" />
+								<line x1="6" y1="20" x2="6" y2="14" />
+							{:else if item.icon === 'alert'}
+								<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+								<line x1="12" y1="9" x2="12" y2="13" />
+								<line x1="12" y1="17" x2="12.01" y2="17" />
+							{:else if item.icon === 'settings'}
 									<circle cx="12" cy="12" r="3" />
 									<path
 										d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"

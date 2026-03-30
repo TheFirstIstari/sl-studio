@@ -2783,19 +2783,19 @@ steinline/
 
 ### 6.1 Core UI
 
-- [ ] Build Dashboard page
-- [ ] Create Analysis configuration page
-- [ ] Implement Pipeline builder UI
-- [ ] Build Results viewer with filtering
-- [ ] Add Settings page
+- [x] Build Dashboard page
+- [x] Create Analysis configuration page
+- [x] Implement Pipeline builder UI
+- [x] Build Results viewer with filtering
+- [x] Add Settings page
 
 ### 6.2 Visualization
 
-- [ ] Implement Timeline visualization
+- [x] Implement Timeline visualization
 - [ ] Add Network graph (Cytoscape.js)
 - [ ] Integrate Leaflet.js for maps
-- [ ] Create Charts for statistics
-- [ ] Add Anomaly dashboard
+- [x] Create Charts for statistics
+- [x] Add Anomaly dashboard
 
 ### 6.3 User Experience
 
