@@ -2820,10 +2820,10 @@ steinline/
 
 ### 7.2 Case Comparison
 
-- [ ] Implement cross-project comparison
-- [ ] Add entity overlap detection
-- [ ] Create timeline correlation
-- [ ] Build comparison UI
+- [x] Implement cross-project comparison
+- [x] Add entity overlap detection
+- [x] Create timeline correlation
+- [x] Build comparison UI
 
 **Milestone: Export and reporting complete**
 

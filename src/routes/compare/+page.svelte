@@ -28,7 +28,12 @@
 		project1_name: string;
 		project2_name: string;
 		entity_overlap: EntityOverlap[];
-		common_entities: Array<{ entity_id: number; entity_type: string; value: string; occurrence_count: number }>;
+		common_entities: Array<{
+			entity_id: number;
+			entity_type: string;
+			value: string;
+			occurrence_count: number;
+		}>;
 		timeline_correlation: TimelineCorrelation;
 		fact_similarity: number;
 	}
@@ -139,14 +144,18 @@
 			<div class="timeline-correlation">
 				<h3>Timeline Correlation</h3>
 				<p>
-					Correlation Score: <strong>{(comparison.timeline_correlation.correlation_score * 100).toFixed(1)}%</strong>
+					Correlation Score: <strong
+						>{(comparison.timeline_correlation.correlation_score * 100).toFixed(1)}%</strong
+					>
 				</p>
 				<p>Aligned Events: <strong>{comparison.timeline_correlation.aligned_events}</strong></p>
 				<p class="date-range">
-					Project 1: {comparison.timeline_correlation.project1_date_range[0]} to {comparison.timeline_correlation.project1_date_range[1]}
+					Project 1: {comparison.timeline_correlation.project1_date_range[0]} to {comparison
+						.timeline_correlation.project1_date_range[1]}
 				</p>
 				<p class="date-range">
-					Project 2: {comparison.timeline_correlation.project2_date_range[0]} to {comparison.timeline_correlation.project2_date_range[1]}
+					Project 2: {comparison.timeline_correlation.project2_date_range[0]} to {comparison
+						.timeline_correlation.project2_date_range[1]}
 				</p>
 			</div>
 
