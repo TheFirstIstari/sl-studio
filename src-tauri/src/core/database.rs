@@ -1,6 +1,5 @@
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Mutex;
 use tracing::info;
