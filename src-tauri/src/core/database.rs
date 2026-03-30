@@ -1102,22 +1102,92 @@ impl Database {
         Ok(())
     }
 
-    // Search methods using FTS5
+    // Search methods using FTS5 with Boolean and phrase support
     pub fn search_facts(&self, query: &str, limit: i64) -> Result<Vec<SearchResult>> {
+        self.search_facts_with_filters(query, limit, None, None, None, None)
+    }
+
+    pub fn search_facts_with_filters(
+        &self,
+        query: &str,
+        limit: i64,
+        categories: Option<&[String]>,
+        min_severity: Option<i32>,
+        start_date: Option<&str>,
+        end_date: Option<&str>,
+    ) -> Result<Vec<SearchResult>> {
         let conn = self.intelligence_conn.lock().unwrap();
         
-        // Use FTS5 for full-text search
-        let mut stmt = conn.prepare(
+        let fts_query = Self::parse_search_query(query);
+        
+        let mut sql = String::from(
             "SELECT i.id, i.fingerprint, i.filename, i.fact_summary, i.category, i.severity_score, i.confidence, i.created_at,
                     bm25(facts_fts) as rank
              FROM facts_fts f
              JOIN intelligence i ON f.rowid = i.id
-             WHERE facts_fts MATCH ?1
-             ORDER BY rank
-             LIMIT ?2"
-        )?;
-
-        let entries = stmt.query_map(params![query, limit], |row| {
+             WHERE facts_fts MATCH ?1"
+        );
+        
+        let mut conditions = Vec::new();
+        let mut param_idx = 2;
+        
+        if let Some(cats) = categories {
+            if !cats.is_empty() {
+                let placeholders: Vec<String> = cats.iter().map(|_| format!("?{}", param_idx)).collect();
+                conditions.push(format!("category IN ({})", placeholders.join(",")));
+                param_idx += cats.len() as i32;
+            }
+        }
+        
+        if let Some(severity) = min_severity {
+            conditions.push(format!("severity_score >= ?{}", param_idx));
+            param_idx += 1;
+        }
+        
+        if let Some(start) = start_date {
+            conditions.push(format!("associated_date >= ?{}", param_idx));
+            param_idx += 1;
+        }
+        
+        if let Some(end) = end_date {
+            conditions.push(format!("associated_date <= ?{}", param_idx));
+        }
+        
+        if !conditions.is_empty() {
+            sql.push_str(" AND ");
+            sql.push_str(&conditions.join(" AND "));
+        }
+        
+        sql.push_str(" ORDER BY rank LIMIT ?");
+        
+        let mut stmt = conn.prepare(&sql)?;
+        
+        let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(fts_query.clone()), Box::new(limit)];
+        let mut param_refs: Vec<&dyn rusqlite::ToSql> = vec![&*params_vec[0], &*params_vec[1]];
+        
+        if let Some(cats) = categories {
+            for cat in cats {
+                params_vec.push(Box::new(cat.clone()));
+                param_refs.push(&*params_vec.last().unwrap());
+            }
+        }
+        
+        if let Some(severity) = min_severity {
+            params_vec.push(Box::new(severity));
+            param_refs.push(&*params_vec.last().unwrap());
+        }
+        
+        if let Some(start) = start_date {
+            params_vec.push(Box::new(start.to_string()));
+            param_refs.push(&*params_vec.last().unwrap());
+        }
+        
+        if let Some(end) = end_date {
+            params_vec.push(Box::new(end.to_string()));
+            param_refs.push(&*params_vec.last().unwrap());
+        }
+        
+        let entries = stmt.query_map(rusqlite::params_from_iter(param_refs.iter()), |row| {
             Ok(SearchResult {
                 id: row.get(0)?,
                 fingerprint: row.get(1)?,
@@ -1135,20 +1205,73 @@ impl Database {
     }
 
     pub fn search_entities(&self, query: &str, limit: i64) -> Result<Vec<EntitySearchResult>> {
+        self.search_entities_with_filters(query, limit, None, None)
+    }
+
+    pub fn search_entities_with_filters(
+        &self,
+        query: &str,
+        limit: i64,
+        entity_types: Option<&[String]>,
+        min_confidence: Option<f64>,
+    ) -> Result<Vec<EntitySearchResult>> {
         let conn = self.intelligence_conn.lock().unwrap();
         
-        let mut stmt = conn.prepare(
+        let fts_query = Self::parse_search_query(query);
+        
+        let mut sql = String::from(
             "SELECT e.id, e.fingerprint, e.entity_type, e.value, e.normalized_value, e.confidence,
                     i.filename, bm25(entities_fts) as rank
              FROM entities_fts f
              JOIN entities e ON f.rowid = e.id
              JOIN intelligence i ON e.fingerprint = i.fingerprint
-             WHERE entities_fts MATCH ?1
-             ORDER BY rank
-             LIMIT ?2"
-        )?;
-
-        let entries = stmt.query_map(params![query, limit], |row| {
+             WHERE entities_fts MATCH ?1"
+        );
+        
+        let mut conditions = Vec::new();
+        let mut param_idx = 2;
+        
+        if let Some(types) = entity_types {
+            if !types.is_empty() {
+                let placeholders: Vec<String> = types.iter().map(|_| format!("?{}", param_idx)).collect();
+                conditions.push(format!("e.entity_type IN ({})", placeholders.join(",")));
+                param_idx += types.len() as i32;
+            }
+        }
+        
+        if let Some(conf) = min_confidence {
+            conditions.push(format!("e.confidence >= ?{}", param_idx));
+        }
+        
+        if !conditions.is_empty() {
+            sql.push_str(" AND ");
+            sql.push_str(&conditions.join(" AND "));
+        }
+        
+        sql.push_str(" ORDER BY rank LIMIT ?");
+        
+        let mut stmt = conn.prepare(&sql)?;
+        
+        let param_refs: Vec<&dyn rusqlite::ToSql> = if let Some(types) = entity_types {
+            if let Some(conf) = min_confidence {
+                let mut params: Vec<&dyn rusqlite::ToSql> = vec![&fts_query, &limit];
+                for t in types {
+                    params.push(t);
+                }
+                params.push(&conf);
+                params
+            } else {
+                let mut params: Vec<&dyn rusqlite::ToSql> = vec![&fts_query, &limit];
+                for t in types {
+                    params.push(t);
+                }
+                params
+            }
+        } else {
+            vec![&fts_query, &limit]
+        };
+        
+        let entries = stmt.query_map(rusqlite::params_from_iter(param_refs.iter()), |row| {
             Ok(EntitySearchResult {
                 id: row.get(0)?,
                 fingerprint: row.get(1)?,
@@ -1162,6 +1285,57 @@ impl Database {
         })?;
 
         entries.collect()
+    }
+
+    fn parse_search_query(input: &str) -> String {
+        let mut result = String::new();
+        let mut in_phrase = false;
+        let mut chars = input.chars().peekable();
+        
+        while let Some(c) = chars.next() {
+            if c == '"' {
+                if in_phrase {
+                    result.push('"');
+                    in_phrase = false;
+                } else {
+                    result.push('"');
+                    in_phrase = true;
+                }
+            } else if c == ' ' && !in_phrase {
+                if !result.ends_with(' ') {
+                    result.push(' ');
+                }
+            } else if c == '(' || c == ')' {
+                result.push(c);
+            } else if c.to_ascii_uppercase() == 'A' && result.ends_with(' ') {
+                if chars.clone().take(2).collect::<String>() == "ND" {
+                    result.push_str("AND ");
+                    chars.next();
+                    chars.next();
+                    continue;
+                }
+                result.push(c);
+            } else if c.to_ascii_uppercase() == 'O' && result.ends_with(' ') {
+                if chars.clone().take(1).collect::<String>() == "R" {
+                    result.push_str("OR ");
+                    chars.next();
+                    continue;
+                }
+                result.push(c);
+            } else if c.to_ascii_uppercase() == 'N' && result.ends_with(' ') {
+                if chars.clone().take(2).collect::<String>() == "OT" {
+                    result.push_str("NOT ");
+                    chars.next();
+                    chars.next();
+                    continue;
+                }
+                result.push(c);
+            } else {
+                result.push(c);
+            }
+        }
+        
+        result.trim().to_string()
     }
 
     pub fn search_combined(&self, query: &str, limit: i64) -> Result<Vec<CombinedSearchResult>> {
