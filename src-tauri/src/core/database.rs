@@ -663,7 +663,7 @@ impl Database {
               associated_date, fact_summary, category, identified_crime, severity_score,
               confidence, quality_score, source_language, translated_quote, pipeline_id, pass_name,
               is_deleted, deleted_at, processing_time_ms, created_at)
-              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
+              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
             params![
                 entry.registry_id,
                 entry.fingerprint,
