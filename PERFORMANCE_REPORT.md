@@ -103,7 +103,26 @@ A new `PerformanceMonitor` component has been added that tracks:
 
 ## Benchmark Files
 - `/src-tauri/benches/database_bench.rs` - Criterion benchmarks
-- Run with: `cargo bench`
+
+## Running Benchmarks
+
+### Using mise (recommended)
+```bash
+mise run benchmark          # Run all benchmarks
+mise run benchmark_quick    # Quick run with minimal iterations
+mise run benchmark_search   # Search query parsing only
+mise run benchmark_entities # Entity overlap only
+mise run benchmark_strings  # String operations only
+mise run benchmark_collections # Collection operations only
+mise run benchmark_save     # Save results to file
+```
+
+### Using cargo directly
+```bash
+cargo bench --manifest-path src-tauri/Cargo.toml
+cargo bench --manifest-path src-tauri/Cargo.toml -- --quick  # Quick mode
+cargo bench --manifest-path src-tauri/Cargo.toml -- --warm-up-time 1  # Custom warmup
+```
 
 ## Summary
 

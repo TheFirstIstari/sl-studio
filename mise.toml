@@ -133,8 +133,37 @@ description = "Run tests in CI mode (no debug output)"
 run = "cargo test --manifest-path src-tauri/Cargo.toml -- --nocapture=false"
 
 [tasks.benchmark]
-description = "Run benchmarks if any exist"
+description = "Run all benchmarks"
 run = "cargo bench --manifest-path src-tauri/Cargo.toml"
+alias = "bench"
+
+[tasks.benchmark_quick]
+description = "Run benchmarks with minimal iterations for quick feedback"
+run = "cargo bench --manifest-path src-tauri/Cargo.toml -- --quick"
+
+[tasks.benchmark_search]
+description = "Run search query parsing benchmarks"
+run = "cargo bench --manifest-path src-tauri/Cargo.toml -- parse_search_query"
+
+[tasks.benchmark_entities]
+description = "Run entity overlap benchmarks"
+run = "cargo bench --manifest-path src-tauri/Cargo.toml -- entity_overlap"
+
+[tasks.benchmark_strings]
+description = "Run string operation benchmarks"
+run = "cargo bench --manifest-path src-tauri/Cargo.toml -- string_operations"
+
+[tasks.benchmark_collections]
+description = "Run collection benchmarks"
+run = "cargo bench --manifest-path src-tauri/Cargo.toml -- collections"
+
+[tasks.benchmark_save]
+description = "Run benchmarks and save results to file"
+run = "cargo bench --manifest-path src-tauri/Cargo.toml -- --output-format html > benchmark-results.html 2>&1 || cargo bench --manifest-path src-tauri/Cargo.toml 2>&1 | tee benchmark-results.txt"
+
+[tasks.profile]
+description = "Run Rust profiler (requires perf on Linux or Instruments on macOS)"
+run = "echo 'On macOS, use: instrument -t Time Profiler target/release/steinline'"
 
 [tasks.watch_rust]
 description = "Watch and build Rust with bacon"
