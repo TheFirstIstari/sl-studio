@@ -1,8 +1,28 @@
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use tracing::info;
+
+struct CacheEntry<T: Clone> {
+    data: T,
+    expires_at: Instant,
+}
+
+impl<T: Clone> CacheEntry<T> {
+    fn new(data: T, ttl: Duration) -> Self {
+        Self {
+            data,
+            expires_at: Instant::now() + ttl,
+        }
+    }
+
+    fn is_valid(&self) -> bool {
+        Instant::now() < self.expires_at
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegistryEntry {
@@ -54,6 +74,9 @@ pub struct IntelligenceEntry {
 pub struct Database {
     registry_conn: Mutex<Connection>,
     intelligence_conn: Mutex<Connection>,
+    category_cache: Mutex<Option<CacheEntry<Vec<CategoryStats>>>>,
+    severity_cache: Mutex<Option<CacheEntry<Vec<SeverityStats>>>>,
+    overall_stats_cache: Mutex<Option<CacheEntry<OverallStatistics>>>,
 }
 
 impl Database {
@@ -64,6 +87,9 @@ impl Database {
         let db = Database {
             registry_conn: Mutex::new(reg_conn),
             intelligence_conn: Mutex::new(intel_conn),
+            category_cache: Mutex::new(None),
+            severity_cache: Mutex::new(None),
+            overall_stats_cache: Mutex::new(None),
         };
 
         db.init_schema()?;
@@ -762,6 +788,13 @@ impl Database {
         entries.collect()
     }
 
+    // Cache invalidation helper
+    pub fn invalidate_cache(&self) {
+        *self.category_cache.lock().unwrap() = None;
+        *self.severity_cache.lock().unwrap() = None;
+        *self.overall_stats_cache.lock().unwrap() = None;
+    }
+
     pub fn insert_intelligence(&self, entry: &IntelligenceEntry) -> Result<()> {
         let conn = self.intelligence_conn.lock().unwrap();
         conn.execute(
@@ -796,6 +829,10 @@ impl Database {
                 entry.created_at
             ],
         )?;
+        
+        // Invalidate cache since data changed
+        self.invalidate_cache();
+        
         Ok(())
     }
 
@@ -1299,50 +1336,58 @@ impl Database {
     }
 
     fn parse_search_query(input: &str) -> String {
-        let mut result = String::new();
+        let mut result = String::with_capacity(input.len() + 64);
         let mut in_phrase = false;
-        let mut chars = input.chars().peekable();
-
-        while let Some(c) = chars.next() {
+        let mut pos = 0;
+        let chars: Vec<char> = input.chars().collect();
+        
+        while pos < chars.len() {
+            let c = chars[pos];
+            
             if c == '"' {
-                if in_phrase {
-                    result.push('"');
-                    in_phrase = false;
-                } else {
-                    result.push('"');
-                    in_phrase = true;
-                }
+                result.push('"');
+                in_phrase = !in_phrase;
+                pos += 1;
             } else if c == ' ' && !in_phrase {
                 if !result.ends_with(' ') {
                     result.push(' ');
                 }
+                pos += 1;
             } else if c == '(' || c == ')' {
                 result.push(c);
-            } else if c.eq_ignore_ascii_case(&'A') && result.ends_with(' ') {
-                if chars.clone().take(2).collect::<String>() == "ND" {
+                pos += 1;
+            } else if c.eq_ignore_ascii_case(&'A') && result.ends_with(' ') && pos + 2 < chars.len() {
+                let next = chars[pos + 1];
+                let next2 = chars[pos + 2];
+                if next.eq_ignore_ascii_case(&'N') && next2.eq_ignore_ascii_case(&'D') {
                     result.push_str("AND ");
-                    chars.next();
-                    chars.next();
+                    pos += 3;
                     continue;
                 }
                 result.push(c);
-            } else if c.eq_ignore_ascii_case(&'O') && result.ends_with(' ') {
-                if chars.clone().take(1).collect::<String>() == "R" {
+                pos += 1;
+            } else if c.eq_ignore_ascii_case(&'O') && result.ends_with(' ') && pos + 1 < chars.len() {
+                let next = chars[pos + 1];
+                if next.eq_ignore_ascii_case(&'R') {
                     result.push_str("OR ");
-                    chars.next();
+                    pos += 2;
                     continue;
                 }
                 result.push(c);
-            } else if c.eq_ignore_ascii_case(&'N') && result.ends_with(' ') {
-                if chars.clone().take(2).collect::<String>() == "OT" {
+                pos += 1;
+            } else if c.eq_ignore_ascii_case(&'N') && result.ends_with(' ') && pos + 2 < chars.len() {
+                let next = chars[pos + 1];
+                let next2 = chars[pos + 2];
+                if next.eq_ignore_ascii_case(&'O') && next2.eq_ignore_ascii_case(&'T') {
                     result.push_str("NOT ");
-                    chars.next();
-                    chars.next();
+                    pos += 3;
                     continue;
                 }
                 result.push(c);
+                pos += 1;
             } else {
                 result.push(c);
+                pos += 1;
             }
         }
 
@@ -2258,11 +2303,42 @@ impl Database {
         min_related: i32,
     ) -> Result<Vec<AutoDetectedChain>> {
         let weighted = self.get_weighted_evidence(min_weight, 1000)?;
+        
+        if weighted.is_empty() {
+            return Ok(Vec::new());
+        }
 
         let conn = self.intelligence_conn.lock().unwrap();
+        
+        let fetch_start = std::time::Instant::now();
+        
+        // Pre-fetch all entity data in ONE query (avoids N+1 problem)
+        let mut entities_stmt = conn.prepare(
+            "SELECT fingerprint, value FROM entities WHERE fingerprint IN (
+                SELECT fingerprint FROM intelligence WHERE is_deleted = FALSE
+            )"
+        )?;
+        
+        let mut entities_by_fp: HashMap<String, Vec<String>> = HashMap::new();
+        entities_stmt.query_map([], |row| {
+            let fp: String = row.get(0)?;
+            let value: String = row.get(1)?;
+            Ok((fp, value))
+        })?.filter_map(|r| r.ok())
+          .for_each(|(fp, value)| {
+               entities_by_fp.entry(fp).or_insert_with(Vec::new).push(value);
+           });
+        
+        let fetch_time = fetch_start.elapsed();
+        let entity_count = entities_by_fp.len();
+        info!(entities_fetched = entity_count, fetch_time_ms = fetch_time.as_millis() as u64, "Fetched entities for chain detection");
+        
         let mut chains = Vec::new();
+        let empty_vec: Vec<String> = Vec::new();
 
+        // Compute overlaps in memory instead of database queries
         for (i, current) in weighted.iter().enumerate() {
+            let current_entities = entities_by_fp.get(&current.fingerprint).unwrap_or(&empty_vec);
             let mut related: Vec<RelatedEvidence> = Vec::new();
 
             for (j, other) in weighted.iter().enumerate() {
@@ -2270,23 +2346,19 @@ impl Database {
                     continue;
                 }
 
-                let mut stmt = conn.prepare(
-                    "SELECT COUNT(*) FROM entities 
-                     WHERE fingerprint = ?1 AND fingerprint = ?2",
-                )?;
-                let entity_overlap: i32 = stmt
-                    .query_row(params![current.fingerprint, other.fingerprint], |row| {
-                        row.get(0)
-                    })?;
+                let other_entities = entities_by_fp.get(&other.fingerprint).unwrap_or(&empty_vec);
+                let overlap = current_entities.iter()
+                    .filter(|e| other_entities.contains(e))
+                    .count() as i32;
 
-                if entity_overlap >= min_related {
+                if overlap >= min_related {
                     related.push(RelatedEvidence {
                         id: other.id,
                         fingerprint: other.fingerprint.clone(),
                         filename: other.filename.clone(),
                         summary: other.summary.clone(),
                         weight: other.weight,
-                        shared_entities: entity_overlap,
+                        shared_entities: overlap,
                     });
                 }
             }
@@ -2303,6 +2375,9 @@ impl Database {
         }
 
         chains.sort_by(|a, b| b.related_count.cmp(&a.related_count));
+        
+        let total_time = fetch_start.elapsed();
+        info!(chains_found = chains.len(), total_time_ms = total_time.as_millis() as u64, "Chain detection completed");
 
         Ok(chains)
     }
@@ -2741,8 +2816,18 @@ impl Database {
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
     }
 
-    // Analytics and statistics
+    // Analytics and statistics with caching
     pub fn get_category_distribution(&self) -> Result<Vec<CategoryStats>> {
+        // Check cache first
+        {
+            let cache = self.category_cache.lock().unwrap();
+            if let Some(entry) = cache.as_ref() {
+                if entry.is_valid() {
+                    return Ok(entry.data.clone());
+                }
+            }
+        }
+
         let conn = self.intelligence_conn.lock().unwrap();
 
         let mut stmt = conn.prepare(
@@ -2753,16 +2838,22 @@ impl Database {
              ORDER BY count DESC"
         )?;
 
-        let entries = stmt.query_map([], |row| {
+        let entries: Result<Vec<CategoryStats>> = stmt.query_map([], |row| {
             Ok(CategoryStats {
                 category: row.get(0)?,
                 count: row.get(1)?,
                 avg_severity: row.get(2)?,
                 avg_confidence: row.get(3)?,
             })
-        })?;
+        })?.collect();
 
-        entries.collect()
+        let result = entries?;
+        
+        // Update cache with 60-second TTL
+        let mut cache = self.category_cache.lock().unwrap();
+        *cache = Some(CacheEntry::new(result.clone(), Duration::from_secs(60)));
+        
+        Ok(result)
     }
 
     pub fn get_severity_distribution(&self) -> Result<Vec<SeverityStats>> {
@@ -2809,6 +2900,16 @@ impl Database {
     }
 
     pub fn get_overall_statistics(&self) -> Result<OverallStatistics> {
+        // Check cache first
+        {
+            let cache = self.overall_stats_cache.lock().unwrap();
+            if let Some(entry) = cache.as_ref() {
+                if entry.is_valid() {
+                    return Ok(entry.data.clone());
+                }
+            }
+        }
+
         let conn = self.intelligence_conn.lock().unwrap();
 
         let (total_facts, avg_severity, avg_confidence, avg_quality): (i64, f64, f64, f64) = conn
@@ -2831,7 +2932,7 @@ impl Database {
             |row| Ok((row.get(0)?, row.get(1)?)),
         )?;
 
-        Ok(OverallStatistics {
+        let result = OverallStatistics {
             total_facts,
             avg_severity,
             avg_confidence,
@@ -2840,7 +2941,13 @@ impl Database {
             unique_entities,
             total_chains,
             total_chain_links,
-        })
+        };
+
+        // Update cache with 30-second TTL
+        let mut cache = self.overall_stats_cache.lock().unwrap();
+        *cache = Some(CacheEntry::new(result.clone(), Duration::from_secs(30)));
+        
+        Ok(result)
     }
 
     // Migration support
