@@ -107,7 +107,13 @@
 		<div class="loading">Analyzing for anomalies...</div>
 	{:else if anomalies.length === 0}
 		<div class="empty">
-			<svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+			<svg
+				class="empty-icon"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+			>
 				<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
 				<polyline points="22 4 12 14.01 9 11.01" />
 			</svg>
@@ -163,13 +169,19 @@
 				<button class="close-btn" onclick={() => (selectedAnomaly = null)}>×</button>
 			</div>
 			<div class="detail-content">
-				<div class="metric-badge" style="background-color: {getDeviationColor(selectedAnomaly.deviation)}">
+				<div
+					class="metric-badge"
+					style="background-color: {getDeviationColor(selectedAnomaly.deviation)}"
+				>
 					{getMetricLabel(selectedAnomaly.metric)}
 				</div>
 
 				<div class="detail-row">
 					<span class="detail-label">Deviation:</span>
-					<span class="detail-value deviation" style="color: {getDeviationColor(selectedAnomaly.deviation)}">
+					<span
+						class="detail-value deviation"
+						style="color: {getDeviationColor(selectedAnomaly.deviation)}"
+					>
 						{selectedAnomaly.deviation > 0 ? '+' : ''}{selectedAnomaly.deviation.toFixed(2)}σ
 					</span>
 				</div>

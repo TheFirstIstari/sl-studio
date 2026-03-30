@@ -93,7 +93,13 @@
 		<div class="loading">Loading timeline...</div>
 	{:else if events.length === 0}
 		<div class="empty">
-			<svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+			<svg
+				class="empty-icon"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+			>
 				<circle cx="12" cy="12" r="10" />
 				<polyline points="12 6 12 12 16 14" />
 			</svg>
@@ -116,7 +122,10 @@
 								class:selected={selectedEvent?.id === event.id}
 								onclick={() => (selectedEvent = event)}
 							>
-								<div class="timeline-marker" style="background-color: {getSeverityColor(event.severity)}"></div>
+								<div
+									class="timeline-marker"
+									style="background-color: {getSeverityColor(event.severity)}"
+								></div>
 								<div class="timeline-content">
 									<div class="timeline-date">{formatDate(event.date)}</div>
 									<div class="timeline-summary">{event.summary}</div>
@@ -125,7 +134,10 @@
 										{#if event.category}
 											<span class="timeline-category">{event.category}</span>
 										{/if}
-										<span class="timeline-severity" style="background-color: {getSeverityColor(event.severity)}">
+										<span
+											class="timeline-severity"
+											style="background-color: {getSeverityColor(event.severity)}"
+										>
 											{event.severity}
 										</span>
 									</div>
@@ -148,7 +160,10 @@
 					<div class="list-summary">{event.summary}</div>
 					<div class="list-meta">
 						<span class="list-filename">{event.filename}</span>
-						<span class="list-severity" style="background-color: {getSeverityColor(event.severity)}">
+						<span
+							class="list-severity"
+							style="background-color: {getSeverityColor(event.severity)}"
+						>
 							{event.severity}
 						</span>
 					</div>
@@ -179,7 +194,10 @@
 				<div class="detail-row">
 					<span class="detail-label">Severity:</span>
 					<span class="detail-value">
-						<span class="severity-badge" style="background-color: {getSeverityColor(selectedEvent.severity)}">
+						<span
+							class="severity-badge"
+							style="background-color: {getSeverityColor(selectedEvent.severity)}"
+						>
 							{selectedEvent.severity}/10
 						</span>
 					</span>

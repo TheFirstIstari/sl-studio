@@ -116,14 +116,14 @@
 				{
 					selector: 'node',
 					style: {
-						'label': 'data(label)',
+						label: 'data(label)',
 						'background-color': '#e94560',
-						'color': '#eaeaea',
+						color: '#eaeaea',
 						'font-size': '10px',
 						'text-valign': 'bottom',
 						'text-margin-y': 5,
-						'width': 30,
-						'height': 30
+						width: 30,
+						height: 30
 					}
 				},
 				{
@@ -153,9 +153,9 @@
 				{
 					selector: 'edge',
 					style: {
-						'width': 'data(weight)',
+						width: 'data(weight)',
 						'line-color': '#0f3460',
-						'opacity': 0.6
+						opacity: 0.6
 					}
 				},
 				{
@@ -265,7 +265,9 @@
 			</button>
 			<button class="icon-btn" onclick={fitView} title="Fit View">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+					<path
+						d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"
+					/>
 				</svg>
 			</button>
 		</div>
@@ -275,7 +277,13 @@
 		<div class="loading">Loading network...</div>
 	{:else if relationships.length === 0}
 		<div class="empty">
-			<svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+			<svg
+				class="empty-icon"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+			>
 				<circle cx="12" cy="12" r="10" />
 				<line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
 			</svg>
@@ -312,8 +320,7 @@
 										<div class="entity-meta">
 											<span class="entity-type">{entity.entity_type}</span>
 											{#if entity.confidence}
-												<span class="entity-confidence"
-													>{Math.round(entity.confidence * 100)}%</span
+												<span class="entity-confidence">{Math.round(entity.confidence * 100)}%</span
 												>
 											{/if}
 										</div>

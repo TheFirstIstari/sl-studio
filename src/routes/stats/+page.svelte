@@ -81,17 +81,13 @@
 				type: 'bar',
 				data: {
 					labels: [],
-					datasets: [{
-						label: 'Facts by Severity',
-						data: [],
-						backgroundColor: [
-							'#4ade80',
-							'#eab308',
-							'#f97316',
-							'#ef4444',
-							'#dc2626'
-						]
-					}]
+					datasets: [
+						{
+							label: 'Facts by Severity',
+							data: [],
+							backgroundColor: ['#4ade80', '#eab308', '#f97316', '#ef4444', '#dc2626']
+						}
+					]
 				},
 				options: {
 					responsive: true,
@@ -119,17 +115,12 @@
 				type: 'doughnut',
 				data: {
 					labels: [],
-					datasets: [{
-						data: [],
-						backgroundColor: [
-							'#e94560',
-							'#3b82f6',
-							'#10b981',
-							'#f59e0b',
-							'#8b5cf6',
-							'#ec4899'
-						]
-					}]
+					datasets: [
+						{
+							data: [],
+							backgroundColor: ['#e94560', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899']
+						}
+					]
 				},
 				options: {
 					responsive: true,
@@ -149,11 +140,13 @@
 				type: 'bar',
 				data: {
 					labels: [],
-					datasets: [{
-						label: 'Entity Occurrences',
-						data: [],
-						backgroundColor: '#e94560'
-					}]
+					datasets: [
+						{
+							label: 'Entity Occurrences',
+							data: [],
+							backgroundColor: '#e94560'
+						}
+					]
 				},
 				options: {
 					indexAxis: 'y',
@@ -180,20 +173,20 @@
 
 	$effect(() => {
 		if (severityStats.length > 0 && severityChart) {
-			severityChart.data.labels = severityStats.map(s => `Severity ${s.severity}`);
-			severityChart.data.datasets[0].data = severityStats.map(s => s.count);
+			severityChart.data.labels = severityStats.map((s) => `Severity ${s.severity}`);
+			severityChart.data.datasets[0].data = severityStats.map((s) => s.count);
 			severityChart.update();
 		}
 
 		if (categoryStats.length > 0 && categoryChart) {
-			categoryChart.data.labels = categoryStats.map(c => c.category);
-			categoryChart.data.datasets[0].data = categoryStats.map(c => c.count);
+			categoryChart.data.labels = categoryStats.map((c) => c.category);
+			categoryChart.data.datasets[0].data = categoryStats.map((c) => c.count);
 			categoryChart.update();
 		}
 
 		if (topEntities.length > 0 && entityChart) {
-			entityChart.data.labels = topEntities.map(e => e.value.substring(0, 20));
-			entityChart.data.datasets[0].data = topEntities.map(e => e.occurrence_count);
+			entityChart.data.labels = topEntities.map((e) => e.value.substring(0, 20));
+			entityChart.data.datasets[0].data = topEntities.map((e) => e.occurrence_count);
 			entityChart.update();
 		}
 	});
@@ -216,7 +209,11 @@
 					<div class="card-label">Avg Severity</div>
 				</div>
 				<div class="overview-card">
-					<div class="card-value">{overallStats.avg_confidence ? (overallStats.avg_confidence * 100).toFixed(0) + '%' : 'N/A'}</div>
+					<div class="card-value">
+						{overallStats.avg_confidence
+							? (overallStats.avg_confidence * 100).toFixed(0) + '%'
+							: 'N/A'}
+					</div>
 					<div class="card-label">Avg Confidence</div>
 				</div>
 				<div class="overview-card">
