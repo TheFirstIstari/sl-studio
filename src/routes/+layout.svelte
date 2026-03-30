@@ -11,7 +11,8 @@
 		{ href: '/network', label: 'Network', icon: 'network', shortcut: 'G N' },
 		{ href: '/maps', label: 'Maps', icon: 'map', shortcut: 'G M' },
 		{ href: '/anomalies', label: 'Anomalies', icon: 'alert', shortcut: 'G L' },
-		{ href: '/settings', label: 'Settings', icon: 'settings', shortcut: 'G S,' }
+		{ href: '/export', label: 'Export', icon: 'download', shortcut: 'G E' },
+		{ href: '/settings', label: 'Settings', icon: 'settings', shortcut: 'G ,' }
 	];
 
 	let showShortcuts = $state(false);

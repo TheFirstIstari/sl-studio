@@ -2813,8 +2813,8 @@ steinline/
 
 ### 7.1 Export Formats
 
-- [ ] Implement JSON export
-- [ ] Create CSV export
+- [x] Implement JSON export
+- [x] Create CSV export
 - [ ] Add PDF report generation
 - [ ] Implement Excel multi-sheet export
 
