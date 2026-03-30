@@ -458,6 +458,20 @@ fn search_by_tags(
 }
 
 #[tauri::command]
+fn get_location_entities(
+    state: State<AppState>,
+    min_confidence: f64,
+) -> Result<Vec<core::LocationEntity>, String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.get_location_entities(min_confidence)
+            .map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
 fn get_models_dir() -> String {
     if IS_DEV {
         utils::dev_models_dir().to_string_lossy().to_string()
@@ -842,6 +856,7 @@ pub fn run() {
             delete_annotation,
             get_annotations,
             search_by_tags,
+            get_location_entities,
         ])
         .setup(|_app| {
             info!("Tauri app setup complete");

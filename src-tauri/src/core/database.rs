@@ -2625,6 +2625,60 @@ impl Database {
         entries.collect()
     }
 
+    pub fn get_location_entities(&self, min_confidence: f64) -> Result<Vec<LocationEntity>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let mut stmt = conn.prepare(
+            "SELECT e.id, e.value, e.normalized_value, e.confidence, i.fingerprint, i.filename, i.fact_summary, i.severity_score
+             FROM entities e
+             JOIN intelligence i ON e.fingerprint = i.fingerprint
+             WHERE e.entity_type = 'LOCATION' AND e.confidence >= ?1
+             ORDER BY e.confidence DESC
+             LIMIT 100"
+        )?;
+
+        let entries = stmt.query_map([min_confidence], |row| {
+            let value: String = row.get(1)?;
+            let normalized: Option<String> = row.get(2)?;
+
+            let (lat, lon) = Self::parse_location(&normalized.clone().unwrap_or(value.clone()));
+
+            Ok(LocationEntity {
+                id: row.get(0)?,
+                name: value,
+                normalized_name: normalized,
+                latitude: lat,
+                longitude: lon,
+                confidence: row.get(3)?,
+                fingerprint: row.get(4)?,
+                source_file: row.get(5)?,
+                fact_summary: row.get(6)?,
+                severity: row.get(7)?,
+            })
+        })?;
+
+        entries.collect()
+    }
+
+    fn parse_location(loc: &str) -> (Option<f64>, Option<f64>) {
+        let coords_re = regex::Regex::new(r"(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)").ok();
+
+        if let Some(re) = coords_re {
+            if let Some(caps) = re.captures(loc) {
+                if let (Ok(lat), Ok(lon)) = (
+                    caps.get(1).unwrap().as_str().parse::<f64>(),
+                    caps.get(2).unwrap().as_str().parse::<f64>(),
+                ) {
+                    if (-90.0..=90.0).contains(&lat) && (-180.0..=180.0).contains(&lon) {
+                        return (Some(lat), Some(lon));
+                    }
+                }
+            }
+        }
+
+        (None, None)
+    }
+
     // Export and reporting methods
     pub fn export_facts_json(&self, filters: &ExportFilters) -> Result<String> {
         let facts = self.get_weighted_evidence(filters.min_weight, filters.limit)?;
@@ -3141,6 +3195,20 @@ pub struct Annotation {
     pub annotation_type: String,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocationEntity {
+    pub id: i64,
+    pub name: String,
+    pub normalized_name: Option<String>,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
+    pub confidence: Option<f64>,
+    pub fingerprint: String,
+    pub source_file: String,
+    pub fact_summary: String,
+    pub severity: i32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

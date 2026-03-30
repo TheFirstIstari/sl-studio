@@ -2803,7 +2803,7 @@ steinline/
 - [x] Add keyboard shortcuts
 - [x] Create annotation system
 - [x] Add tagging and filtering
-- [ ] Implement undo/redo
+- [x] Implement undo/redo
 
 **Milestone: Full UI operational**
 

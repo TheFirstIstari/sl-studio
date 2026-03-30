@@ -15,6 +15,12 @@
 		created_at: string;
 	}
 
+	interface HistoryState {
+		filter: string;
+		sortBy: 'severity' | 'date';
+		selectedIds: number[];
+	}
+
 	let facts = $state<Fact[]>([]);
 	let loading = $state(true);
 	let filter = $state('');
@@ -23,8 +29,63 @@
 	let selectedIds = new SvelteSet<number>();
 	let selectAll = $state(false);
 
-	onMount(async () => {
-		await loadFacts();
+	let history = $state<HistoryState[]>([]);
+	let historyIndex = $state(-1);
+	let canUndo = $derived(historyIndex > 0);
+	let canRedo = $derived(historyIndex < history.length - 1);
+
+	function saveToHistory() {
+		const state: HistoryState = {
+			filter,
+			sortBy,
+			selectedIds: Array.from(selectedIds)
+		};
+		history = [...history.slice(0, historyIndex + 1), state];
+		historyIndex = history.length - 1;
+	}
+
+	function undo() {
+		if (canUndo) {
+			historyIndex--;
+			const state = history[historyIndex];
+			filter = state.filter;
+			sortBy = state.sortBy;
+			selectedIds = new SvelteSet(state.selectedIds);
+		}
+	}
+
+	function redo() {
+		if (canRedo) {
+			historyIndex++;
+			const state = history[historyIndex];
+			filter = state.filter;
+			sortBy = state.sortBy;
+			selectedIds = new SvelteSet(state.selectedIds);
+		}
+	}
+
+	function handleKeydown(event: KeyboardEvent) {
+		if ((event.metaKey || event.ctrlKey) && event.key === 'z') {
+			event.preventDefault();
+			if (event.shiftKey) {
+				redo();
+			} else {
+				undo();
+			}
+		}
+		if ((event.metaKey || event.ctrlKey) && event.key === 'y') {
+			event.preventDefault();
+			redo();
+		}
+	}
+
+	onMount(() => {
+		(async () => {
+			await loadFacts();
+			saveToHistory();
+		})();
+		window.addEventListener('keydown', handleKeydown);
+		return () => window.removeEventListener('keydown', handleKeydown);
 	});
 
 	async function loadFacts() {
@@ -47,6 +108,7 @@
 			newSet.add(id);
 		}
 		selectedIds = newSet;
+		saveToHistory();
 	}
 
 	function toggleSelectAll() {
@@ -57,6 +119,15 @@
 			selectedIds = new SvelteSet(filteredFacts.map((f) => f.id));
 			selectAll = true;
 		}
+		saveToHistory();
+	}
+
+	function onFilterChange() {
+		saveToHistory();
+	}
+
+	function onSortChange() {
+		saveToHistory();
 	}
 
 	function getSeverityColor(score: number): string {
@@ -106,9 +177,30 @@
 		<h1>Results</h1>
 
 		<div class="controls">
-			<input type="text" placeholder="Filter facts..." bind:value={filter} class="filter-input" />
+			<div class="history-controls">
+				<button class="history-btn" onclick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M3 7v6h6" />
+						<path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+					</svg>
+				</button>
+				<button class="history-btn" onclick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M21 7v6h-6" />
+						<path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
+					</svg>
+				</button>
+			</div>
 
-			<select bind:value={sortBy} class="sort-select">
+			<input
+				type="text"
+				placeholder="Filter facts..."
+				bind:value={filter}
+				oninput={onFilterChange}
+				class="filter-input"
+			/>
+
+			<select bind:value={sortBy} onchange={onSortChange} class="sort-select">
 				<option value="severity">Sort by Severity</option>
 				<option value="date">Sort by Date</option>
 			</select>
@@ -313,6 +405,42 @@
 	.controls {
 		display: flex;
 		gap: 0.75rem;
+		align-items: center;
+	}
+
+	.history-controls {
+		display: flex;
+		gap: 0.25rem;
+		margin-right: 0.5rem;
+	}
+
+	.history-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		background-color: #16213e;
+		border: 1px solid #0f3460;
+		border-radius: 6px;
+		color: #9ca3af;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.history-btn:hover:not(:disabled) {
+		border-color: #e94560;
+		color: #eaeaea;
+	}
+
+	.history-btn:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+
+	.history-btn svg {
+		width: 16px;
+		height: 16px;
 	}
 
 	.filter-input {

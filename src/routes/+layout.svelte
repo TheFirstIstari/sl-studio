@@ -9,6 +9,7 @@
 		{ href: '/timeline', label: 'Timeline', icon: 'timeline', shortcut: 'G T' },
 		{ href: '/stats', label: 'Statistics', icon: 'chart', shortcut: 'G S' },
 		{ href: '/network', label: 'Network', icon: 'network', shortcut: 'G N' },
+		{ href: '/maps', label: 'Maps', icon: 'map', shortcut: 'G M' },
 		{ href: '/anomalies', label: 'Anomalies', icon: 'alert', shortcut: 'G L' },
 		{ href: '/settings', label: 'Settings', icon: 'settings', shortcut: 'G S,' }
 	];
@@ -120,6 +121,9 @@
 									<circle cx="19" cy="19" r="3" />
 									<line x1="12" y1="8" x2="5" y2="16" />
 									<line x1="12" y1="8" x2="19" y2="16" />
+								{:else if item.icon === 'map'}
+									<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+									<circle cx="12" cy="10" r="3" />
 								{:else if item.icon === 'settings'}
 									<circle cx="12" cy="12" r="3" />
 									<path
