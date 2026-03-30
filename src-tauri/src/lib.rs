@@ -1010,8 +1010,6 @@ fn restore_backup(
     state: State<AppState>,
     backup_path: String,
 ) -> Result<(), String> {
-    use std::io::Write;
-    
     let file = std::fs::File::open(&backup_path).map_err(|e| e.to_string())?;
     let mut archive = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
     
