@@ -13,12 +13,9 @@ pub struct RegistryEntry {
     pub file_name: String,
     pub last_modified: Option<String>,  // DATETIME
     pub last_hash_check: Option<String>,  // DATETIME
-    pub has_extracted_text: bool,
     pub extracted_at: Option<String>,  // DATETIME
     pub processed_at: Option<String>,  // DATETIME
-    pub processed: bool,
     pub processing_priority: i32,  // 0=new, 1=modified, 2=extracted, 3=rerun
-    pub retry_count: i32,
     pub extraction_quality: Option<f64>,  // 0.0-1.0
     pub created_at: Option<String>,  // DATETIME
 }
