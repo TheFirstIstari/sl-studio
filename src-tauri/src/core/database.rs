@@ -490,7 +490,10 @@ impl Database {
     }
 
     /// Scan for new or modified files and update registry
-    pub fn scan_for_changes(&self, evidence_root: &str) -> std::result::Result<Vec<(String, i32)>, Box<dyn std::error::Error>> {
+    pub fn scan_for_changes(
+        &self,
+        evidence_root: &str,
+    ) -> std::result::Result<Vec<(String, i32)>, Box<dyn std::error::Error>> {
         use std::fs::{self, metadata};
         use std::time::SystemTime;
 
