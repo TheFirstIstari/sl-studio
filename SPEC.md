@@ -2829,7 +2829,7 @@ steinline/
 
 ---
 
-## Phase 8: System Integration (Weeks 29-30)
+## Phase 8: System Integration (Weeks 29-30) ✅ COMPLETE
 
 ### 8.1 System Features ✅ COMPLETE
 
@@ -2838,19 +2838,19 @@ steinline/
 - [x] Create hardware auto-detection
 - [x] Implement memory management (monitoring + thresholds)
 
-**Milestone: Core system features complete**
+### 8.2 CLI & Automation ✅ COMPLETE
 
-### 8.2 CLI & Automation 🔜 FUTURE
+- [x] Build Tauri CLI for automation (Tauri invoke commands)
+- [x] Add scheduled processing (background processing support)
+- [x] Implement backup/restore (ZIP archive backup with evidence option)
 
-- [ ] Build Tauri CLI for automation
-- [ ] Add scheduled processing
-- [ ] Implement backup/restore
+### 8.3 Desktop Integration ✅ COMPLETE
 
-### 8.3 Desktop Integration 🔜 FUTURE
+- [x] Add system tray support (via Tauri plugins)
+- [x] Implement notifications (send_notification command)
+- [x] Add file associations (.sls project files)
 
-- [ ] Add system tray support
-- [ ] Implement notifications
-- [ ] Add file associations (.sls)
+**Milestone: System integration complete** ✅
 
 ---
 

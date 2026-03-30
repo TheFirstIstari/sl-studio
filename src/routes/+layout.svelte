@@ -13,6 +13,7 @@
 		{ href: '/anomalies', label: 'Anomalies', icon: 'alert', shortcut: 'G L' },
 		{ href: '/export', label: 'Export', icon: 'download', shortcut: 'G E' },
 		{ href: '/compare', label: 'Compare', icon: 'compare', shortcut: 'G C' },
+		{ href: '/backup', label: 'Backup', icon: 'backup', shortcut: 'G B' },
 		{ href: '/settings', label: 'Settings', icon: 'settings', shortcut: 'G ,' }
 	];
 

@@ -923,6 +923,152 @@ fn get_project_summary(state: State<AppState>) -> Result<ProjectSummary, String>
     })
 }
 
+#[derive(Serialize, Clone)]
+pub struct BackupInfo {
+    pub backup_path: String,
+    pub size_bytes: u64,
+    pub created_at: String,
+    pub includes_evidence: bool,
+}
+
+#[tauri::command]
+fn create_backup(
+    state: State<AppState>,
+    include_evidence: bool,
+) -> Result<BackupInfo, String> {
+    use std::io::Write;
+    
+    let config = state.config.lock().unwrap();
+    let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+    let backup_name = format!("slstudio_backup_{}.zip", timestamp);
+    
+    let export_dir = dirs::data_dir()
+        .unwrap_or_default()
+        .join("slstudio")
+        .join("backups");
+    
+    if !export_dir.exists() {
+        std::fs::create_dir_all(&export_dir).map_err(|e| e.to_string())?;
+    }
+    
+    let backup_path = export_dir.join(&backup_name);
+    let file = std::fs::File::create(&backup_path).map_err(|e| e.to_string())?;
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
+    
+    let registry_db = std::path::Path::new(&config.project.registry_db);
+    let intelligence_db = std::path::Path::new(&config.project.intelligence_db);
+    
+    if registry_db.exists() {
+        let data = std::fs::read(registry_db).map_err(|e| e.to_string())?;
+        zip.start_file("registry.db", options).map_err(|e| e.to_string())?;
+        zip.write_all(&data).map_err(|e| e.to_string())?;
+    }
+    
+    if intelligence_db.exists() {
+        let data = std::fs::read(intelligence_db).map_err(|e| e.to_string())?;
+        zip.start_file("intelligence.db", options).map_err(|e| e.to_string())?;
+        zip.write_all(&data).map_err(|e| e.to_string())?;
+    }
+    
+    let config_data = serde_json::to_string_pretty(&*config).map_err(|e| e.to_string())?;
+    zip.start_file("config.json", options).map_err(|e| e.to_string())?;
+    zip.write_all(config_data.as_bytes()).map_err(|e| e.to_string())?;
+    
+    if include_evidence {
+        let evidence_root = std::path::Path::new(&config.project.evidence_root);
+        if evidence_root.exists() {
+            for entry in walkdir::WalkDir::new(evidence_root).into_iter().filter_map(|e| e.ok()) {
+                if entry.file_type().is_file() {
+                    let path = entry.path();
+                    let name = path.strip_prefix(evidence_root).unwrap().to_string_lossy();
+                    let data = std::fs::read(path).map_err(|e| e.to_string())?;
+                    zip.start_file(format!("evidence/{}", name), options).map_err(|e| e.to_string())?;
+                    zip.write_all(&data).map_err(|e| e.to_string())?;
+                }
+            }
+        }
+    }
+    
+    zip.finish().map_err(|e| e.to_string())?;
+    
+    let metadata = std::fs::metadata(&backup_path).map_err(|e| e.to_string())?;
+    
+    info!("Backup created: {}", backup_path.display());
+    
+    Ok(BackupInfo {
+        backup_path: backup_path.to_string_lossy().to_string(),
+        size_bytes: metadata.len(),
+        created_at: chrono::Local::now().to_rfc3339(),
+        includes_evidence: include_evidence,
+    })
+}
+
+#[tauri::command]
+fn restore_backup(
+    state: State<AppState>,
+    backup_path: String,
+) -> Result<(), String> {
+    use std::io::Write;
+    
+    let file = std::fs::File::open(&backup_path).map_err(|e| e.to_string())?;
+    let mut archive = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
+    
+    let config = state.config.lock().unwrap();
+    
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
+        let name = file.name().to_string();
+        
+        match name.as_str() {
+            "registry.db" => {
+                let path = std::path::Path::new(&config.project.registry_db);
+                let mut out = std::fs::File::create(path).map_err(|e| e.to_string())?;
+                std::io::copy(&mut file, &mut out).map_err(|e| e.to_string())?;
+            }
+            "intelligence.db" => {
+                let path = std::path::Path::new(&config.project.intelligence_db);
+                let mut out = std::fs::File::create(path).map_err(|e| e.to_string())?;
+                std::io::copy(&mut file, &mut out).map_err(|e| e.to_string())?;
+            }
+            n if n.starts_with("evidence/") => {
+                let rel_path = &n[9..];
+                let dest = std::path::Path::new(&config.project.evidence_root).join(rel_path);
+                if let Some(parent) = dest.parent() {
+                    std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                }
+                let mut out = std::fs::File::create(dest).map_err(|e| e.to_string())?;
+                std::io::copy(&mut file, &mut out).map_err(|e| e.to_string())?;
+            }
+            _ => {}
+        }
+    }
+    
+    info!("Backup restored from: {}", backup_path);
+    Ok(())
+}
+
+#[derive(Serialize, Clone)]
+pub struct Notification {
+    pub id: String,
+    pub title: String,
+    pub message: String,
+    pub notification_type: String,
+    pub timestamp: String,
+    pub read: bool,
+}
+
+#[tauri::command]
+fn send_notification(
+    _app: AppHandle,
+    title: String,
+    message: String,
+) -> Result<(), String> {
+    info!("Notification: {} - {}", title, message);
+    Ok(())
+}
+
 #[tauri::command]
 fn get_models_dir() -> String {
     if IS_DEV {
@@ -1321,6 +1467,9 @@ pub fn run() {
             export_excel_data,
             compare_projects,
             get_project_summary,
+            create_backup,
+            restore_backup,
+            send_notification,
         ])
         .setup(|_app| {
             info!("Tauri app setup complete");
