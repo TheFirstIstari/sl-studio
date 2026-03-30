@@ -428,7 +428,7 @@
 				</div>
 			</section>
 
-		<section class="settings-section">
+			<section class="settings-section">
 				<h2>Processing</h2>
 
 				<div class="form-group">
@@ -467,8 +467,9 @@
 					<p class="loading-text">Loading system monitor...</p>
 				{/if}
 			</section>
+		</div>
 
-			<div class="actions">
+		<div class="actions">
 			<button class="save-btn" onclick={saveConfig} disabled={saving}>
 				{saving ? 'Saving...' : 'Save Configuration'}
 			</button>

@@ -911,7 +911,6 @@ fn get_project_summary(state: State<AppState>) -> Result<ProjectSummary, String>
     
     let stats = db_ref.get_overall_statistics().map_err(|e| e.to_string())?;
     let timeline = db_ref.get_timeline_events(None, None, 1000).map_err(|e| e.to_string())?;
-    let entities = db_ref.get_entity_centrality(None, 0.0).map_err(|e| e.to_string())?;
     
     let config = state.config.lock().unwrap();
     
