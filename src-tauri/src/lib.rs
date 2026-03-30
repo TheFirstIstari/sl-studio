@@ -355,6 +355,109 @@ fn get_connected_entities(
 }
 
 #[tauri::command]
+fn add_tag(state: State<AppState>, intelligence_id: i64, tag: String) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.add_tag(intelligence_id, &tag).map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn remove_tag(state: State<AppState>, intelligence_id: i64, tag: String) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.remove_tag(intelligence_id, &tag)
+            .map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_all_tags(state: State<AppState>) -> Result<Vec<String>, String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.get_all_tags().map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn add_annotation(
+    state: State<AppState>,
+    intelligence_id: i64,
+    content: String,
+    annotation_type: String,
+) -> Result<i64, String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.add_annotation(intelligence_id, &content, &annotation_type)
+            .map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn update_annotation(
+    state: State<AppState>,
+    annotation_id: i64,
+    content: String,
+) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.update_annotation(annotation_id, &content)
+            .map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn delete_annotation(state: State<AppState>, annotation_id: i64) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.delete_annotation(annotation_id)
+            .map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_annotations(
+    state: State<AppState>,
+    intelligence_id: i64,
+) -> Result<Vec<core::Annotation>, String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.get_annotations(intelligence_id)
+            .map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn search_by_tags(
+    state: State<AppState>,
+    tags: Vec<String>,
+    match_all: bool,
+    limit: i64,
+) -> Result<Vec<core::SearchResult>, String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.search_by_tags(&tags, match_all, limit)
+            .map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
 fn get_models_dir() -> String {
     if IS_DEV {
         utils::dev_models_dir().to_string_lossy().to_string()
@@ -731,6 +834,14 @@ pub fn run() {
             get_weighted_evidence,
             get_entity_relationships,
             get_connected_entities,
+            add_tag,
+            remove_tag,
+            get_all_tags,
+            add_annotation,
+            update_annotation,
+            delete_annotation,
+            get_annotations,
+            search_by_tags,
         ])
         .setup(|_app| {
             info!("Tauri app setup complete");

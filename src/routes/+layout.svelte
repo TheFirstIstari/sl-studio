@@ -1,16 +1,58 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { onMount } from 'svelte';
 
 	const navItems = [
-		{ href: '/', label: 'Dashboard', icon: 'dashboard' },
-		{ href: '/analysis', label: 'Analysis', icon: 'search' },
-		{ href: '/results', label: 'Results', icon: 'list' },
-		{ href: '/timeline', label: 'Timeline', icon: 'timeline' },
-		{ href: '/stats', label: 'Statistics', icon: 'chart' },
-		{ href: '/network', label: 'Network', icon: 'network' },
-		{ href: '/anomalies', label: 'Anomalies', icon: 'alert' },
-		{ href: '/settings', label: 'Settings', icon: 'settings' }
+		{ href: '/', label: 'Dashboard', icon: 'dashboard', shortcut: 'G D' },
+		{ href: '/analysis', label: 'Analysis', icon: 'search', shortcut: 'G A' },
+		{ href: '/results', label: 'Results', icon: 'list', shortcut: 'G R' },
+		{ href: '/timeline', label: 'Timeline', icon: 'timeline', shortcut: 'G T' },
+		{ href: '/stats', label: 'Statistics', icon: 'chart', shortcut: 'G S' },
+		{ href: '/network', label: 'Network', icon: 'network', shortcut: 'G N' },
+		{ href: '/anomalies', label: 'Anomalies', icon: 'alert', shortcut: 'G L' },
+		{ href: '/settings', label: 'Settings', icon: 'settings', shortcut: 'G S,' }
 	];
+
+	let showShortcuts = $state(false);
+	let pressedKeys = $state<string[]>([]);
+
+	const globalShortcuts: Record<string, () => void> = {
+		'?': () => showShortcuts = !showShortcuts,
+		'Escape': () => showShortcuts = false,
+	};
+
+	function handleKeydown(event: KeyboardEvent) {
+		const key = event.key;
+		
+		if (event.metaKey || event.ctrlKey) {
+			return;
+		}
+
+		if (pressedKeys.length > 0 && pressedKeys[0] === 'g') {
+			const nav = navItems.find(n => n.shortcut.toLowerCase().replace('g ', '').replace(',', '') === key.toLowerCase());
+			if (nav) {
+				window.location.href = nav.href;
+				pressedKeys = [];
+				return;
+			}
+		}
+
+		if (key.toLowerCase() === 'g') {
+			pressedKeys = ['g'];
+		} else if (pressedKeys.includes('g')) {
+			pressedKeys = [];
+		}
+
+		if (globalShortcuts[key]) {
+			event.preventDefault();
+			globalShortcuts[key]();
+		}
+	}
+
+	onMount(() => {
+		window.addEventListener('keydown', handleKeydown);
+		return () => window.removeEventListener('keydown', handleKeydown);
+	});
 </script>
 
 <div class="app">
@@ -244,4 +286,118 @@
 	.console-text {
 		color: #9ca3af;
 	}
+
+	.shortcut-hint {
+		position: fixed;
+		bottom: 2rem;
+		right: 2rem;
+		padding: 0.5rem 1rem;
+		background-color: #16213e;
+		border: 1px solid #0f3460;
+		border-radius: 6px;
+		font-size: 0.75rem;
+		color: #9ca3af;
+	}
+
+	.modal-overlay {
+		position: fixed;
+		inset: 0;
+		background-color: rgba(0, 0, 0, 0.7);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+	}
+
+	.modal {
+		background-color: #16213e;
+		border: 1px solid #0f3460;
+		border-radius: 12px;
+		padding: 1.5rem;
+		max-width: 500px;
+		width: 90%;
+		max-height: 80vh;
+		overflow-y: auto;
+	}
+
+	.modal h2 {
+		font-size: 1.25rem;
+		color: #eaeaea;
+		margin-bottom: 1rem;
+	}
+
+	.modal-section {
+		margin-bottom: 1.5rem;
+	}
+
+	.modal-section h3 {
+		font-size: 0.875rem;
+		color: #9ca3af;
+		margin-bottom: 0.75rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.shortcut-row {
+		display: flex;
+		justify-content: space-between;
+		padding: 0.5rem 0;
+		border-bottom: 1px solid #0f3460;
+	}
+
+	.shortcut-label {
+		color: #eaeaea;
+		font-size: 0.875rem;
+	}
+
+	.shortcut-key {
+		display: flex;
+		gap: 0.25rem;
+	}
+
+	.shortcut-key kbd {
+		padding: 0.25rem 0.5rem;
+		background-color: #1a1a2e;
+		border: 1px solid #0f3460;
+		border-radius: 4px;
+		font-family: 'SF Mono', Monaco, monospace;
+		font-size: 0.75rem;
+		color: #e94560;
+	}
 </style>
+
+{#if showShortcuts}
+	<div class="modal-overlay" onclick={() => showShortcuts = false}>
+		<div class="modal" onclick={(e) => e.stopPropagation()}>
+			<h2>Keyboard Shortcuts</h2>
+			
+			<div class="modal-section">
+				<h3>Navigation</h3>
+				{#each navItems as item}
+					<div class="shortcut-row">
+						<span class="shortcut-label">{item.label}</span>
+						<div class="shortcut-key">
+							{#each item.shortcut.split(' ') as key}
+								<kbd>{key}</kbd>
+							{/each}
+						</div>
+					</div>
+				{/each}
+			</div>
+
+			<div class="modal-section">
+				<h3>Global</h3>
+				<div class="shortcut-row">
+					<span class="shortcut-label">Show Shortcuts</span>
+					<div class="shortcut-key"><kbd>?</kbd></div>
+				</div>
+				<div class="shortcut-row">
+					<span class="shortcut-label">Close Modal</span>
+					<div class="shortcut-key"><kbd>Esc</kbd></div>
+				</div>
+			</div>
+		</div>
+	</div>
+{:else}
+	<div class="shortcut-hint">Press ? for shortcuts</div>
+{/if}

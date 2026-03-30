@@ -150,10 +150,25 @@ impl Database {
                 translated_quote TEXT,
                 pipeline_id TEXT,
                 pass_name TEXT,
+                tags TEXT,
                 is_deleted BOOLEAN DEFAULT FALSE,
                 deleted_at DATETIME,
                 processing_time_ms INTEGER,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )?;
+
+        // Annotations table
+        intel_conn.execute(
+            "CREATE TABLE IF NOT EXISTS annotations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                intelligence_id INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                annotation_type TEXT DEFAULT 'general',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (intelligence_id) REFERENCES intelligence(id)
             )",
             [],
         )?;
@@ -2415,6 +2430,201 @@ impl Database {
             .collect())
     }
 
+    // Tags and annotations methods
+    pub fn add_tag(&self, intelligence_id: i64, tag: &str) -> Result<()> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let current_tags: Option<String> = conn.query_row(
+            "SELECT tags FROM intelligence WHERE id = ?1",
+            [intelligence_id],
+            |row| row.get(0),
+        )?;
+
+        let mut tags: Vec<String> = current_tags
+            .map(|t| {
+                t.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        if !tags.contains(&tag.to_string()) {
+            tags.push(tag.to_string());
+        }
+
+        let tags_str = tags.join(",");
+
+        conn.execute(
+            "UPDATE intelligence SET tags = ?1 WHERE id = ?2",
+            params![tags_str, intelligence_id],
+        )?;
+
+        Ok(())
+    }
+
+    pub fn remove_tag(&self, intelligence_id: i64, tag: &str) -> Result<()> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let current_tags: Option<String> = conn.query_row(
+            "SELECT tags FROM intelligence WHERE id = ?1",
+            [intelligence_id],
+            |row| row.get(0),
+        )?;
+
+        let mut tags: Vec<String> = current_tags
+            .map(|t| {
+                t.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        tags.retain(|t| t != tag);
+
+        let tags_str = tags.join(",");
+
+        conn.execute(
+            "UPDATE intelligence SET tags = ?1 WHERE id = ?2",
+            params![tags_str, intelligence_id],
+        )?;
+
+        Ok(())
+    }
+
+    pub fn get_all_tags(&self) -> Result<Vec<String>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT tags FROM intelligence WHERE tags IS NOT NULL AND tags != ''",
+        )?;
+
+        let all_tags: Vec<String> = stmt
+            .query_map([], |row| {
+                let tags_str: Option<String> = row.get(0)?;
+                Ok(tags_str)
+            })?
+            .filter_map(|r| r.ok())
+            .flatten()
+            .flat_map(|t| {
+                t.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+
+        let mut unique_tags: Vec<String> = all_tags.into_iter().collect();
+        unique_tags.sort();
+        unique_tags.dedup();
+
+        Ok(unique_tags)
+    }
+
+    pub fn add_annotation(
+        &self,
+        intelligence_id: i64,
+        content: &str,
+        annotation_type: &str,
+    ) -> Result<i64> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        conn.execute(
+            "INSERT INTO annotations (intelligence_id, content, annotation_type) VALUES (?1, ?2, ?3)",
+            params![intelligence_id, content, annotation_type],
+        )?;
+
+        Ok(conn.last_insert_rowid())
+    }
+
+    pub fn update_annotation(&self, annotation_id: i64, content: &str) -> Result<()> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        conn.execute(
+            "UPDATE annotations SET content = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+            params![content, annotation_id],
+        )?;
+
+        Ok(())
+    }
+
+    pub fn delete_annotation(&self, annotation_id: i64) -> Result<()> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        conn.execute("DELETE FROM annotations WHERE id = ?1", [annotation_id])?;
+
+        Ok(())
+    }
+
+    pub fn get_annotations(&self, intelligence_id: i64) -> Result<Vec<Annotation>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let mut stmt = conn.prepare(
+            "SELECT id, content, annotation_type, created_at, updated_at
+             FROM annotations WHERE intelligence_id = ?1 ORDER BY created_at DESC",
+        )?;
+
+        let entries = stmt.query_map([intelligence_id], |row| {
+            Ok(Annotation {
+                id: row.get(0)?,
+                intelligence_id,
+                content: row.get(1)?,
+                annotation_type: row.get(2)?,
+                created_at: row.get(3)?,
+                updated_at: row.get(4)?,
+            })
+        })?;
+
+        entries.collect()
+    }
+
+    pub fn search_by_tags(
+        &self,
+        tags: &[String],
+        match_all: bool,
+        limit: i64,
+    ) -> Result<Vec<SearchResult>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let conditions: Vec<String> = tags
+            .iter()
+            .map(|t| format!("tags LIKE '%{}%'", t))
+            .collect();
+
+        let where_clause = if match_all {
+            conditions.join(" AND ")
+        } else {
+            conditions.join(" OR ")
+        };
+
+        let sql = format!(
+            "SELECT id, fingerprint, filename, fact_summary, category, severity_score, confidence, created_at,
+                    0.0 as rank
+             FROM intelligence
+             WHERE is_deleted = FALSE AND ({}) LIMIT ?",
+            where_clause
+        );
+
+        let mut stmt = conn.prepare(&sql)?;
+
+        let entries = stmt.query_map([limit], |row| {
+            Ok(SearchResult {
+                id: row.get(0)?,
+                fingerprint: row.get(1)?,
+                filename: row.get(2)?,
+                summary: row.get(3)?,
+                category: row.get(4)?,
+                severity: row.get(5)?,
+                confidence: row.get(6)?,
+                rank: row.get(7)?,
+                result_type: "fact".to_string(),
+            })
+        })?;
+
+        entries.collect()
+    }
+
     // Export and reporting methods
     pub fn export_facts_json(&self, filters: &ExportFilters) -> Result<String> {
         let facts = self.get_weighted_evidence(filters.min_weight, filters.limit)?;
@@ -2921,6 +3131,16 @@ pub struct EntityTypeStats {
     pub entity_type: String,
     pub unique_count: i32,
     pub total_count: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Annotation {
+    pub id: i64,
+    pub intelligence_id: i64,
+    pub content: String,
+    pub annotation_type: String,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
