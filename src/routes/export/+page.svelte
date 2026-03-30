@@ -13,9 +13,10 @@
 		isExporting = true;
 		status = 'Exporting...';
 		try {
-			let data: string;
+			let data: string | number[];
 			let filename: string;
 			let filters: Array<{ name: string; extensions: string[] }>;
+			let isBinary = false;
 
 			switch (exportType) {
 				case 'facts-json':
@@ -55,6 +56,17 @@
 					filename = 'full-report.json';
 					filters = [{ name: 'JSON', extensions: ['json'] }];
 					break;
+				case 'pdf-report':
+					data = await invoke<number[]>('export_pdf_report', {});
+					filename = 'report.pdf';
+					filters = [{ name: 'PDF', extensions: ['pdf'] }];
+					isBinary = true;
+					break;
+				case 'excel-data':
+					data = await invoke<string>('export_excel_data', {});
+					filename = 'excel-data.json';
+					filters = [{ name: 'JSON', extensions: ['json'] }];
+					break;
 				default:
 					throw new Error('Unknown export type');
 			}
@@ -65,9 +77,14 @@
 			});
 
 			if (filePath) {
-				const encoder = new TextEncoder();
-				const bytes = encoder.encode(data);
-				await invoke('write_file', { path: filePath, contents: Array.from(bytes) });
+				let contents: number[];
+				if (isBinary) {
+					contents = data as number[];
+				} else {
+					const encoder = new TextEncoder();
+					contents = Array.from(encoder.encode(data as string));
+				}
+				await invoke('write_file', { path: filePath, contents });
 				status = `Exported to ${filePath}`;
 				exportHistory = [
 					{ type: exportType, time: new Date().toLocaleTimeString(), status: 'Success' },
@@ -100,6 +117,8 @@
 				<option value="entities-csv">Entities (CSV)</option>
 				<option value="timeline-json">Timeline (JSON)</option>
 				<option value="full-report">Full Report (JSON)</option>
+				<option value="pdf-report">PDF Report</option>
+				<option value="excel-data">Excel Data (JSON)</option>
 			</select>
 		</div>
 

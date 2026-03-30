@@ -2815,8 +2815,8 @@ steinline/
 
 - [x] Implement JSON export
 - [x] Create CSV export
-- [ ] Add PDF report generation
-- [ ] Implement Excel multi-sheet export
+- [x] Add PDF report generation
+- [x] Implement Excel multi-sheet export
 
 ### 7.2 Case Comparison
 

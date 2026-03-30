@@ -641,18 +641,23 @@ fn export_pdf_report(state: State<AppState>) -> Result<Vec<u8>, String> {
         y_pos -= 6.0;
     }
 
-    let mut pdf_bytes = Vec::new();
     let mut buffer = BufWriter::new(Vec::new());
     doc.save(&mut buffer).map_err(|e| e.to_string())?;
-    pdf_bytes = buffer.into_inner().map_err(|e| e.to_string())?;
+    let pdf_bytes = buffer.into_inner().map_err(|e| e.to_string())?;
 
     Ok(pdf_bytes)
 }
 
-#[tauri::command]
-fn export_excel_report(state: State<AppState>) -> Result<Vec<u8>, String> {
-    use calamine::{open_workbook_auto, Data, Workbook, Xlsx};
+#[derive(Serialize)]
+struct ExcelData {
+    facts: Vec<core::WeightedEvidence>,
+    categories: Vec<core::CategoryStats>,
+    entities: Vec<core::EntityCentrality>,
+    timeline: Vec<core::TimelineEvent>,
+}
 
+#[tauri::command]
+fn export_excel_data(state: State<AppState>) -> Result<String, String> {
     let db = state.db.lock().unwrap();
     let db_ref = db.as_ref().ok_or("Database not initialized")?;
 
@@ -661,91 +666,196 @@ fn export_excel_report(state: State<AppState>) -> Result<Vec<u8>, String> {
     let entities = db_ref.get_entity_centrality(None, 0.0).map_err(|e| e.to_string())?;
     let timeline = db_ref.get_timeline_events(None, None, 1000).map_err(|e| e.to_string())?;
 
-    let mut workbook = Xlsx::new(Vec::new());
+    let data = ExcelData {
+        facts,
+        categories,
+        entities,
+        timeline,
+    };
+
+    serde_json::to_string_pretty(&data).map_err(|e| e.to_string())
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ProjectComparison {
+    pub project1_name: String,
+    pub project2_name: String,
+    pub entity_overlap: Vec<EntityOverlap>,
+    pub common_entities: Vec<core::EntityCentrality>,
+    pub timeline_correlation: TimelineCorrelation,
+    pub fact_similarity: f64,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct EntityOverlap {
+    pub entity_value: String,
+    pub entity_type: String,
+    pub count_project1: i32,
+    pub count_project2: i32,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct TimelineCorrelation {
+    pub correlation_score: f64,
+    pub aligned_events: i32,
+    pub project1_date_range: (String, String),
+    pub project2_date_range: (String, String),
+}
+
+fn open_project_db(path: &str) -> Result<Database, String> {
+    let db_path = std::path::Path::new(path);
+    if !db_path.exists() {
+        return Err(format!("Database file not found: {}", path));
+    }
     
-    {
-        let sheet = workbook.add_worksheet("Facts");
-        
-        let headers = ["ID", "Filename", "Category", "Severity", "Confidence", "Quality", "Weight", "Summary", "Created"];
-        for (i, header) in headers.iter().enumerate() {
-            sheet.write(0, i as u32, Data::String(*header)).map_err(|e| e.to_string())?;
-        }
-        
-        for (row, fact) in facts.iter().enumerate().take(1000) {
-            let r = (row + 1) as u32;
-            sheet.write(r, 0, Data::Int(fact.id)).map_err(|e| e.to_string())?;
-            sheet.write(r, 1, Data::String(fact.filename.clone())).map_err(|e| e.to_string())?;
-            sheet.write(r, 2, Data::String(fact.category.clone().unwrap_or_default())).map_err(|e| e.to_string())?;
-            sheet.write(r, 3, Data::Int(fact.severity as i64)).map_err(|e| e.to_string())?;
-            sheet.write(r, 4, Data::Float(fact.confidence.unwrap_or(0.0))).map_err(|e| e.to_string())?;
-            sheet.write(r, 5, Data::Float(fact.quality.unwrap_or(0.0))).map_err(|e| e.to_string())?;
-            sheet.write(r, 6, Data::Float(fact.weight)).map_err(|e| e.to_string())?;
-            sheet.write(r, 7, Data::String(fact.summary.clone())).map_err(|e| e.to_string())?;
-            sheet.write(r, 8, Data::String(fact.created_at.clone().unwrap_or_default())).map_err(|e| e.to_string())?;
-        }
-    }
-
-    {
-        let sheet = workbook.add_worksheet("Categories");
-        
-        sheet.write(0, 0, Data::String("Category")).map_err(|e| e.to_string())?;
-        sheet.write(0, 1, Data::String("Count")).map_err(|e| e.to_string())?;
-        sheet.write(0, 2, Data::String("Avg Severity")).map_err(|e| e.to_string())?;
-        sheet.write(0, 3, Data::String("Avg Confidence")).map_err(|e| e.to_string())?;
-        
-        for (row, cat) in categories.iter().enumerate() {
-            let r = (row + 1) as u32;
-            sheet.write(r, 0, Data::String(cat.category.clone())).map_err(|e| e.to_string())?;
-            sheet.write(r, 1, Data::Int(cat.count as i64)).map_err(|e| e.to_string())?;
-            sheet.write(r, 2, Data::Float(cat.avg_severity.unwrap_or(0.0))).map_err(|e| e.to_string())?;
-            sheet.write(r, 3, Data::Float(cat.avg_confidence.unwrap_or(0.0))).map_err(|e| e.to_string())?;
-        }
-    }
-
-    {
-        let sheet = workbook.add_worksheet("Entities");
-        
-        sheet.write(0, 0, Data::String("Entity ID")).map_err(|e| e.to_string())?;
-        sheet.write(0, 1, Data::String("Type")).map_err(|e| e.to_string())?;
-        sheet.write(0, 2, Data::String("Value")).map_err(|e| e.to_string())?;
-        sheet.write(0, 3, Data::String("Doc Count")).map_err(|e| e.to_string())?;
-        sheet.write(0, 4, Data::String("Occurrences")).map_err(|e| e.to_string())?;
-        sheet.write(0, 5, Data::String("Centrality")).map_err(|e| e.to_string())?;
-        
-        for (row, entity) in entities.iter().enumerate().take(500) {
-            let r = (row + 1) as u32;
-            sheet.write(r, 0, Data::Int(entity.entity_id)).map_err(|e| e.to_string())?;
-            sheet.write(r, 1, Data::String(entity.entity_type.clone())).map_err(|e| e.to_string())?;
-            sheet.write(r, 2, Data::String(entity.value.clone())).map_err(|e| e.to_string())?;
-            sheet.write(r, 3, Data::Int(entity.document_count)).map_err(|e| e.to_string())?;
-            sheet.write(r, 4, Data::Int(entity.occurrence_count)).map_err(|e| e.to_string())?;
-            sheet.write(r, 5, Data::Float(entity.centrality_score)).map_err(|e| e.to_string())?;
-        }
-    }
-
-    {
-        let sheet = workbook.add_worksheet("Timeline");
-        
-        sheet.write(0, 0, Data::String("Date")).map_err(|e| e.to_string())?;
-        sheet.write(0, 1, Data::String("Filename")).map_err(|e| e.to_string())?;
-        sheet.write(0, 2, Data::String("Summary")).map_err(|e| e.to_string())?;
-        sheet.write(0, 3, Data::String("Category")).map_err(|e| e.to_string())?;
-        
-        for (row, event) in timeline.iter().enumerate().take(1000) {
-            let r = (row + 1) as u32;
-            sheet.write(r, 0, Data::String(event.date.clone())).map_err(|e| e.to_string())?;
-            sheet.write(r, 1, Data::String(event.filename.clone())).map_err(|e| e.to_string())?;
-            sheet.write(r, 2, Data::String(event.summary.clone())).map_err(|e| e.to_string())?;
-            sheet.write(r, 3, Data::String(event.category.clone().unwrap_or_default())).map_err(|e| e.to_string())?;
-        }
-    }
-
-    workbook.save(&mut std::io::Cursor::new(Vec::new())).map_err(|e| e.to_string())?;
+    let registry_db = db_path.join("registry.db");
+    let intelligence_db = db_path.join("intelligence.db");
     
-    let mut data = Vec::new();
-    workbook.save(&mut std::io::Cursor::new(&mut data)).map_err(|e| e.to_string())?;
+    if !registry_db.exists() || !intelligence_db.exists() {
+        return Err("Invalid project directory - missing database files".to_string());
+    }
     
-    Ok(data)
+    Database::new(
+        registry_db.to_string_lossy().as_ref(),
+        intelligence_db.to_string_lossy().as_ref(),
+    ).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn compare_projects(
+    state: State<AppState>,
+    project2_path: String,
+) -> Result<ProjectComparison, String> {
+    let db1 = state.db.lock().unwrap();
+    let db_ref1 = db1.as_ref().ok_or("Database not initialized")?;
+    
+    let config = state.config.lock().unwrap();
+    let project1_name = config.project.name.clone();
+    
+    let db2 = open_project_db(&project2_path)?;
+    
+    let entities1 = db_ref1.get_entity_centrality(None, 0.0).map_err(|e| e.to_string())?;
+    let entities2 = db2.get_entity_centrality(None, 0.0).map_err(|e| e.to_string())?;
+    
+    let mut entity_overlap = Vec::new();
+    let mut common_entities = Vec::new();
+    
+    let mut entity_map1: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
+    for e in &entities1 {
+        *entity_map1.entry(e.value.clone()).or_insert(0) += e.occurrence_count;
+    }
+    
+    let mut entity_map2: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
+    for e in &entities2 {
+        *entity_map2.entry(e.value.clone()).or_insert(0) += e.occurrence_count;
+    }
+    
+    for (value, count1) in &entity_map1 {
+        if let Some(&count2) = entity_map2.get(value) {
+            let entity_type = entities1.iter()
+                .find(|e| &e.value == value)
+                .map(|e| e.entity_type.clone())
+                .unwrap_or_default();
+            
+            entity_overlap.push(EntityOverlap {
+                entity_value: value.clone(),
+                entity_type,
+                count_project1: *count1,
+                count_project2: count2,
+            });
+            
+            if let Some(e1) = entities1.iter().find(|e| &e.value == value) {
+                common_entities.push(e1.clone());
+            }
+        }
+    }
+    
+    let timeline1 = db_ref1.get_timeline_events(None, None, 1000).map_err(|e| e.to_string())?;
+    let timeline2 = db2.get_timeline_events(None, None, 1000).map_err(|e| e.to_string())?;
+    
+    let mut dates1: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for e in &timeline1 {
+        dates1.insert(e.date.clone());
+    }
+    
+    let mut dates2: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for e in &timeline2 {
+        dates2.insert(e.date.clone());
+    }
+    
+    let intersection: std::collections::HashSet<_> = dates1.intersection(&dates2).collect();
+    let union: std::collections::HashSet<_> = dates1.union(&dates2).collect();
+    
+    let correlation_score = if union.is_empty() {
+        0.0
+    } else {
+        intersection.len() as f64 / union.len() as f64
+    };
+    
+    let timeline_correlation = TimelineCorrelation {
+        correlation_score,
+        aligned_events: intersection.len() as i32,
+        project1_date_range: (
+            timeline1.first().map(|e| e.date.clone()).unwrap_or_default(),
+            timeline1.last().map(|e| e.date.clone()).unwrap_or_default(),
+        ),
+        project2_date_range: (
+            timeline2.first().map(|e| e.date.clone()).unwrap_or_default(),
+            timeline2.last().map(|e| e.date.clone()).unwrap_or_default(),
+        ),
+    };
+    
+    let fact_similarity = if common_entities.is_empty() {
+        0.0
+    } else {
+        let total_entities = entity_map1.len() + entity_map2.len();
+        if total_entities == 0 {
+            0.0
+        } else {
+            2.0 * common_entities.len() as f64 / total_entities as f64
+        }
+    };
+    
+    Ok(ProjectComparison {
+        project1_name,
+        project2_name: std::path::Path::new(&project2_path)
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "Project 2".to_string()),
+        entity_overlap,
+        common_entities,
+        timeline_correlation,
+        fact_similarity,
+    })
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ProjectSummary {
+    pub name: String,
+    pub path: String,
+    pub fact_count: i64,
+    pub entity_count: i64,
+    pub timeline_count: i64,
+}
+
+#[tauri::command]
+fn get_project_summary(state: State<AppState>) -> Result<ProjectSummary, String> {
+    let db = state.db.lock().unwrap();
+    let db_ref = db.as_ref().ok_or("Database not initialized")?;
+    
+    let stats = db_ref.get_overall_statistics().map_err(|e| e.to_string())?;
+    let timeline = db_ref.get_timeline_events(None, None, 1000).map_err(|e| e.to_string())?;
+    let entities = db_ref.get_entity_centrality(None, 0.0).map_err(|e| e.to_string())?;
+    
+    let config = state.config.lock().unwrap();
+    
+    Ok(ProjectSummary {
+        name: config.project.name.clone(),
+        path: config.project.name.clone(),
+        fact_count: stats.total_facts,
+        entity_count: stats.total_entities,
+        timeline_count: timeline.len() as i64,
+    })
 }
 
 #[tauri::command]
@@ -1140,6 +1250,10 @@ pub fn run() {
             export_full_report_json,
             export_facts_csv,
             write_file,
+            export_pdf_report,
+            export_excel_data,
+            compare_projects,
+            get_project_summary,
         ])
         .setup(|_app| {
             info!("Tauri app setup complete");
