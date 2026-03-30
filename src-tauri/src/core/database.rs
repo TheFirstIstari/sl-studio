@@ -2333,12 +2333,24 @@ impl Database {
         let entity_count = entities_by_fp.len();
         info!(entities_fetched = entity_count, fetch_time_ms = fetch_time.as_millis() as u64, "Fetched entities for chain detection");
         
-        let mut chains = Vec::new();
+        // Convert to HashSets for faster lookup if entity count is large
+        use std::collections::HashSet;
+        let entity_sets: HashMap<String, HashSet<String>> = if entity_count > 50 {
+            entities_by_fp.iter()
+                .map(|(k, v)| (k.clone(), v.iter().cloned().collect()))
+                .collect()
+        } else {
+            HashMap::new()
+        };
+        
+        let use_hashset = !entity_sets.is_empty();
         let empty_vec: Vec<String> = Vec::new();
+        let empty_set: HashSet<String> = HashSet::new();
 
-        // Compute overlaps in memory instead of database queries
+        let mut chains = Vec::new();
+
+        // Compute overlaps in memory - use HashSet for large sets, Vec for small
         for (i, current) in weighted.iter().enumerate() {
-            let current_entities = entities_by_fp.get(&current.fingerprint).unwrap_or(&empty_vec);
             let mut related: Vec<RelatedEvidence> = Vec::new();
 
             for (j, other) in weighted.iter().enumerate() {
@@ -2346,10 +2358,17 @@ impl Database {
                     continue;
                 }
 
-                let other_entities = entities_by_fp.get(&other.fingerprint).unwrap_or(&empty_vec);
-                let overlap = current_entities.iter()
-                    .filter(|e| other_entities.contains(e))
-                    .count() as i32;
+                let overlap = if use_hashset {
+                    let current_set = entity_sets.get(&current.fingerprint).unwrap_or(&empty_set);
+                    let other_set = entity_sets.get(&other.fingerprint).unwrap_or(&empty_set);
+                    current_set.intersection(other_set).count() as i32
+                } else {
+                    let current_entities = entities_by_fp.get(&current.fingerprint).unwrap_or(&empty_vec);
+                    let other_entities = entities_by_fp.get(&other.fingerprint).unwrap_or(&empty_vec);
+                    current_entities.iter()
+                        .filter(|e| other_entities.contains(e))
+                        .count() as i32
+                };
 
                 if overlap >= min_related {
                     related.push(RelatedEvidence {
@@ -2377,7 +2396,7 @@ impl Database {
         chains.sort_by(|a, b| b.related_count.cmp(&a.related_count));
         
         let total_time = fetch_start.elapsed();
-        info!(chains_found = chains.len(), total_time_ms = total_time.as_millis() as u64, "Chain detection completed");
+        info!(chains_found = chains.len(), total_time_ms = total_time.as_millis() as u64, chains_detected = true, "Chain detection completed");
 
         Ok(chains)
     }
@@ -2442,39 +2461,42 @@ impl Database {
                 Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
             })?;
 
-        let keywords: Vec<&str> = summary
+        // Pre-compute keywords and lowercase versions once
+        let keywords: Vec<String> = summary
             .split_whitespace()
             .filter(|w| w.len() > 4)
             .take(10)
+            .map(|w| w.to_lowercase())
             .collect();
 
         let keyword_where = keywords
             .iter()
-            .map(|k| format!("fact_summary LIKE '%{}%'", k))
+            .map(|k| format!("LOWER(fact_summary) LIKE '%{}%'", k))
             .collect::<Vec<_>>()
             .join(" OR ");
 
         let sql = format!(
             "SELECT id, fact_summary, category, severity_score, confidence
              FROM intelligence
-             WHERE is_deleted = FALSE AND fingerprint != '{}' AND ({})
+             WHERE is_deleted = FALSE AND fingerprint != ?1 AND ({})
              ORDER BY severity_score DESC
              LIMIT 20",
-            fingerprint, keyword_where
+            keyword_where
         );
 
         let mut stmt = conn.prepare(&sql)?;
         let suggestions: Vec<ChainSuggestion> = stmt
-            .query_map([], |row| {
+            .query_map([fingerprint.as_str()], |row| {
                 let id: i64 = row.get(0)?;
                 let sum: String = row.get(1)?;
                 let cat: Option<String> = row.get(2)?;
                 let sev: i32 = row.get(3)?;
                 let _conf: Option<f64> = row.get(4)?;
 
+                let sum_lower = sum.to_lowercase();
                 let keyword_matches = keywords
                     .iter()
-                    .filter(|k| sum.to_lowercase().contains(&k.to_lowercase()))
+                    .filter(|k| sum_lower.contains(k.as_str()))
                     .count();
                 let similarity = (keyword_matches as f64 / keywords.len() as f64) * 0.7
                     + if cat.as_ref() == category.as_ref() {
