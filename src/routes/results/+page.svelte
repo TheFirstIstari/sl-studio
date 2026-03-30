@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/core';
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Fact {
 		id: number;
@@ -19,7 +20,7 @@
 	let filter = $state('');
 	let sortBy = $state<'severity' | 'date'>('severity');
 	let selectedFact = $state<Fact | null>(null);
-	let selectedIds = $state<Set<number>>(new Set());
+	let selectedIds = new SvelteSet<number>();
 	let selectAll = $state(false);
 
 	onMount(async () => {
@@ -39,7 +40,7 @@
 	}
 
 	function toggleSelect(id: number) {
-		const newSet = new Set(selectedIds);
+		const newSet = new SvelteSet(selectedIds);
 		if (newSet.has(id)) {
 			newSet.delete(id);
 		} else {
@@ -50,10 +51,10 @@
 
 	function toggleSelectAll() {
 		if (selectAll) {
-			selectedIds = new Set();
+			selectedIds = new SvelteSet();
 			selectAll = false;
 		} else {
-			selectedIds = new Set(filteredFacts.map(f => f.id));
+			selectedIds = new SvelteSet(filteredFacts.map(f => f.id));
 			selectAll = true;
 		}
 	}

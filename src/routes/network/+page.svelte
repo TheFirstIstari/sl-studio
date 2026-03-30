@@ -2,6 +2,7 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { onMount, onDestroy } from 'svelte';
 	import cytoscape from 'cytoscape';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	interface EntityRelationship {
 		entity1_id: number;
@@ -74,7 +75,7 @@
 
 		const elements: cytoscape.ElementDefinition[] = [];
 
-		const nodeMap = new Map<string, { id: string; type: string; value: string }>();
+		const nodeMap = new SvelteMap<string, { id: string; type: string; value: string }>();
 
 		for (const rel of relationships) {
 			const id1 = `node-${rel.entity1_id}`;
