@@ -135,34 +135,34 @@ jobs:
           tag_name: ${{ github.ref_name }}
           body: |
             ## SL Studio ${{ github.ref_name }}
-            
+
             ### Downloads
-            
+
             | Platform | File |
             |----------|------|
             | macOS (Apple Silicon) | `.dmg` |
             | macOS (Intel) | `.dmg` |
             | Windows | `.msi` or `.exe` |
             | Linux | `.deb` or `.AppImage` |
-            
+
             ### Installation
-            
+
             **macOS**: Download and open the `.dmg` file, drag SL Studio to Applications.
-            
+
             **Windows**: Run the `.msi` installer or `.exe` file.
-            
+
             **Linux (Debian/Ubuntu)**: 
             ```bash
             sudo dpkg -i sl-studio_*.deb
             sudo apt-get install -f  # fix dependencies if needed
             ```
-            
+
             **Linux (AppImage)**:
             ```bash
             chmod +x SL.Studio-*.AppImage
             ./SL.Studio-*.AppImage
             ```
-            
+
             ### Changes
-            
+
             See [CHANGELOG.md](CHANGELOG.md) for details.

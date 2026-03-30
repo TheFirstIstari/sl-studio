@@ -137,36 +137,13 @@
 		return '#4ade80';
 	}
 
-	// Direct icon path lookup - no HashMap needed, match is faster
-	const iconPaths: Record<string, string> = {
-		dollar:
-			'line x1="12" y1="1" x2="12" y2="23" / path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"',
-		scale:
-			'path d="M16 3l5 5-5 5" / path d="M21 8H3" / path d="M21 16l-5 5-5-5" / path d="M16 21H3"',
-		laptop:
-			'rect x="2" y="3" width="20" height="14" rx="2" ry="2" / line x1="2" y1="20" x2="22" y2="20"',
-		'map-pin':
-			'path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" / circle cx="12" cy="10" r="3"',
-		mic: 'path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" / path d="M19 10v2a7 7 0 0 1-14 0v-2" / line x1="12" y1="19" x2="12" y2="23" / line x1="8" y1="23" x2="16" y2="23"'
-	};
-
-	function getCategoryIconPath(category: string | null): string {
-		const icon =
-			category === 'Financial'
-				? 'dollar'
-				: category === 'Legal'
-					? 'scale'
-					: category === 'Digital'
-						? 'laptop'
-						: category === 'Physical'
-							? 'map-pin'
-							: category === 'Verbal'
-								? 'mic'
-								: 'file';
-		return (
-			iconPaths[icon] ||
-			'path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" / polyline points="14 2 14 8 20 8" / line x1="16" y1="13" x2="8" y2="13" / line x1="16" y1="17" x2="8" y2="17"'
-		);
+	function getCategoryIcon(category: string | null): string {
+		if (category === 'Financial') return 'dollar';
+		if (category === 'Legal') return 'scale';
+		if (category === 'Digital') return 'laptop';
+		if (category === 'Physical') return 'map-pin';
+		if (category === 'Verbal') return 'mic';
+		return 'file';
 	}
 
 	let filteredFacts = $derived(
@@ -279,8 +256,34 @@
 									viewBox="0 0 24 24"
 									fill="none"
 									stroke="currentColor"
-									stroke-width="2">{@html getCategoryIconPath(fact.category)}</svg
+									stroke-width="2"
 								>
+									{#if getCategoryIcon(fact.category) === 'dollar'}
+										<line x1="12" y1="1" x2="12" y2="23" />
+										<path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+									{:else if getCategoryIcon(fact.category) === 'scale'}
+										<path d="M16 3l5 5-5 5" />
+										<path d="M21 8H3" />
+										<path d="M21 16l-5 5-5-5" />
+										<path d="M16 21H3" />
+									{:else if getCategoryIcon(fact.category) === 'laptop'}
+										<rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+										<line x1="2" y1="20" x2="22" y2="20" />
+									{:else if getCategoryIcon(fact.category) === 'map-pin'}
+										<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+										<circle cx="12" cy="10" r="3" />
+									{:else if getCategoryIcon(fact.category) === 'mic'}
+										<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+										<path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+										<line x1="12" y1="19" x2="12" y2="23" />
+										<line x1="8" y1="23" x2="16" y2="23" />
+									{:else}
+										<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+										<polyline points="14 2 14 8 20 8" />
+										<line x1="16" y1="13" x2="8" y2="13" />
+										<line x1="16" y1="17" x2="8" y2="17" />
+									{/if}
+								</svg>
 								<span class="fact-filename">{fact.filename}</span>
 								<span
 									class="fact-severity"

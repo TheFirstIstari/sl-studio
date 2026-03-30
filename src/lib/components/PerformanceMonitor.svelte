@@ -18,7 +18,9 @@
 	}
 
 	function measurePageLoad() {
-		const perf = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+		const perf = performance.getEntriesByType('navigation')[0] as
+			| PerformanceNavigationTiming
+			| undefined;
 		if (perf) {
 			collectMetric('page_load', perf.loadEventEnd - perf.startTime, 'ms');
 			collectMetric('dom_content_loaded', perf.domContentLoadedEventEnd - perf.startTime, 'ms');
