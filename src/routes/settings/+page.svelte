@@ -77,7 +77,25 @@
 	let selectedModel = $state('');
 	let downloadError = $state('');
 
+	interface SystemMonitor {
+		cpu_usage_percent: number;
+		memory_used_gb: number;
+		memory_available_gb: number;
+		memory_percent: number;
+	}
+
+	let systemMonitor = $state<SystemMonitor | null>(null);
+	let monitorInterval: ReturnType<typeof setInterval> | null = null;
+
 	let unlisten: (() => void) | null = null;
+
+	async function updateSystemMonitor() {
+		try {
+			systemMonitor = await invoke<SystemMonitor>('get_system_monitor');
+		} catch (e) {
+			console.error('Failed to get system monitor:', e);
+		}
+	}
 
 	onMount(async () => {
 		try {
@@ -108,6 +126,9 @@
 			unlisten = await listen<DownloadProgress>('download_status', (event) => {
 				downloadProgress = event.payload;
 			});
+
+			await updateSystemMonitor();
+			monitorInterval = setInterval(updateSystemMonitor, 2000);
 		} catch (e) {
 			console.error('Failed to load config:', e);
 		} finally {
@@ -117,6 +138,7 @@
 
 	onDestroy(() => {
 		if (unlisten) unlisten();
+		if (monitorInterval) clearInterval(monitorInterval);
 	});
 
 	async function saveConfig() {
@@ -406,7 +428,7 @@
 				</div>
 			</section>
 
-			<section class="settings-section">
+		<section class="settings-section">
 				<h2>Processing</h2>
 
 				<div class="form-group">
@@ -415,9 +437,38 @@
 					<p class="hint">Files per inference batch</p>
 				</div>
 			</section>
-		</div>
 
-		<div class="actions">
+			<section class="settings-section">
+				<h2>System Monitor</h2>
+
+				{#if systemMonitor}
+					<div class="monitor-grid">
+						<div class="monitor-item">
+							<span class="monitor-label">CPU Usage</span>
+							<div class="monitor-bar">
+								<div class="monitor-fill" style="width: {systemMonitor.cpu_usage_percent}%"></div>
+							</div>
+							<span class="monitor-value">{systemMonitor.cpu_usage_percent.toFixed(1)}%</span>
+						</div>
+
+						<div class="monitor-item">
+							<span class="monitor-label">Memory</span>
+							<div class="monitor-bar">
+								<div class="monitor-fill" style="width: {systemMonitor.memory_percent}%"></div>
+							</div>
+							<span class="monitor-value"
+								>{systemMonitor.memory_used_gb.toFixed(1)}GB / {(
+									systemMonitor.memory_used_gb + systemMonitor.memory_available_gb
+								).toFixed(1)}GB</span
+							>
+						</div>
+					</div>
+				{:else}
+					<p class="loading-text">Loading system monitor...</p>
+				{/if}
+			</section>
+
+			<div class="actions">
 			<button class="save-btn" onclick={saveConfig} disabled={saving}>
 				{saving ? 'Saving...' : 'Save Configuration'}
 			</button>
@@ -679,5 +730,45 @@
 
 	.status-message.error {
 		color: #ef4444;
+	}
+
+	.monitor-grid {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.monitor-item {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.monitor-label {
+		font-size: 0.875rem;
+		color: #9ca3af;
+	}
+
+	.monitor-bar {
+		height: 8px;
+		background: #0f3460;
+		border-radius: 4px;
+		overflow: hidden;
+	}
+
+	.monitor-fill {
+		height: 100%;
+		background: linear-gradient(90deg, #4a9eff, #4caf50);
+		transition: width 0.3s ease;
+	}
+
+	.monitor-value {
+		font-size: 0.75rem;
+		color: #eaeaea;
+	}
+
+	.loading-text {
+		color: #9ca3af;
+		font-size: 0.875rem;
 	}
 </style>
