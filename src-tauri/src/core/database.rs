@@ -11,13 +11,16 @@ pub struct RegistryEntry {
     pub file_size: Option<i64>,
     pub file_type: Option<String>,
     pub file_name: String,
-    pub last_modified: Option<String>,  // DATETIME
-    pub last_hash_check: Option<String>,  // DATETIME
-    pub extracted_at: Option<String>,  // DATETIME
-    pub processed_at: Option<String>,  // DATETIME
-    pub processing_priority: i32,  // 0=new, 1=modified, 2=extracted, 3=rerun
-    pub extraction_quality: Option<f64>,  // 0.0-1.0
-    pub created_at: Option<String>,  // DATETIME
+    pub last_modified: Option<String>, // DATETIME
+    pub last_hash_check: Option<String>, // DATETIME
+    pub has_extracted_text: bool,
+    pub extracted_at: Option<String>, // DATETIME
+    pub processed_at: Option<String>, // DATETIME
+    pub processed: bool,
+    pub processing_priority: i32, // 0=new, 1=modified, 2=extracted, 3=rerun
+    pub retry_count: i32,
+    pub extraction_quality: Option<f64>, // 0.0-1.0
+    pub created_at: Option<String>, // DATETIME
 }
 
 pub struct Database {
@@ -397,8 +400,14 @@ impl Database {
     }
 
     /// Update a file's registry entry after processing
-    pub fn update_registry_entry(&self, fingerprint: &str, has_text: bool, processed: bool, 
-                                priority: i32, quality: Option<f64>) -> Result<()> {
+    pub fn update_registry_entry(
+        &self,
+        fingerprint: &str,
+        has_text: bool,
+        processed: bool,
+        priority: i32,
+        quality: Option<f64>,
+    ) -> Result<()> {
         let conn = self.registry_conn.lock().unwrap();
         conn.execute(
             "UPDATE registry SET 
@@ -451,21 +460,21 @@ impl Database {
         entries.collect()
     }
 
-    /// Scan for new or modified files and update registry
-    pub fn scan_for_changes(&self, evidence_root: &str) -> Result<Vec<(String, i32)>> {
-        use std::fs::{self, metadata};
-        use std::path::Path;
-        use std::time::SystemTime;
+     /// Scan for new or modified files and update registry
+     pub fn scan_for_changes(&self, evidence_root: &str) -> Result<Vec<(String, i32)>> {
+         use std::fs::{self, metadata};
+         use std::path::Path;
+         use std::time::SystemTime;
 
-        let conn = self.registry_conn.lock().unwrap();
-        let mut changes = Vec::new();
+         let conn = self.registry_conn.lock().unwrap();
+         let mut changes = Vec::new();
 
-        // Get existing fingerprints
-        let existing: std::collections::HashSet<String> = 
-            conn.prepare("SELECT fingerprint FROM registry")?
-                .query_map([], |row| row.get(0))?
-                .flatten()
-                .collect();
+         // Get existing fingerprints
+         let existing: std::collections::HashSet<String> = conn
+             .prepare("SELECT fingerprint FROM registry")?
+             .query_map([], |row| row.get(0))?
+             .flatten()
+             .collect();
 
         // Walk the evidence root
         for entry in fs::read_dir(evidence_root)? {
