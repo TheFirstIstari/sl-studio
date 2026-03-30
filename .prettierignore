@@ -3,11 +3,20 @@ playwright-report/
 test-results/
 PERFORMANCE_REPORT.md
 CHANGELOG.md
+src-tauri/gen/
 
 # Build artifacts
 build/
 .svelte-kit/
 src-tauri/target/
+target/
 
 # Dependencies
 node_modules/
+
+# System/Rust files
+~/.rustup/
+~/.cargo/
+
+# Other
+.vscode/
