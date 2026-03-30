@@ -11,7 +11,7 @@ pub struct RegistryEntry {
     pub file_size: Option<i64>,
     pub file_type: Option<String>,
     pub file_name: String,
-    pub last_modified: Option<String>, //DATETIME
+    pub last_modified: Option<String>,   //DATETIME
     pub last_hash_check: Option<String>, //DATETIME
     pub has_extracted_text: bool,
     pub extracted_at: Option<String>, //DATETIME
@@ -20,7 +20,7 @@ pub struct RegistryEntry {
     pub processing_priority: i32, // 0=new, 1=modified, 2=extracted, 3=rerun
     pub retry_count: i32,
     pub extraction_quality: Option<f64>, // 0.0-1.0
-    pub created_at: Option<String>, //DATETIME
+    pub created_at: Option<String>,      //DATETIME
 }
 
 pub struct Database {
@@ -460,21 +460,21 @@ impl Database {
         entries.collect()
     }
 
-     /// Scan for new or modified files and update registry
-     pub fn scan_for_changes(&self, evidence_root: &str) -> Result<Vec<(String, i32)>> {
-         use std::fs::{self, metadata};
-         use std::path::Path;
-         use std::time::SystemTime;
+    /// Scan for new or modified files and update registry
+    pub fn scan_for_changes(&self, evidence_root: &str) -> Result<Vec<(String, i32)>> {
+        use std::fs::{self, metadata};
+        use std::path::Path;
+        use std::time::SystemTime;
 
-         let conn = self.registry_conn.lock().unwrap();
-         let mut changes = Vec::new();
+        let conn = self.registry_conn.lock().unwrap();
+        let mut changes = Vec::new();
 
-         // Get existing fingerprints
-         let existing: std::collections::HashSet<String> = conn
-             .prepare("SELECT fingerprint FROM registry")?
-             .query_map([], |row| row.get(0))?
-             .flatten()
-             .collect();
+        // Get existing fingerprints
+        let existing: std::collections::HashSet<String> = conn
+            .prepare("SELECT fingerprint FROM registry")?
+            .query_map([], |row| row.get(0))?
+            .flatten()
+            .collect();
 
         // Walk the evidence root
         for entry in fs::read_dir(evidence_root)? {
@@ -486,11 +486,13 @@ impl Database {
             }
 
             let fingerprint = self.hash_file(&path)?;
-            let file_name = path.file_name()
+            let file_name = path
+                .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("unknown")
                 .to_string();
-            let file_type = path.extension()
+            let file_type = path
+                .extension()
                 .and_then(|ext| ext.to_str())
                 .unwrap_or("unknown")
                 .to_string();
@@ -506,10 +508,10 @@ impl Database {
                 0
             } else {
                 // Check if file has been modified
-                let mut stmt = conn.prepare_cached(
-                    "SELECT last_modified FROM registry WHERE fingerprint = ?1"
-                )?;
-                let last_registered: Option<i64> = stmt.query_row(params![&fingerprint], |row| row.get(0))?;
+                let mut stmt = conn
+                    .prepare_cached("SELECT last_modified FROM registry WHERE fingerprint = ?1")?;
+                let last_registered: Option<i64> =
+                    stmt.query_row(params![&fingerprint], |row| row.get(0))?;
 
                 if let Some(last_mod) = last_registered {
                     if last_modified > last_mod {
@@ -568,8 +570,8 @@ impl Database {
     /// Hash a file for change detection
     fn hash_file(&self, path: &Path) -> Result<String> {
         use std::fs::File;
-        use std::io::{self, Read};
         use std::hash::{Hash, Hasher};
+        use std::io::{self, Read};
         use twox_hash::XxHash64;
 
         let mut file = File::open(path)?;
@@ -884,7 +886,13 @@ impl Database {
     }
 
     // Error queue operations
-    pub fn add_error(&self, fingerprint: &str, job_type: &str, error_message: &str, error_details: &str) -> Result<()> {
+    pub fn add_error(
+        &self,
+        fingerprint: &str,
+        job_type: &str,
+        error_message: &str,
+        error_details: &str,
+    ) -> Result<()> {
         let conn = self.intelligence_conn.lock().unwrap();
         conn.execute(
             "INSERT INTO error_queue (fingerprint, job_type, error_message, error_details, next_attempt)
@@ -924,7 +932,13 @@ impl Database {
         entries.collect()
     }
 
-    pub fn update_error(&self, error_id: i64, retry_count: i32, error_message: &str, next_attempt: Option<String>) -> Result<()> {
+    pub fn update_error(
+        &self,
+        error_id: i64,
+        retry_count: i32,
+        error_message: &str,
+        next_attempt: Option<String>,
+    ) -> Result<()> {
         let conn = self.intelligence_conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "UPDATE error_queue SET
