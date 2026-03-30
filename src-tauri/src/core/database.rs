@@ -11,16 +11,16 @@ pub struct RegistryEntry {
     pub file_size: Option<i64>,
     pub file_type: Option<String>,
     pub file_name: String,
-    pub last_modified: Option<String>,   // DATETIME
-    pub last_hash_check: Option<String>, // DATETIME
+    pub last_modified: Option<String>, //DATETIME
+    pub last_hash_check: Option<String>, //DATETIME
     pub has_extracted_text: bool,
-    pub extracted_at: Option<String>, // DATETIME
-    pub processed_at: Option<String>, // DATETIME
+    pub extracted_at: Option<String>, //DATETIME
+    pub processed_at: Option<String>, //DATETIME
     pub processed: bool,
     pub processing_priority: i32, // 0=new, 1=modified, 2=extracted, 3=rerun
     pub retry_count: i32,
     pub extraction_quality: Option<f64>, // 0.0-1.0
-    pub created_at: Option<String>, // DATETIME
+    pub created_at: Option<String>, //DATETIME
 }
 
 pub struct Database {
@@ -410,7 +410,7 @@ impl Database {
     ) -> Result<()> {
         let conn = self.registry_conn.lock().unwrap();
         conn.execute(
-            "UPDATE registry SET 
+            "UPDATE registry SET
                 has_extracted_text = ?2,
                 processed = ?3,
                 processing_priority = ?4,
@@ -427,9 +427,9 @@ impl Database {
     pub fn get_priority_queue(&self, limit: i64) -> Result<Vec<RegistryEntry>> {
         let conn = self.registry_conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, fingerprint, path, file_size, file_type, file_name, 
-                    last_modified, last_hash_check, has_extracted_text, 
-                    extracted_at, processed_at, processed, 
+            "SELECT id, fingerprint, path, file_size, file_type, file_name,
+                    last_modified, last_hash_check, has_extracted_text,
+                    extracted_at, processed_at, processed,
                     processing_priority, retry_count, extraction_quality, created_at
              FROM registry
              ORDER BY processing_priority ASC, last_modified DESC
@@ -480,7 +480,7 @@ impl Database {
         for entry in fs::read_dir(evidence_root)? {
             let entry = entry?;
             let path = entry.path();
-            
+
             if !path.is_file() {
                 continue;
             }
@@ -510,7 +510,7 @@ impl Database {
                     "SELECT last_modified FROM registry WHERE fingerprint = ?1"
                 )?;
                 let last_registered: Option<i64> = stmt.query_row(params![&fingerprint], |row| row.get(0))?;
-                
+
                 if let Some(last_mod) = last_registered {
                     if last_modified > last_mod {
                         // Modified file
@@ -523,7 +523,7 @@ impl Database {
                         let result = stmt.query_row(params![&fingerprint], |row| {
                             Ok((row.get::<_, bool>(0)?, row.get::<_, bool>(1)?))
                         })?;
-                        
+
                         match result {
                             (true, false) => {
                                 // Extracted but not processed
@@ -543,8 +543,8 @@ impl Database {
 
             // Update or insert the registry entry
             conn.execute(
-                "INSERT OR REPLACE INTO registry 
-                 (fingerprint, path, file_type, file_size, file_name, 
+                "INSERT OR REPLACE INTO registry
+                 (fingerprint, path, file_type, file_size, file_name,
                   last_modified, last_hash_check, processing_priority)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                 params![
@@ -613,9 +613,9 @@ impl Database {
     pub fn insert_intelligence(&self, entry: &IntelligenceEntry) -> Result<()> {
         let conn = self.intelligence_conn.lock().unwrap();
         conn.execute(
-            "INSERT OR REPLACE INTO intelligence 
+            "INSERT OR REPLACE INTO intelligence
              (registry_id, fingerprint, filename, source_quote, page_number, evidence_full, evidence_hash,
-              associated_date, fact_summary, category, identified_crime, severity_score, 
+              associated_date, fact_summary, category, identified_crime, severity_score,
               confidence, quality_score, source_language, translated_quote, pipeline_id, pass_name,
               is_deleted, deleted_at, processing_time_ms, created_at)
               VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
@@ -927,7 +927,7 @@ impl Database {
     pub fn update_error(&self, error_id: i64, retry_count: i32, error_message: &str, next_attempt: Option<String>) -> Result<()> {
         let conn = self.intelligence_conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "UPDATE error_queue SET 
+            "UPDATE error_queue SET
                  retry_count = ?2,
                  error_message = ?3,
                  last_attempt = CURRENT_TIMESTAMP,
@@ -942,7 +942,7 @@ impl Database {
     pub fn resolve_error(&self, error_id: i64, resolution: &str, resolved_by: &str) -> Result<()> {
         let conn = self.intelligence_conn.lock().unwrap();
         conn.execute(
-            "UPDATE error_queue SET 
+            "UPDATE error_queue SET
                  resolved = 1,
                  resolution = ?2,
                  resolved_by = ?3,
