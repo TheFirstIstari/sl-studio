@@ -589,6 +589,7 @@ fn write_file(path: String, contents: Vec<u8>) -> Result<(), String> {
 #[tauri::command]
 fn export_pdf_report(state: State<AppState>) -> Result<Vec<u8>, String> {
     use printpdf::*;
+    use std::io::BufWriter;
 
     let db = state.db.lock().unwrap();
     let db_ref = db.as_ref().ok_or("Database not initialized")?;
@@ -613,12 +614,13 @@ fn export_pdf_report(state: State<AppState>) -> Result<Vec<u8>, String> {
     current_layer.use_text(&format!("Generated: {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S")), 10.0, Mm(20.0), Mm(268.0), &font);
 
     current_layer.use_text("Summary Statistics", 16.0, Mm(20.0), Mm(250.0), &font_bold);
-    current_layer.use_text(&format!("Total Evidence: {}", stats.registry_count), 12.0, Mm(25.0), Mm(240.0), &font);
-    current_layer.use_text(&format!("Total Intelligence: {}", stats.intelligence_count), 12.0, Mm(25.0), Mm(232.0), &font);
-    current_layer.use_text(&format!("Processed Files: {}", stats.processed_count), 12.0, Mm(25.0), Mm(224.0), &font);
+    current_layer.use_text(&format!("Total Facts: {}", stats.total_facts), 12.0, Mm(25.0), Mm(240.0), &font);
+    current_layer.use_text(&format!("Total Entities: {}", stats.total_entities), 12.0, Mm(25.0), Mm(232.0), &font);
+    current_layer.use_text(&format!("Unique Entities: {}", stats.unique_entities), 12.0, Mm(25.0), Mm(224.0), &font);
+    current_layer.use_text(&format!("Total Chains: {}", stats.total_chains), 12.0, Mm(25.0), Mm(216.0), &font);
 
-    current_layer.use_text("Category Distribution", 16.0, Mm(20.0), Mm(205.0), &font_bold);
-    let mut y_pos = 195.0;
+    current_layer.use_text("Category Distribution", 16.0, Mm(20.0), Mm(198.0), &font_bold);
+    let mut y_pos = 188.0;
     for cat in categories.iter().take(10) {
         current_layer.use_text(&format!("{}: {} items", cat.category, cat.count), 11.0, Mm(25.0), Mm(y_pos), &font);
         y_pos -= 7.0;
@@ -640,14 +642,16 @@ fn export_pdf_report(state: State<AppState>) -> Result<Vec<u8>, String> {
     }
 
     let mut pdf_bytes = Vec::new();
-    doc.save(&mut std::io::Cursor::new(&mut pdf_bytes)).map_err(|e| e.to_string())?;
+    let mut buffer = BufWriter::new(Vec::new());
+    doc.save(&mut buffer).map_err(|e| e.to_string())?;
+    pdf_bytes = buffer.into_inner().map_err(|e| e.to_string())?;
 
     Ok(pdf_bytes)
 }
 
 #[tauri::command]
 fn export_excel_report(state: State<AppState>) -> Result<Vec<u8>, String> {
-    use calamine::{Workbook, Xlsx, DataType};
+    use calamine::{open_workbook_auto, Data, Workbook, Xlsx};
 
     let db = state.db.lock().unwrap();
     let db_ref = db.as_ref().ok_or("Database not initialized")?;
@@ -657,90 +661,91 @@ fn export_excel_report(state: State<AppState>) -> Result<Vec<u8>, String> {
     let entities = db_ref.get_entity_centrality(None, 0.0).map_err(|e| e.to_string())?;
     let timeline = db_ref.get_timeline_events(None, None, 1000).map_err(|e| e.to_string())?;
 
-    let mut workbook: Workbook<Xlsx, Vec<u8>> = Workbook::new();
+    let mut workbook = Xlsx::new(Vec::new());
     
     {
         let sheet = workbook.add_worksheet("Facts");
-        sheet.set_name("Facts").map_err(|e| e.to_string())?;
         
         let headers = ["ID", "Filename", "Category", "Severity", "Confidence", "Quality", "Weight", "Summary", "Created"];
         for (i, header) in headers.iter().enumerate() {
-            sheet.set_cell_value(0, i as u32, *header).map_err(|e| e.to_string())?;
+            sheet.write(0, i as u32, Data::String(*header)).map_err(|e| e.to_string())?;
         }
         
         for (row, fact) in facts.iter().enumerate().take(1000) {
             let r = (row + 1) as u32;
-            sheet.set_cell_value(r, 0, fact.id).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 1, fact.filename.as_str()).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 2, fact.category.as_deref().unwrap_or("")).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 3, fact.severity).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 4, fact.confidence.unwrap_or(0.0)).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 5, fact.quality.unwrap_or(0.0)).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 6, fact.weight).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 7, fact.summary.as_str()).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 8, fact.created_at.as_deref().unwrap_or("")).map_err(|e| e.to_string())?;
+            sheet.write(r, 0, Data::Int(fact.id)).map_err(|e| e.to_string())?;
+            sheet.write(r, 1, Data::String(fact.filename.clone())).map_err(|e| e.to_string())?;
+            sheet.write(r, 2, Data::String(fact.category.clone().unwrap_or_default())).map_err(|e| e.to_string())?;
+            sheet.write(r, 3, Data::Int(fact.severity as i64)).map_err(|e| e.to_string())?;
+            sheet.write(r, 4, Data::Float(fact.confidence.unwrap_or(0.0))).map_err(|e| e.to_string())?;
+            sheet.write(r, 5, Data::Float(fact.quality.unwrap_or(0.0))).map_err(|e| e.to_string())?;
+            sheet.write(r, 6, Data::Float(fact.weight)).map_err(|e| e.to_string())?;
+            sheet.write(r, 7, Data::String(fact.summary.clone())).map_err(|e| e.to_string())?;
+            sheet.write(r, 8, Data::String(fact.created_at.clone().unwrap_or_default())).map_err(|e| e.to_string())?;
         }
     }
 
     {
         let sheet = workbook.add_worksheet("Categories");
-        sheet.set_name("Categories").map_err(|e| e.to_string())?;
         
-        sheet.set_cell_value(0, 0, "Category").map_err(|e| e.to_string())?;
-        sheet.set_cell_value(0, 1, "Count").map_err(|e| e.to_string())?;
-        sheet.set_cell_value(0, 2, "Avg Severity").map_err(|e| e.to_string())?;
-        sheet.set_cell_value(0, 3, "Avg Confidence").map_err(|e| e.to_string())?;
+        sheet.write(0, 0, Data::String("Category")).map_err(|e| e.to_string())?;
+        sheet.write(0, 1, Data::String("Count")).map_err(|e| e.to_string())?;
+        sheet.write(0, 2, Data::String("Avg Severity")).map_err(|e| e.to_string())?;
+        sheet.write(0, 3, Data::String("Avg Confidence")).map_err(|e| e.to_string())?;
         
         for (row, cat) in categories.iter().enumerate() {
             let r = (row + 1) as u32;
-            sheet.set_cell_value(r, 0, cat.category.as_str()).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 1, cat.count).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 2, cat.avg_severity.unwrap_or(0.0)).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 3, cat.avg_confidence.unwrap_or(0.0)).map_err(|e| e.to_string())?;
+            sheet.write(r, 0, Data::String(cat.category.clone())).map_err(|e| e.to_string())?;
+            sheet.write(r, 1, Data::Int(cat.count as i64)).map_err(|e| e.to_string())?;
+            sheet.write(r, 2, Data::Float(cat.avg_severity.unwrap_or(0.0))).map_err(|e| e.to_string())?;
+            sheet.write(r, 3, Data::Float(cat.avg_confidence.unwrap_or(0.0))).map_err(|e| e.to_string())?;
         }
     }
 
     {
         let sheet = workbook.add_worksheet("Entities");
-        sheet.set_name("Entities").map_err(|e| e.to_string())?;
         
-        sheet.set_cell_value(0, 0, "Entity ID").map_err(|e| e.to_string())?;
-        sheet.set_cell_value(0, 1, "Type").map_err(|e| e.to_string())?;
-        sheet.set_cell_value(0, 2, "Value").map_err(|e| e.to_string())?;
-        sheet.set_cell_value(0, 3, "Doc Count").map_err(|e| e.to_string())?;
-        sheet.set_cell_value(0, 4, "Occurrences").map_err(|e| e.to_string())?;
-        sheet.set_cell_value(0, 5, "Centrality").map_err(|e| e.to_string())?;
+        sheet.write(0, 0, Data::String("Entity ID")).map_err(|e| e.to_string())?;
+        sheet.write(0, 1, Data::String("Type")).map_err(|e| e.to_string())?;
+        sheet.write(0, 2, Data::String("Value")).map_err(|e| e.to_string())?;
+        sheet.write(0, 3, Data::String("Doc Count")).map_err(|e| e.to_string())?;
+        sheet.write(0, 4, Data::String("Occurrences")).map_err(|e| e.to_string())?;
+        sheet.write(0, 5, Data::String("Centrality")).map_err(|e| e.to_string())?;
         
         for (row, entity) in entities.iter().enumerate().take(500) {
             let r = (row + 1) as u32;
-            sheet.set_cell_value(r, 0, entity.entity_id).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 1, entity.entity_type.as_str()).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 2, entity.value.as_str()).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 3, entity.document_count).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 4, entity.occurrence_count).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 5, entity.centrality_score).map_err(|e| e.to_string())?;
+            sheet.write(r, 0, Data::Int(entity.entity_id)).map_err(|e| e.to_string())?;
+            sheet.write(r, 1, Data::String(entity.entity_type.clone())).map_err(|e| e.to_string())?;
+            sheet.write(r, 2, Data::String(entity.value.clone())).map_err(|e| e.to_string())?;
+            sheet.write(r, 3, Data::Int(entity.document_count)).map_err(|e| e.to_string())?;
+            sheet.write(r, 4, Data::Int(entity.occurrence_count)).map_err(|e| e.to_string())?;
+            sheet.write(r, 5, Data::Float(entity.centrality_score)).map_err(|e| e.to_string())?;
         }
     }
 
     {
         let sheet = workbook.add_worksheet("Timeline");
-        sheet.set_name("Timeline").map_err(|e| e.to_string())?;
         
-        sheet.set_cell_value(0, 0, "Date").map_err(|e| e.to_string())?;
-        sheet.set_cell_value(0, 1, "Event Type").map_err(|e| e.to_string())?;
-        sheet.set_cell_value(0, 2, "Description").map_err(|e| e.to_string())?;
-        sheet.set_cell_value(0, 3, "Filename").map_err(|e| e.to_string())?;
+        sheet.write(0, 0, Data::String("Date")).map_err(|e| e.to_string())?;
+        sheet.write(0, 1, Data::String("Filename")).map_err(|e| e.to_string())?;
+        sheet.write(0, 2, Data::String("Summary")).map_err(|e| e.to_string())?;
+        sheet.write(0, 3, Data::String("Category")).map_err(|e| e.to_string())?;
         
         for (row, event) in timeline.iter().enumerate().take(1000) {
             let r = (row + 1) as u32;
-            sheet.set_cell_value(r, 0, event.date.as_str()).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 1, event.event_type.as_str()).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 2, event.description.as_str()).map_err(|e| e.to_string())?;
-            sheet.set_cell_value(r, 3, event.filename.as_deref().unwrap_or("")).map_err(|e| e.to_string())?;
+            sheet.write(r, 0, Data::String(event.date.clone())).map_err(|e| e.to_string())?;
+            sheet.write(r, 1, Data::String(event.filename.clone())).map_err(|e| e.to_string())?;
+            sheet.write(r, 2, Data::String(event.summary.clone())).map_err(|e| e.to_string())?;
+            sheet.write(r, 3, Data::String(event.category.clone().unwrap_or_default())).map_err(|e| e.to_string())?;
         }
     }
 
-    workbook.save_new_buffer().map_err(|e| e.to_string())
+    workbook.save(&mut std::io::Cursor::new(Vec::new())).map_err(|e| e.to_string())?;
+    
+    let mut data = Vec::new();
+    workbook.save(&mut std::io::Cursor::new(&mut data)).map_err(|e| e.to_string())?;
+    
+    Ok(data)
 }
 
 #[tauri::command]

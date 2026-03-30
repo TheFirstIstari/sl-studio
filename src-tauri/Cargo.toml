@@ -60,7 +60,6 @@ image = "0.25"
 zip = "2"
 llama_cpp = "0.3"
 rand = "0.8"
-calamine = "0.26"
 
 [dev-dependencies]
 tempfile = "3"
