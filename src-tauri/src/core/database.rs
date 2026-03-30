@@ -1,5 +1,7 @@
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+use std::path::Path;
 use std::sync::Mutex;
 use tracing::info;
 
@@ -21,6 +23,33 @@ pub struct RegistryEntry {
     pub retry_count: i32,
     pub extraction_quality: Option<f64>, // 0.0-1.0
     pub created_at: Option<String>,      //DATETIME
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntelligenceEntry {
+    pub id: i64,
+    pub registry_id: i64,
+    pub fingerprint: String,
+    pub filename: String,
+    pub source_quote: String,
+    pub page_number: Option<i32>,
+    pub evidence_full: Option<String>,
+    pub evidence_hash: Option<String>,
+    pub associated_date: Option<String>,
+    pub fact_summary: String,
+    pub category: Option<String>,
+    pub identified_crime: Option<String>,
+    pub severity_score: i32,
+    pub confidence: Option<f64>,
+    pub quality_score: Option<f64>,
+    pub source_language: Option<String>,
+    pub translated_quote: Option<String>,
+    pub pipeline_id: Option<String>,
+    pub pass_name: Option<String>,
+    pub is_deleted: bool,
+    pub deleted_at: Option<String>,
+    pub processing_time_ms: Option<i64>,
+    pub created_at: Option<String>,
 }
 
 pub struct Database {
@@ -461,9 +490,8 @@ impl Database {
     }
 
     /// Scan for new or modified files and update registry
-    pub fn scan_for_changes(&self, evidence_root: &str) -> Result<Vec<(String, i32)>> {
+    pub fn scan_for_changes(&self, evidence_root: &str) -> std::result::Result<Vec<(String, i32)>, Box<dyn std::error::Error>> {
         use std::fs::{self, metadata};
-        use std::path::Path;
         use std::time::SystemTime;
 
         let conn = self.registry_conn.lock().unwrap();
@@ -568,31 +596,34 @@ impl Database {
     }
 
     /// Hash a file for change detection
-    fn hash_file(&self, path: &Path) -> Result<String> {
+    fn hash_file(&self, path: &Path) -> std::io::Result<String> {
         use std::fs::File;
-        use std::hash::{Hash, Hasher};
-        use std::io::{self, Read};
-        use twox_hash::XxHash64;
+        use std::io::Read;
 
+        let metadata = std::fs::metadata(path)?;
         let mut file = File::open(path)?;
-        let mut hasher = XxHash64::default();
-        let mut buffer = [0; 8192];
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer)?;
 
-        loop {
-            let count = file.read(&mut buffer)?;
-            if count == 0 {
-                break;
-            }
-            hasher.write(&buffer[..count]);
-        }
+        // Simple hash using std's default hasher
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        metadata.len().hash(&mut hasher);
+        metadata.modified()?.hash(&mut hasher);
+        buffer.hash(&mut hasher);
+        let hash = hasher.finish();
 
-        Ok(format!("{:x}", hasher.finish()))
+        Ok(format!("{:016x}-{}", hash, metadata.len()))
     }
 
     pub fn get_unprocessed_files(&self, limit: i64) -> Result<Vec<RegistryEntry>> {
         let conn = self.registry_conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, fingerprint, path, file_size, file_type, processed
+            "SELECT id, fingerprint, path, file_size, file_type, file_name,
+                    last_modified, last_hash_check, has_extracted_text,
+                    extracted_at, processed_at, processed,
+                    processing_priority, retry_count, extraction_quality, created_at
              FROM registry
              WHERE processed = 0
              LIMIT ?1",
@@ -605,7 +636,17 @@ impl Database {
                 path: row.get(2)?,
                 file_size: row.get(3)?,
                 file_type: row.get(4)?,
-                processed: row.get(5)?,
+                file_name: row.get(5)?,
+                last_modified: row.get(6)?,
+                last_hash_check: row.get(7)?,
+                has_extracted_text: row.get(8)?,
+                extracted_at: row.get(9)?,
+                processed_at: row.get(10)?,
+                processed: row.get(11)?,
+                processing_priority: row.get(12)?,
+                retry_count: row.get(13)?,
+                extraction_quality: row.get(14)?,
+                created_at: row.get(15)?,
             })
         })?;
 
