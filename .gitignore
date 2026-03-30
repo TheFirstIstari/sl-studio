@@ -13,3 +13,4 @@ coverage/
 swebok-v4.txt
 specguide.txt
 rfc2119.txt
+src-tauri/~/.rustup
