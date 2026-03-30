@@ -1163,10 +1163,8 @@ impl Database {
 
         let mut stmt = conn.prepare(&sql)?;
 
-        let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![
-            Box::new(fts_query.clone()),
-            Box::new(limit),
-        ];
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> =
+            vec![Box::new(fts_query.clone()), Box::new(limit)];
 
         if let Some(cats) = categories {
             for cat in cats {
@@ -1254,10 +1252,8 @@ impl Database {
 
         let mut stmt = conn.prepare(&sql)?;
 
-        let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![
-            Box::new(fts_query.clone()),
-            Box::new(limit),
-        ];
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> =
+            vec![Box::new(fts_query.clone()), Box::new(limit)];
 
         if let Some(types) = entity_types {
             for t in types {
@@ -1493,6 +1489,158 @@ impl Database {
         )?;
 
         let entries = stmt.query_map(params![chain_id], |row| {
+            Ok(ChainItem {
+                link_id: row.get(0)?,
+                intelligence_id: row.get(1)?,
+                relationship_type: row.get(2)?,
+                relationship_strength: row.get(3)?,
+                notes: row.get(4)?,
+                linked_by: row.get(5)?,
+                linked_at: row.get(6)?,
+                filename: row.get(7)?,
+                fact_summary: row.get(8)?,
+                category: row.get(9)?,
+            })
+        })?;
+
+        entries.collect()
+    }
+
+    pub fn get_all_chains(&self, limit: i64, offset: i64) -> Result<Vec<ChainSummary>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT c.id, c.chain_name, c.chain_type, c.description, c.created_by, c.created_at, c.updated_at,
+                    COUNT(l.id) as item_count,
+                    AVG(l.relationship_strength) as avg_strength
+             FROM evidence_chains c
+             LEFT JOIN evidence_chain_links l ON c.id = l.chain_id
+             GROUP BY c.id
+             ORDER BY c.updated_at DESC
+             LIMIT ?1 OFFSET ?2"
+        )?;
+
+        let entries = stmt.query_map(params![limit, offset], |row| {
+            Ok(ChainSummary {
+                id: row.get(0)?,
+                chain_name: row.get(1)?,
+                chain_type: row.get(2)?,
+                description: row.get(3)?,
+                created_by: row.get(4)?,
+                created_at: row.get(5)?,
+                updated_at: row.get(6)?,
+                item_count: row.get(7)?,
+                avg_strength: row.get(8)?,
+            })
+        })?;
+
+        entries.collect()
+    }
+
+    pub fn update_chain(
+        &self,
+        chain_id: i64,
+        name: Option<&str>,
+        description: Option<&str>,
+    ) -> Result<()> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        if let Some(n) = name {
+            conn.execute(
+                "UPDATE evidence_chains SET chain_name = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+                params![n, chain_id],
+            )?;
+        }
+
+        if let Some(d) = description {
+            conn.execute(
+                "UPDATE evidence_chains SET description = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+                params![d, chain_id],
+            )?;
+        }
+
+        Ok(())
+    }
+
+    pub fn remove_from_chain(&self, chain_id: i64, intelligence_id: i64) -> Result<()> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        conn.execute(
+            "DELETE FROM evidence_chain_links WHERE chain_id = ?1 AND intelligence_id = ?2",
+            params![chain_id, intelligence_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_chain(&self, chain_id: i64) -> Result<()> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        conn.execute(
+            "DELETE FROM evidence_chain_links WHERE chain_id = ?1",
+            params![chain_id],
+        )?;
+        conn.execute(
+            "DELETE FROM evidence_chains WHERE id = ?1",
+            params![chain_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_chain_statistics(&self, chain_id: i64) -> Result<ChainStatistics> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let total: (i32, f64, i32, i32) = conn.query_row(
+            "SELECT COUNT(*), AVG(severity_score), MAX(severity_score), MIN(severity_score)
+             FROM evidence_chain_links l
+             JOIN intelligence i ON l.intelligence_id = i.id
+             WHERE l.chain_id = ?1",
+            [chain_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )?;
+
+        let categories: Vec<String> = {
+            let mut stmt = conn.prepare(
+                "SELECT DISTINCT i.category FROM evidence_chain_links l
+                 JOIN intelligence i ON l.intelligence_id = i.id
+                 WHERE l.chain_id = ?1 AND i.category IS NOT NULL"
+            )?;
+            let result: Vec<String> = stmt.query_map([chain_id], |row| row.get(0))?
+                .filter_map(|r| r.ok())
+                .collect();
+            result
+        };
+
+        let relationship_types: Vec<String> = {
+            let mut stmt = conn.prepare(
+                "SELECT DISTINCT relationship_type FROM evidence_chain_links WHERE chain_id = ?1",
+            )?;
+            let result: Vec<String> = stmt.query_map([chain_id], |row| row.get(0))?
+                .filter_map(|r| r.ok())
+                .collect();
+            result
+        };
+
+        Ok(ChainStatistics {
+            total_items: total.0,
+            avg_severity: total.1,
+            max_severity: total.2,
+            min_severity: total.3,
+            categories,
+            relationship_types,
+        })
+    }
+
+    pub fn search_chain(&self, chain_id: i64, query: &str) -> Result<Vec<ChainItem>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        let search_pattern = format!("%{}%", query);
+
+        let mut stmt = conn.prepare(
+            "SELECT l.id, l.intelligence_id, l.relationship_type, l.relationship_strength, l.notes, l.linked_by, l.linked_at,
+                    i.filename, i.fact_summary, i.category
+             FROM evidence_chain_links l
+             JOIN intelligence i ON l.intelligence_id = i.id
+             WHERE l.chain_id = ?1 AND (i.fact_summary LIKE ?2 OR i.filename LIKE ?2 OR i.category LIKE ?2)
+             ORDER BY l.linked_at DESC"
+        )?;
+
+        let entries = stmt.query_map(params![chain_id, search_pattern], |row| {
             Ok(ChainItem {
                 link_id: row.get(0)?,
                 intelligence_id: row.get(1)?,
@@ -2006,7 +2154,11 @@ impl Database {
             }
 
             let count = end - start;
-            let local_avg = if count > 0 { local_severity / count as f64 } else { 0.0 };
+            let local_avg = if count > 0 {
+                local_severity / count as f64
+            } else {
+                0.0
+            };
 
             if local_avg > severity_threshold as f64 {
                 let z = ((all[i].1 as f64) - mean) / std;
@@ -2233,7 +2385,11 @@ impl Database {
                     .filter(|k| sum.to_lowercase().contains(&k.to_lowercase()))
                     .count();
                 let similarity = (keyword_matches as f64 / keywords.len() as f64) * 0.7
-                    + if cat.as_ref() == category.as_ref() { 0.2 } else { 0.0 }
+                    + if cat.as_ref() == category.as_ref() {
+                        0.2
+                    } else {
+                        0.0
+                    }
                     + if (sev - severity).abs() <= 1 {
                         0.1
                     } else {
@@ -2255,6 +2411,170 @@ impl Database {
             .into_iter()
             .filter(|s| s.similarity >= similarity_threshold)
             .collect())
+    }
+
+    // Export and reporting methods
+    pub fn export_facts_json(&self, filters: &ExportFilters) -> Result<String> {
+        let facts = self.get_weighted_evidence(filters.min_weight, filters.limit)?;
+
+        let export: Vec<serde_json::Value> = facts
+            .into_iter()
+            .map(|f| {
+                serde_json::json!({
+                    "id": f.id,
+                    "fingerprint": f.fingerprint,
+                    "filename": f.filename,
+                    "summary": f.summary,
+                    "category": f.category,
+                    "severity": f.severity,
+                    "confidence": f.confidence,
+                    "quality": f.quality,
+                    "weight": f.weight,
+                    "created_at": f.created_at,
+                })
+            })
+            .collect();
+
+        serde_json::to_string_pretty(&export)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+    }
+
+    pub fn export_entities_csv(
+        &self,
+        entity_type: Option<&str>,
+        min_confidence: f64,
+    ) -> Result<String> {
+        let centrality = self.get_entity_centrality(entity_type, min_confidence)?;
+
+        let mut csv = String::from("entity_id,entity_type,value,document_count,occurrence_count,avg_confidence,centrality_score\n");
+
+        for e in centrality {
+            csv.push_str(&format!(
+                "{},{},\"{}\",{},{},{},{:.3}\n",
+                e.entity_id,
+                e.entity_type,
+                e.value.replace('"', "\"\""),
+                e.document_count,
+                e.occurrence_count,
+                e.avg_confidence.unwrap_or(0.0),
+                e.centrality_score
+            ));
+        }
+
+        Ok(csv)
+    }
+
+    pub fn export_timeline_json(
+        &self,
+        start_date: Option<&str>,
+        end_date: Option<&str>,
+    ) -> Result<String> {
+        let events = self.get_timeline_events(start_date, end_date, 10000)?;
+
+        serde_json::to_string_pretty(&events)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+    }
+
+    // Analytics and statistics
+    pub fn get_category_distribution(&self) -> Result<Vec<CategoryStats>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let mut stmt = conn.prepare(
+            "SELECT category, COUNT(*) as count, AVG(severity_score) as avg_severity, AVG(confidence) as avg_confidence
+             FROM intelligence
+             WHERE is_deleted = FALSE AND category IS NOT NULL
+             GROUP BY category
+             ORDER BY count DESC"
+        )?;
+
+        let entries = stmt.query_map([], |row| {
+            Ok(CategoryStats {
+                category: row.get(0)?,
+                count: row.get(1)?,
+                avg_severity: row.get(2)?,
+                avg_confidence: row.get(3)?,
+            })
+        })?;
+
+        entries.collect()
+    }
+
+    pub fn get_severity_distribution(&self) -> Result<Vec<SeverityStats>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let mut stmt = conn.prepare(
+            "SELECT severity_score, COUNT(*) as count
+             FROM intelligence
+             WHERE is_deleted = FALSE
+             GROUP BY severity_score
+             ORDER BY severity_score DESC",
+        )?;
+
+        let entries = stmt.query_map([], |row| {
+            Ok(SeverityStats {
+                severity: row.get(0)?,
+                count: row.get(1)?,
+            })
+        })?;
+
+        entries.collect()
+    }
+
+    pub fn get_entity_type_distribution(&self) -> Result<Vec<EntityTypeStats>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let mut stmt = conn.prepare(
+            "SELECT entity_type, COUNT(DISTINCT value) as unique_count, COUNT(*) as total_count
+             FROM entities
+             WHERE is_deleted = FALSE
+             GROUP BY entity_type
+             ORDER BY total_count DESC",
+        )?;
+
+        let entries = stmt.query_map([], |row| {
+            Ok(EntityTypeStats {
+                entity_type: row.get(0)?,
+                unique_count: row.get(1)?,
+                total_count: row.get(2)?,
+            })
+        })?;
+
+        entries.collect()
+    }
+
+    pub fn get_overall_statistics(&self) -> Result<OverallStatistics> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let (total_facts, avg_severity, avg_confidence, avg_quality): (i64, f64, f64, f64) = conn
+            .query_row(
+            "SELECT COUNT(*), AVG(severity_score), AVG(confidence), AVG(quality_score)
+             FROM intelligence WHERE is_deleted = FALSE",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )?;
+
+        let (total_entities, unique_entities): (i64, i64) = conn.query_row(
+            "SELECT COUNT(*), COUNT(DISTINCT value) FROM entities WHERE is_deleted = FALSE",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+
+        let (total_chains, total_chain_links): (i64, i64) = conn.query_row(
+            "SELECT COUNT(*), (SELECT COUNT(*) FROM evidence_chain_links) FROM evidence_chains",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+
+        Ok(OverallStatistics {
+            total_facts,
+            avg_severity,
+            avg_confidence,
+            avg_quality,
+            total_entities,
+            unique_entities,
+            total_chains,
+            total_chain_links,
+        })
     }
 
     // Migration support
@@ -2546,6 +2866,71 @@ pub struct ChainSuggestion {
     pub category: Option<String>,
     pub similarity: f64,
     pub match_reasons: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChainSummary {
+    pub id: i64,
+    pub chain_name: String,
+    pub chain_type: String,
+    pub description: Option<String>,
+    pub created_by: Option<String>,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
+    pub item_count: i32,
+    pub avg_strength: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChainStatistics {
+    pub total_items: i32,
+    pub avg_severity: f64,
+    pub max_severity: i32,
+    pub min_severity: i32,
+    pub categories: Vec<String>,
+    pub relationship_types: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportFilters {
+    pub min_weight: f64,
+    pub limit: i64,
+    pub categories: Option<Vec<String>>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CategoryStats {
+    pub category: String,
+    pub count: i32,
+    pub avg_severity: Option<f64>,
+    pub avg_confidence: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SeverityStats {
+    pub severity: i32,
+    pub count: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EntityTypeStats {
+    pub entity_type: String,
+    pub unique_count: i32,
+    pub total_count: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OverallStatistics {
+    pub total_facts: i64,
+    pub avg_severity: f64,
+    pub avg_confidence: f64,
+    pub avg_quality: f64,
+    pub total_entities: i64,
+    pub unique_entities: i64,
+    pub total_chains: i64,
+    pub total_chain_links: i64,
 }
 
 #[cfg(test)]
