@@ -2757,21 +2757,21 @@ steinline/
 - [x] Implement FTS5 for facts
 - [x] Implement FTS5 for entities
 - [x] Create full-text search API
-- [ ] Add Boolean and phrase search
-- [ ] Implement faceted filtering
+- [x] Add Boolean and phrase search
+- [x] Implement faceted filtering
 
 ### 5.2 Analysis Features
 
-- [ ] Implement temporal analysis
+- [x] Implement temporal analysis
 - [x] Add entity resolution/aliasing
-- [ ] Create network analysis algorithms
-- [ ] Implement anomaly detection
-- [ ] Add evidence weighting system
+- [x] Create network analysis algorithms
+- [x] Implement anomaly detection
+- [x] Add evidence weighting system
 
 ### 5.3 Evidence Chains
 
 - [x] Implement chain tracking database
-- [ ] Create automatic chain detection
+- [x] Create automatic chain detection
 - [ ] Add manual chain linking UI
 - [ ] Implement relationship visualization
 

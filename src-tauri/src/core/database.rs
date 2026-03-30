@@ -1117,9 +1117,9 @@ impl Database {
         end_date: Option<&str>,
     ) -> Result<Vec<SearchResult>> {
         let conn = self.intelligence_conn.lock().unwrap();
-        
+
         let fts_query = Self::parse_search_query(query);
-        
+
         let mut sql = String::from(
             "SELECT i.id, i.fingerprint, i.filename, i.fact_summary, i.category, i.severity_score, i.confidence, i.created_at,
                     bm25(facts_fts) as rank
@@ -1127,66 +1127,67 @@ impl Database {
              JOIN intelligence i ON f.rowid = i.id
              WHERE facts_fts MATCH ?1"
         );
-        
+
         let mut conditions = Vec::new();
         let mut param_idx = 2;
-        
+
         if let Some(cats) = categories {
             if !cats.is_empty() {
-                let placeholders: Vec<String> = cats.iter().map(|_| format!("?{}", param_idx)).collect();
+                let placeholders: Vec<String> =
+                    cats.iter().map(|_| format!("?{}", param_idx)).collect();
                 conditions.push(format!("category IN ({})", placeholders.join(",")));
                 param_idx += cats.len() as i32;
             }
         }
-        
-        if let Some(severity) = min_severity {
+
+        if min_severity.is_some() {
             conditions.push(format!("severity_score >= ?{}", param_idx));
             param_idx += 1;
         }
-        
-        if let Some(start) = start_date {
+
+        if start_date.is_some() {
             conditions.push(format!("associated_date >= ?{}", param_idx));
             param_idx += 1;
         }
-        
-        if let Some(end) = end_date {
+
+        if end_date.is_some() {
             conditions.push(format!("associated_date <= ?{}", param_idx));
         }
-        
+
         if !conditions.is_empty() {
             sql.push_str(" AND ");
             sql.push_str(&conditions.join(" AND "));
         }
-        
+
         sql.push_str(" ORDER BY rank LIMIT ?");
-        
+
         let mut stmt = conn.prepare(&sql)?;
-        
-        let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(fts_query.clone()), Box::new(limit)];
-        let mut param_refs: Vec<&dyn rusqlite::ToSql> = vec![&*params_vec[0], &*params_vec[1]];
-        
+
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![
+            Box::new(fts_query.clone()),
+            Box::new(limit),
+        ];
+
         if let Some(cats) = categories {
             for cat in cats {
-                params_vec.push(Box::new(cat.clone()));
-                param_refs.push(&*params_vec.last().unwrap());
+                params.push(Box::new(cat.clone()));
             }
         }
-        
+
         if let Some(severity) = min_severity {
-            params_vec.push(Box::new(severity));
-            param_refs.push(&*params_vec.last().unwrap());
+            params.push(Box::new(severity));
         }
-        
+
         if let Some(start) = start_date {
-            params_vec.push(Box::new(start.to_string()));
-            param_refs.push(&*params_vec.last().unwrap());
+            params.push(Box::new(start.to_string()));
         }
-        
+
         if let Some(end) = end_date {
-            params_vec.push(Box::new(end.to_string()));
-            param_refs.push(&*params_vec.last().unwrap());
+            params.push(Box::new(end.to_string()));
         }
-        
+
+        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+
         let entries = stmt.query_map(rusqlite::params_from_iter(param_refs.iter()), |row| {
             Ok(SearchResult {
                 id: row.get(0)?,
@@ -1216,61 +1217,60 @@ impl Database {
         min_confidence: Option<f64>,
     ) -> Result<Vec<EntitySearchResult>> {
         let conn = self.intelligence_conn.lock().unwrap();
-        
+
         let fts_query = Self::parse_search_query(query);
-        
+
         let mut sql = String::from(
             "SELECT e.id, e.fingerprint, e.entity_type, e.value, e.normalized_value, e.confidence,
                     i.filename, bm25(entities_fts) as rank
              FROM entities_fts f
              JOIN entities e ON f.rowid = e.id
              JOIN intelligence i ON e.fingerprint = i.fingerprint
-             WHERE entities_fts MATCH ?1"
+             WHERE entities_fts MATCH ?1",
         );
-        
+
         let mut conditions = Vec::new();
         let mut param_idx = 2;
-        
+
         if let Some(types) = entity_types {
             if !types.is_empty() {
-                let placeholders: Vec<String> = types.iter().map(|_| format!("?{}", param_idx)).collect();
+                let placeholders: Vec<String> =
+                    types.iter().map(|_| format!("?{}", param_idx)).collect();
                 conditions.push(format!("e.entity_type IN ({})", placeholders.join(",")));
                 param_idx += types.len() as i32;
             }
         }
-        
-        if let Some(conf) = min_confidence {
+
+        if min_confidence.is_some() {
             conditions.push(format!("e.confidence >= ?{}", param_idx));
         }
-        
+
         if !conditions.is_empty() {
             sql.push_str(" AND ");
             sql.push_str(&conditions.join(" AND "));
         }
-        
+
         sql.push_str(" ORDER BY rank LIMIT ?");
-        
+
         let mut stmt = conn.prepare(&sql)?;
-        
-        let param_refs: Vec<&dyn rusqlite::ToSql> = if let Some(types) = entity_types {
-            if let Some(conf) = min_confidence {
-                let mut params: Vec<&dyn rusqlite::ToSql> = vec![&fts_query, &limit];
-                for t in types {
-                    params.push(t);
-                }
-                params.push(&conf);
-                params
-            } else {
-                let mut params: Vec<&dyn rusqlite::ToSql> = vec![&fts_query, &limit];
-                for t in types {
-                    params.push(t);
-                }
-                params
+
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![
+            Box::new(fts_query.clone()),
+            Box::new(limit),
+        ];
+
+        if let Some(types) = entity_types {
+            for t in types {
+                params.push(Box::new(t.clone()));
             }
-        } else {
-            vec![&fts_query, &limit]
-        };
-        
+        }
+
+        if let Some(confidence) = min_confidence {
+            params.push(Box::new(confidence));
+        }
+
+        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+
         let entries = stmt.query_map(rusqlite::params_from_iter(param_refs.iter()), |row| {
             Ok(EntitySearchResult {
                 id: row.get(0)?,
@@ -1291,7 +1291,7 @@ impl Database {
         let mut result = String::new();
         let mut in_phrase = false;
         let mut chars = input.chars().peekable();
-        
+
         while let Some(c) = chars.next() {
             if c == '"' {
                 if in_phrase {
@@ -1307,7 +1307,7 @@ impl Database {
                 }
             } else if c == '(' || c == ')' {
                 result.push(c);
-            } else if c.to_ascii_uppercase() == 'A' && result.ends_with(' ') {
+            } else if c.eq_ignore_ascii_case(&'A') && result.ends_with(' ') {
                 if chars.clone().take(2).collect::<String>() == "ND" {
                     result.push_str("AND ");
                     chars.next();
@@ -1315,14 +1315,14 @@ impl Database {
                     continue;
                 }
                 result.push(c);
-            } else if c.to_ascii_uppercase() == 'O' && result.ends_with(' ') {
+            } else if c.eq_ignore_ascii_case(&'O') && result.ends_with(' ') {
                 if chars.clone().take(1).collect::<String>() == "R" {
                     result.push_str("OR ");
                     chars.next();
                     continue;
                 }
                 result.push(c);
-            } else if c.to_ascii_uppercase() == 'N' && result.ends_with(' ') {
+            } else if c.eq_ignore_ascii_case(&'N') && result.ends_with(' ') {
                 if chars.clone().take(2).collect::<String>() == "OT" {
                     result.push_str("NOT ");
                     chars.next();
@@ -1334,7 +1334,7 @@ impl Database {
                 result.push(c);
             }
         }
-        
+
         result.trim().to_string()
     }
 
@@ -1352,7 +1352,7 @@ impl Database {
                 title: f.summary.clone(),
                 description: Some(f.summary),
                 category: f.category,
-                severity: f.severity,
+                severity: Some(f.severity),
                 confidence: f.confidence,
                 rank: f.rank,
             })
@@ -1373,14 +1373,24 @@ impl Database {
             });
         }
 
-        combined.sort_by(|a, b| a.rank.partial_cmp(&b.rank).unwrap_or(std::cmp::Ordering::Equal));
+        combined.sort_by(|a, b| {
+            a.rank
+                .partial_cmp(&b.rank)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         combined.truncate(limit as usize);
-        
+
         Ok(combined)
     }
 
     // Entity alias methods for entity resolution
-    pub fn add_entity_alias(&self, canonical_id: i64, alias: &str, alias_type: &str, confidence: f64) -> Result<()> {
+    pub fn add_entity_alias(
+        &self,
+        canonical_id: i64,
+        alias: &str,
+        alias_type: &str,
+        confidence: f64,
+    ) -> Result<()> {
         let conn = self.intelligence_conn.lock().unwrap();
         conn.execute(
             "INSERT INTO entity_aliases (canonical_entity_id, alias_value, alias_type, confidence) VALUES (?1, ?2, ?3, ?4)",
@@ -1396,7 +1406,7 @@ impl Database {
              FROM entity_aliases a
              JOIN entities e ON a.canonical_entity_id = e.id
              WHERE a.alias_value = ?1
-             ORDER BY a.confidence DESC"
+             ORDER BY a.confidence DESC",
         )?;
 
         let entries = stmt.query_map(params![alias], |row| {
@@ -1414,7 +1424,13 @@ impl Database {
     }
 
     // Evidence chain methods
-    pub fn create_chain(&self, name: &str, chain_type: &str, description: &str, created_by: &str) -> Result<i64> {
+    pub fn create_chain(
+        &self,
+        name: &str,
+        chain_type: &str,
+        description: &str,
+        created_by: &str,
+    ) -> Result<i64> {
         let conn = self.intelligence_conn.lock().unwrap();
         conn.execute(
             "INSERT INTO evidence_chains (chain_name, chain_type, description, created_by) VALUES (?1, ?2, ?3, ?4)",
@@ -1423,8 +1439,15 @@ impl Database {
         Ok(conn.last_insert_rowid())
     }
 
-    pub fn add_to_chain(&self, chain_id: i64, intelligence_id: i64, relationship_type: &str, 
-                       strength: f64, notes: &str, linked_by: &str) -> Result<()> {
+    pub fn add_to_chain(
+        &self,
+        chain_id: i64,
+        intelligence_id: i64,
+        relationship_type: &str,
+        strength: f64,
+        notes: &str,
+        linked_by: &str,
+    ) -> Result<()> {
         let conn = self.intelligence_conn.lock().unwrap();
         conn.execute(
             "INSERT INTO evidence_chain_links (chain_id, intelligence_id, relationship_type, relationship_strength, notes, linked_by)
@@ -1438,7 +1461,7 @@ impl Database {
         let conn = self.intelligence_conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT id, chain_name, chain_type, description, created_by, created_at, updated_at
-             FROM evidence_chains WHERE id = ?1"
+             FROM evidence_chains WHERE id = ?1",
         )?;
 
         let mut rows = stmt.query(params![chain_id])?;
@@ -1485,6 +1508,753 @@ impl Database {
         })?;
 
         entries.collect()
+    }
+
+    // Temporal analysis methods
+    pub fn get_timeline_events(
+        &self,
+        start_date: Option<&str>,
+        end_date: Option<&str>,
+        limit: i64,
+    ) -> Result<Vec<TimelineEvent>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let mut sql = String::from(
+            "SELECT id, fingerprint, filename, fact_summary, category, associated_date, severity_score, confidence
+             FROM intelligence
+             WHERE is_deleted = FALSE AND associated_date IS NOT NULL"
+        );
+
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+
+        if let Some(start) = start_date {
+            sql.push_str(" AND associated_date >= ?");
+            params.push(Box::new(start.to_string()));
+        }
+
+        if let Some(end) = end_date {
+            sql.push_str(" AND associated_date <= ?");
+            params.push(Box::new(end.to_string()));
+        }
+
+        sql.push_str(" ORDER BY associated_date ASC LIMIT ?");
+        params.push(Box::new(limit));
+
+        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+
+        let mut stmt = conn.prepare(&sql)?;
+        let entries = stmt.query_map(rusqlite::params_from_iter(param_refs.iter()), |row| {
+            Ok(TimelineEvent {
+                id: row.get(0)?,
+                fingerprint: row.get(1)?,
+                filename: row.get(2)?,
+                summary: row.get(3)?,
+                category: row.get(4)?,
+                date: row.get(5)?,
+                severity: row.get(6)?,
+                confidence: row.get(7)?,
+            })
+        })?;
+
+        entries.collect()
+    }
+
+    pub fn get_date_distribution(&self) -> Result<Vec<DateDistribution>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let mut stmt = conn.prepare(
+            "SELECT 
+                strftime('%Y-%m', associated_date) as month,
+                COUNT(*) as count,
+                AVG(severity_score) as avg_severity
+             FROM intelligence
+             WHERE is_deleted = FALSE AND associated_date IS NOT NULL
+             GROUP BY month
+             ORDER BY month DESC
+             LIMIT 24",
+        )?;
+
+        let entries = stmt.query_map([], |row| {
+            Ok(DateDistribution {
+                period: row.get(0)?,
+                count: row.get(1)?,
+                avg_severity: row.get(2)?,
+            })
+        })?;
+
+        entries.collect()
+    }
+
+    pub fn get_temporal_clusters(&self, time_window_days: i32) -> Result<Vec<TemporalCluster>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let mut stmt = conn.prepare(
+            "SELECT 
+                id,
+                fingerprint,
+                filename,
+                fact_summary,
+                associated_date,
+                severity_score,
+                julianday(associated_date) as jd
+             FROM intelligence
+             WHERE is_deleted = FALSE AND associated_date IS NOT NULL
+             ORDER BY jd ASC",
+        )?;
+
+        let all_events: Vec<(i64, String, String, String, String, i32, f64)> = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                ))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        let mut clusters: Vec<TemporalCluster> = Vec::new();
+        let mut current_cluster: Vec<ClusterItem> = Vec::new();
+        let mut cluster_start_jd: Option<f64> = None;
+        let mut cluster_start_date: Option<String> = None;
+
+        for event in all_events {
+            if let Some(start_jd) = cluster_start_jd {
+                let diff = event.6 - start_jd;
+
+                if diff > time_window_days as f64 {
+                    if !current_cluster.is_empty() {
+                        clusters.push(TemporalCluster {
+                            start_date: cluster_start_date.clone(),
+                            end_date: current_cluster.last().map(|i| i.date.clone()),
+                            event_count: current_cluster.len() as i32,
+                            events: current_cluster.clone(),
+                        });
+                    }
+                    current_cluster.clear();
+                    cluster_start_jd = Some(event.6);
+                    cluster_start_date = Some(event.4.clone());
+                }
+            } else {
+                cluster_start_jd = Some(event.6);
+                cluster_start_date = Some(event.4.clone());
+            }
+
+            current_cluster.push(ClusterItem {
+                id: event.0,
+                fingerprint: event.1,
+                filename: event.2,
+                summary: event.3,
+                date: event.4,
+                severity: event.5,
+            });
+        }
+
+        if !current_cluster.is_empty() {
+            clusters.push(TemporalCluster {
+                start_date: cluster_start_date,
+                end_date: current_cluster.last().map(|i| i.date.clone()),
+                event_count: current_cluster.len() as i32,
+                events: current_cluster,
+            });
+        }
+
+        Ok(clusters)
+    }
+
+    // Network analysis methods
+    pub fn get_entity_relationships(
+        &self,
+        entity_id: Option<i64>,
+        min_confidence: f64,
+    ) -> Result<Vec<EntityRelationship>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let sql = if let Some(eid) = entity_id {
+            format!(
+                "SELECT e1.id, e1.entity_type, e1.value, e2.id, e2.entity_type, e2.value,
+                        COUNT(*) as cooccurrence, AVG(i.confidence) as avg_confidence
+                 FROM entities e1
+                 JOIN entities e2 ON e1.fingerprint = e2.fingerprint AND e1.id < e2.id
+                 JOIN intelligence i ON e1.fingerprint = i.fingerprint
+                 WHERE e1.id = {} AND i.confidence >= {}
+                 GROUP BY e1.id, e2.id
+                 ORDER BY cooccurrence DESC
+                 LIMIT 100",
+                eid, min_confidence
+            )
+        } else {
+            format!(
+                "SELECT e1.id, e1.entity_type, e1.value, e2.id, e2.entity_type, e2.value,
+                        COUNT(*) as cooccurrence, AVG(i.confidence) as avg_confidence
+                 FROM entities e1
+                 JOIN entities e2 ON e1.fingerprint = e2.fingerprint AND e1.id < e2.id
+                 JOIN intelligence i ON e1.fingerprint = i.fingerprint
+                 WHERE i.confidence >= {}
+                 GROUP BY e1.id, e2.id
+                 ORDER BY cooccurrence DESC
+                 LIMIT 100",
+                min_confidence
+            )
+        };
+
+        let mut stmt = conn.prepare(&sql)?;
+        let entries = stmt.query_map([], |row| {
+            Ok(EntityRelationship {
+                entity1_id: row.get(0)?,
+                entity1_type: row.get(1)?,
+                entity1_value: row.get(2)?,
+                entity2_id: row.get(3)?,
+                entity2_type: row.get(4)?,
+                entity2_value: row.get(5)?,
+                cooccurrence: row.get(6)?,
+                avg_confidence: row.get(7)?,
+            })
+        })?;
+
+        entries.collect()
+    }
+
+    pub fn get_entity_centrality(
+        &self,
+        entity_type: Option<&str>,
+        min_confidence: f64,
+    ) -> Result<Vec<EntityCentrality>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let type_filter = if let Some(et) = entity_type {
+            format!("AND e.entity_type = '{}'", et)
+        } else {
+            String::new()
+        };
+
+        let sql = format!(
+            "SELECT e.id, e.entity_type, e.value, 
+                    COUNT(DISTINCT e.fingerprint) as document_count,
+                    COUNT(e.id) as occurrence_count,
+                    AVG(e.confidence) as avg_confidence
+             FROM entities e
+             JOIN intelligence i ON e.fingerprint = i.fingerprint
+             WHERE i.confidence >= {} {}
+             GROUP BY e.id
+             ORDER BY occurrence_count DESC
+             LIMIT 50",
+            min_confidence, type_filter
+        );
+
+        let mut stmt = conn.prepare(&sql)?;
+        let entries = stmt.query_map([], |row| {
+            Ok(EntityCentrality {
+                entity_id: row.get(0)?,
+                entity_type: row.get(1)?,
+                value: row.get(2)?,
+                document_count: row.get(3)?,
+                occurrence_count: row.get(4)?,
+                avg_confidence: row.get(5)?,
+                centrality_score: 0.0,
+            })
+        })?;
+
+        let mut results: Vec<EntityCentrality> = entries.filter_map(|r| r.ok()).collect();
+
+        if let Some(max_occ) = results.iter().map(|e| e.occurrence_count).max() {
+            if max_occ > 0 {
+                for r in &mut results {
+                    r.centrality_score = r.occurrence_count as f64 / max_occ as f64;
+                }
+            }
+        }
+
+        results.sort_by(|a, b| {
+            b.centrality_score
+                .partial_cmp(&a.centrality_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        Ok(results)
+    }
+
+    pub fn get_connected_entities(
+        &self,
+        entity_id: i64,
+        _depth: i32,
+        min_confidence: f64,
+    ) -> Result<Vec<ConnectedEntity>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT e2.id, e2.entity_type, e2.value, e2.confidence, i.filename
+             FROM entities e1
+             JOIN entities e2 ON e1.fingerprint = e2.fingerprint AND e1.id != e2.id
+             JOIN intelligence i ON e1.fingerprint = i.fingerprint
+             WHERE e1.id = ?1 AND i.confidence >= ?2",
+        )?;
+
+        let entries = stmt.query_map(params![entity_id, min_confidence], |row| {
+            Ok(ConnectedEntity {
+                entity_id: row.get(0)?,
+                entity_type: row.get(1)?,
+                value: row.get(2)?,
+                confidence: row.get(3)?,
+                source_file: row.get(4)?,
+                distance: 1,
+            })
+        })?;
+
+        entries.collect()
+    }
+
+    // Anomaly detection methods
+    pub fn detect_anomalies(&self, metric: &str, threshold_std: f64) -> Result<Vec<Anomaly>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        match metric {
+            "severity" => {
+                let mut stmt = conn.prepare(
+                    "SELECT id, fingerprint, filename, fact_summary, severity_score, associated_date
+                     FROM intelligence
+                     WHERE is_deleted = FALSE"
+                )?;
+
+                let all: Vec<(i64, String, String, String, i32, Option<String>)> = stmt
+                    .query_map([], |row| {
+                        Ok((
+                            row.get(0)?,
+                            row.get(1)?,
+                            row.get(2)?,
+                            row.get(3)?,
+                            row.get(4)?,
+                            row.get(5)?,
+                        ))
+                    })?
+                    .filter_map(|r| r.ok())
+                    .collect();
+
+                let values: Vec<f64> = all.iter().map(|i| i.4 as f64).collect();
+                let (mean, std) = Self::calculate_mean_std(&values);
+
+                Ok(all
+                    .iter()
+                    .filter(|i| {
+                        let z = (i.4 as f64 - mean) / std;
+                        z.abs() > threshold_std
+                    })
+                    .map(|i| {
+                        let z = (i.4 as f64 - mean) / std;
+                        Anomaly {
+                            id: i.0,
+                            fingerprint: i.1.clone(),
+                            filename: i.2.clone(),
+                            summary: i.3.clone(),
+                            metric: "severity".to_string(),
+                            value: i.4 as f64,
+                            expected_value: mean,
+                            deviation: z,
+                            associated_date: i.5.clone(),
+                        }
+                    })
+                    .collect())
+            }
+            "confidence" => {
+                let mut stmt = conn.prepare(
+                    "SELECT id, fingerprint, filename, fact_summary, confidence, associated_date
+                     FROM intelligence
+                     WHERE is_deleted = FALSE AND confidence IS NOT NULL",
+                )?;
+
+                let all: Vec<(i64, String, String, String, f64, Option<String>)> = stmt
+                    .query_map([], |row| {
+                        Ok((
+                            row.get(0)?,
+                            row.get(1)?,
+                            row.get(2)?,
+                            row.get(3)?,
+                            row.get(4)?,
+                            row.get(5)?,
+                        ))
+                    })?
+                    .filter_map(|r| r.ok())
+                    .collect();
+
+                let values: Vec<f64> = all.iter().map(|i| i.4).collect();
+                let (mean, std) = Self::calculate_mean_std(&values);
+
+                Ok(all
+                    .iter()
+                    .filter(|i| {
+                        let z = (i.4 - mean) / std;
+                        z.abs() > threshold_std
+                    })
+                    .map(|i| {
+                        let z = (i.4 - mean) / std;
+                        Anomaly {
+                            id: i.0,
+                            fingerprint: i.1.clone(),
+                            filename: i.2.clone(),
+                            summary: i.3.clone(),
+                            metric: "confidence".to_string(),
+                            value: i.4,
+                            expected_value: mean,
+                            deviation: z,
+                            associated_date: i.5.clone(),
+                        }
+                    })
+                    .collect())
+            }
+            "quality" => {
+                let mut stmt = conn.prepare(
+                    "SELECT id, fingerprint, filename, fact_summary, quality_score, associated_date
+                     FROM intelligence
+                     WHERE is_deleted = FALSE AND quality_score IS NOT NULL",
+                )?;
+
+                let all: Vec<(i64, String, String, String, f64, Option<String>)> = stmt
+                    .query_map([], |row| {
+                        Ok((
+                            row.get(0)?,
+                            row.get(1)?,
+                            row.get(2)?,
+                            row.get(3)?,
+                            row.get(4)?,
+                            row.get(5)?,
+                        ))
+                    })?
+                    .filter_map(|r| r.ok())
+                    .collect();
+
+                let values: Vec<f64> = all.iter().map(|i| i.4).collect();
+                let (mean, std) = Self::calculate_mean_std(&values);
+
+                Ok(all
+                    .iter()
+                    .filter(|i| {
+                        let z = (i.4 - mean) / std;
+                        z.abs() > threshold_std
+                    })
+                    .map(|i| {
+                        let z = (i.4 - mean) / std;
+                        Anomaly {
+                            id: i.0,
+                            fingerprint: i.1.clone(),
+                            filename: i.2.clone(),
+                            summary: i.3.clone(),
+                            metric: "quality".to_string(),
+                            value: i.4,
+                            expected_value: mean,
+                            deviation: z,
+                            associated_date: i.5.clone(),
+                        }
+                    })
+                    .collect())
+            }
+            _ => Ok(Vec::new()),
+        }
+    }
+
+    fn calculate_mean_std(values: &[f64]) -> (f64, f64) {
+        if values.is_empty() {
+            return (0.0, 0.0);
+        }
+
+        let mean = values.iter().sum::<f64>() / values.len() as f64;
+        let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64;
+        let std = variance.sqrt();
+
+        (mean, std)
+    }
+
+    pub fn get_temporal_anomalies(
+        &self,
+        window_days: i32,
+        severity_threshold: i32,
+    ) -> Result<Vec<TemporalAnomaly>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let mut stmt = conn.prepare(
+            "SELECT 
+                strftime('%Y-%m-%d', associated_date) as date,
+                COUNT(*) as count,
+                AVG(severity_score) as avg_severity
+             FROM intelligence
+             WHERE is_deleted = FALSE AND associated_date IS NOT NULL
+             GROUP BY date
+             ORDER BY date ASC",
+        )?;
+
+        let all: Vec<(String, i32, f64)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        let counts: Vec<f64> = all.iter().map(|i| i.1 as f64).collect();
+        let (mean, std) = Self::calculate_mean_std(&counts);
+
+        let window = window_days as usize;
+
+        let mut anomalies = Vec::new();
+        for i in 0..all.len() {
+            let mut local_severity = 0.0;
+            let start = i.saturating_sub(window);
+            let end = (i + window).min(all.len());
+
+            for item in &all[start..end] {
+                local_severity += item.2;
+            }
+
+            let count = end - start;
+            let local_avg = if count > 0 { local_severity / count as f64 } else { 0.0 };
+
+            if local_avg > severity_threshold as f64 {
+                let z = ((all[i].1 as f64) - mean) / std;
+                anomalies.push(TemporalAnomaly {
+                    date: all[i].0.clone(),
+                    event_count: all[i].1,
+                    avg_severity: all[i].2,
+                    local_avg_severity: local_avg,
+                    deviation: z,
+                });
+            }
+        }
+
+        Ok(anomalies)
+    }
+
+    // Evidence weighting methods
+    pub fn calculate_evidence_weight(&self, intelligence_id: i64) -> Result<f64> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let mut stmt = conn.prepare(
+            "SELECT severity_score, confidence, quality_score, created_at
+             FROM intelligence WHERE id = ?1",
+        )?;
+
+        let (severity, confidence, quality): (i32, Option<f64>, Option<f64>) = stmt
+            .query_row([intelligence_id], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })?;
+
+        let severity_weight = (severity as f64 / 5.0).min(1.0) * 0.4;
+        let confidence_weight = confidence.unwrap_or(0.5) * 0.35;
+        let quality_weight = quality.unwrap_or(0.5) * 0.25;
+
+        Ok(severity_weight + confidence_weight + quality_weight)
+    }
+
+    pub fn get_weighted_evidence(
+        &self,
+        min_weight: f64,
+        limit: i64,
+    ) -> Result<Vec<WeightedEvidence>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let mut stmt = conn.prepare(
+            "SELECT i.id, i.fingerprint, i.filename, i.fact_summary, i.category, 
+                    i.severity_score, i.confidence, i.quality_score, i.created_at,
+                    (i.severity_score / 5.0 * 0.4 + COALESCE(i.confidence, 0.5) * 0.35 + COALESCE(i.quality_score, 0.5) * 0.25) as weight
+             FROM intelligence i
+             WHERE i.is_deleted = FALSE
+             ORDER BY weight DESC
+             LIMIT ?1"
+        )?;
+
+        let entries = stmt.query_map([limit], |row| {
+            Ok(WeightedEvidence {
+                id: row.get(0)?,
+                fingerprint: row.get(1)?,
+                filename: row.get(2)?,
+                summary: row.get(3)?,
+                category: row.get(4)?,
+                severity: row.get(5)?,
+                confidence: row.get(6)?,
+                quality: row.get(7)?,
+                created_at: row.get(8)?,
+                weight: row.get(9)?,
+            })
+        })?;
+
+        Ok(entries
+            .filter_map(|r| r.ok())
+            .filter(|e| e.weight >= min_weight)
+            .collect())
+    }
+
+    // Automatic chain detection methods
+    pub fn detect_chains(
+        &self,
+        min_weight: f64,
+        min_related: i32,
+    ) -> Result<Vec<AutoDetectedChain>> {
+        let weighted = self.get_weighted_evidence(min_weight, 1000)?;
+
+        let conn = self.intelligence_conn.lock().unwrap();
+        let mut chains = Vec::new();
+
+        for (i, current) in weighted.iter().enumerate() {
+            let mut related: Vec<RelatedEvidence> = Vec::new();
+
+            for (j, other) in weighted.iter().enumerate() {
+                if i == j {
+                    continue;
+                }
+
+                let mut stmt = conn.prepare(
+                    "SELECT COUNT(*) FROM entities 
+                     WHERE fingerprint = ?1 AND fingerprint = ?2",
+                )?;
+                let entity_overlap: i32 = stmt
+                    .query_row(params![current.fingerprint, other.fingerprint], |row| {
+                        row.get(0)
+                    })?;
+
+                if entity_overlap >= min_related {
+                    related.push(RelatedEvidence {
+                        id: other.id,
+                        fingerprint: other.fingerprint.clone(),
+                        filename: other.filename.clone(),
+                        summary: other.summary.clone(),
+                        weight: other.weight,
+                        shared_entities: entity_overlap,
+                    });
+                }
+            }
+
+            if related.len() >= 2 {
+                chains.push(AutoDetectedChain {
+                    root_id: current.id,
+                    root_summary: current.summary.clone(),
+                    root_weight: current.weight,
+                    related_count: related.len() as i32,
+                    related_evidence: related,
+                });
+            }
+        }
+
+        chains.sort_by(|a, b| b.related_count.cmp(&a.related_count));
+
+        Ok(chains)
+    }
+
+    pub fn detect_chains_by_entities(
+        &self,
+        entity_values: &[String],
+        min_occurrences: i32,
+    ) -> Result<Vec<EntityChain>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let placeholders: Vec<String> = entity_values.iter().map(|_| "?".to_string()).collect();
+        let sql = format!(
+            "SELECT i.id, i.fingerprint, i.filename, i.fact_summary, i.severity_score, i.confidence,
+                    GROUP_CONCAT(e.value) as entities
+             FROM intelligence i
+             JOIN entities e ON i.fingerprint = e.fingerprint
+             WHERE e.value IN ({})
+             GROUP BY i.id
+             HAVING COUNT(DISTINCT e.value) >= ?1",
+            placeholders.join(",")
+        );
+
+        let mut params: Vec<&dyn rusqlite::ToSql> = entity_values
+            .iter()
+            .map(|v| v as &dyn rusqlite::ToSql)
+            .collect();
+        params.push(&min_occurrences);
+
+        let mut stmt = conn.prepare(&sql)?;
+        let entries = stmt.query_map(rusqlite::params_from_iter(params.iter()), |row| {
+            Ok(EntityChain {
+                intelligence_id: row.get(0)?,
+                fingerprint: row.get(1)?,
+                filename: row.get(2)?,
+                summary: row.get(3)?,
+                severity: row.get(4)?,
+                confidence: row.get(5)?,
+                matching_entities: row
+                    .get::<_, String>(6)?
+                    .split(',')
+                    .map(|s| s.to_string())
+                    .collect(),
+            })
+        })?;
+
+        entries.collect()
+    }
+
+    pub fn get_chain_suggestions(
+        &self,
+        intelligence_id: i64,
+        similarity_threshold: f64,
+    ) -> Result<Vec<ChainSuggestion>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let mut stmt = conn.prepare(
+            "SELECT fingerprint, fact_summary, category, severity_score FROM intelligence WHERE id = ?1"
+        )?;
+        let (fingerprint, summary, category, severity): (String, String, Option<String>, i32) =
+            stmt.query_row([intelligence_id], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })?;
+
+        let keywords: Vec<&str> = summary
+            .split_whitespace()
+            .filter(|w| w.len() > 4)
+            .take(10)
+            .collect();
+
+        let keyword_where = keywords
+            .iter()
+            .map(|k| format!("fact_summary LIKE '%{}%'", k))
+            .collect::<Vec<_>>()
+            .join(" OR ");
+
+        let sql = format!(
+            "SELECT id, fact_summary, category, severity_score, confidence
+             FROM intelligence
+             WHERE is_deleted = FALSE AND fingerprint != '{}' AND ({})
+             ORDER BY severity_score DESC
+             LIMIT 20",
+            fingerprint, keyword_where
+        );
+
+        let mut stmt = conn.prepare(&sql)?;
+        let suggestions: Vec<ChainSuggestion> = stmt
+            .query_map([], |row| {
+                let id: i64 = row.get(0)?;
+                let sum: String = row.get(1)?;
+                let cat: Option<String> = row.get(2)?;
+                let sev: i32 = row.get(3)?;
+                let _conf: Option<f64> = row.get(4)?;
+
+                let keyword_matches = keywords
+                    .iter()
+                    .filter(|k| sum.to_lowercase().contains(&k.to_lowercase()))
+                    .count();
+                let similarity = (keyword_matches as f64 / keywords.len() as f64) * 0.7
+                    + if cat.as_ref() == category.as_ref() { 0.2 } else { 0.0 }
+                    + if (sev - severity).abs() <= 1 {
+                        0.1
+                    } else {
+                        0.0
+                    };
+
+                Ok(ChainSuggestion {
+                    target_id: id,
+                    summary: sum,
+                    category: cat,
+                    similarity,
+                    match_reasons: format!("{} keyword matches", keyword_matches),
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        Ok(suggestions
+            .into_iter()
+            .filter(|s| s.similarity >= similarity_threshold)
+            .collect())
     }
 
     // Migration support
@@ -1631,6 +2401,151 @@ pub struct ChainItem {
     pub filename: String,
     pub fact_summary: String,
     pub category: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimelineEvent {
+    pub id: i64,
+    pub fingerprint: String,
+    pub filename: String,
+    pub summary: String,
+    pub category: Option<String>,
+    pub date: String,
+    pub severity: i32,
+    pub confidence: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DateDistribution {
+    pub period: String,
+    pub count: i32,
+    pub avg_severity: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemporalCluster {
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+    pub event_count: i32,
+    pub events: Vec<ClusterItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterItem {
+    pub id: i64,
+    pub fingerprint: String,
+    pub filename: String,
+    pub summary: String,
+    pub date: String,
+    pub severity: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EntityRelationship {
+    pub entity1_id: i64,
+    pub entity1_type: String,
+    pub entity1_value: String,
+    pub entity2_id: i64,
+    pub entity2_type: String,
+    pub entity2_value: String,
+    pub cooccurrence: i32,
+    pub avg_confidence: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EntityCentrality {
+    pub entity_id: i64,
+    pub entity_type: String,
+    pub value: String,
+    pub document_count: i32,
+    pub occurrence_count: i32,
+    pub avg_confidence: Option<f64>,
+    pub centrality_score: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectedEntity {
+    pub entity_id: i64,
+    pub entity_type: String,
+    pub value: String,
+    pub confidence: Option<f64>,
+    pub source_file: String,
+    pub distance: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Anomaly {
+    pub id: i64,
+    pub fingerprint: String,
+    pub filename: String,
+    pub summary: String,
+    pub metric: String,
+    pub value: f64,
+    pub expected_value: f64,
+    pub deviation: f64,
+    pub associated_date: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemporalAnomaly {
+    pub date: String,
+    pub event_count: i32,
+    pub avg_severity: f64,
+    pub local_avg_severity: f64,
+    pub deviation: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WeightedEvidence {
+    pub id: i64,
+    pub fingerprint: String,
+    pub filename: String,
+    pub summary: String,
+    pub category: Option<String>,
+    pub severity: i32,
+    pub confidence: Option<f64>,
+    pub quality: Option<f64>,
+    pub created_at: Option<String>,
+    pub weight: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutoDetectedChain {
+    pub root_id: i64,
+    pub root_summary: String,
+    pub root_weight: f64,
+    pub related_count: i32,
+    pub related_evidence: Vec<RelatedEvidence>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RelatedEvidence {
+    pub id: i64,
+    pub fingerprint: String,
+    pub filename: String,
+    pub summary: String,
+    pub weight: f64,
+    pub shared_entities: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EntityChain {
+    pub intelligence_id: i64,
+    pub fingerprint: String,
+    pub filename: String,
+    pub summary: String,
+    pub severity: i32,
+    pub confidence: Option<f64>,
+    pub matching_entities: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChainSuggestion {
+    pub target_id: i64,
+    pub summary: String,
+    pub category: Option<String>,
+    pub similarity: f64,
+    pub match_reasons: String,
 }
 
 #[cfg(test)]
