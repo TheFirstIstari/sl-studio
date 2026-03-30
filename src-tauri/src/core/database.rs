@@ -11,43 +11,16 @@ pub struct RegistryEntry {
     pub file_size: Option<i64>,
     pub file_type: Option<String>,
     pub file_name: String,
-    pub last_modified: Option<String>, // DATETIME
-    pub last_hash_check: Option<String>, // DATETIME
+    pub last_modified: Option<String>,  // DATETIME
+    pub last_hash_check: Option<String>,  // DATETIME
     pub has_extracted_text: bool,
-    pub extracted_at: Option<String>, // DATETIME
-    pub processed_at: Option<String>, // DATETIME
+    pub extracted_at: Option<String>,  // DATETIME
+    pub processed_at: Option<String>,  // DATETIME
     pub processed: bool,
-    pub processing_priority: i32, // 0=new, 1=modified, 2=extracted, 3=rerun
+    pub processing_priority: i32,  // 0=new, 1=modified, 2=extracted, 3=rerun
     pub retry_count: i32,
-    pub extraction_quality: Option<f64>, // 0.0-1.0
-    pub created_at: Option<String>, // DATETIME
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IntelligenceEntry {
-    pub id: i64,
-    pub registry_id: i64,
-    pub fingerprint: String,
-    pub filename: String,
-    pub source_quote: String, // Required, exact supporting quote
-    pub page_number: Option<i32>,
-    pub evidence_full: Option<String>,
-    pub evidence_hash: Option<String>,
-    pub associated_date: Option<String>,
-    pub fact_summary: String,
-    pub category: Option<String>,
-    pub identified_crime: Option<String>,
-    pub severity_score: i32,
-    pub confidence: Option<f64>,
-    pub quality_score: Option<f64>, // Overall extraction quality 0.0-1.0
-    pub source_language: Option<String>, // ISO 639-1 language code
-    pub translated_quote: Option<String>,
-    pub pipeline_id: Option<String>,
-    pub pass_name: Option<String>,
-    pub is_deleted: bool, // Soft delete for forensic integrity
-    pub deleted_at: Option<String>, // DATETIME
-    pub processing_time_ms: Option<i64>,
-    pub created_at: Option<String>, // DATETIME
+    pub extraction_quality: Option<f64>,  // 0.0-1.0
+    pub created_at: Option<String>,  // DATETIME
 }
 
 pub struct Database {
