@@ -587,6 +587,163 @@ fn write_file(path: String, contents: Vec<u8>) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn export_pdf_report(state: State<AppState>) -> Result<Vec<u8>, String> {
+    use printpdf::*;
+
+    let db = state.db.lock().unwrap();
+    let db_ref = db.as_ref().ok_or("Database not initialized")?;
+
+    let facts = db_ref.get_weighted_evidence(0.0, 100).map_err(|e| e.to_string())?;
+    let stats = db_ref.get_overall_statistics().map_err(|e| e.to_string())?;
+    let categories = db_ref.get_category_distribution().map_err(|e| e.to_string())?;
+
+    let (doc, page1, layer1) = PdfDocument::new(
+        "SL Studio Forensic Report",
+        Mm(210.0),
+        Mm(297.0),
+        "Layer 1",
+    );
+
+    let font = doc.add_builtin_font(BuiltinFont::Helvetica).map_err(|e| e.to_string())?;
+    let font_bold = doc.add_builtin_font(BuiltinFont::HelveticaBold).map_err(|e| e.to_string())?;
+
+    let current_layer = doc.get_page(page1).get_layer(layer1);
+
+    current_layer.use_text("SL Studio - Forensic Document Analysis Report", 24.0, Mm(20.0), Mm(277.0), &font_bold);
+    current_layer.use_text(&format!("Generated: {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S")), 10.0, Mm(20.0), Mm(268.0), &font);
+
+    current_layer.use_text("Summary Statistics", 16.0, Mm(20.0), Mm(250.0), &font_bold);
+    current_layer.use_text(&format!("Total Evidence: {}", stats.registry_count), 12.0, Mm(25.0), Mm(240.0), &font);
+    current_layer.use_text(&format!("Total Intelligence: {}", stats.intelligence_count), 12.0, Mm(25.0), Mm(232.0), &font);
+    current_layer.use_text(&format!("Processed Files: {}", stats.processed_count), 12.0, Mm(25.0), Mm(224.0), &font);
+
+    current_layer.use_text("Category Distribution", 16.0, Mm(20.0), Mm(205.0), &font_bold);
+    let mut y_pos = 195.0;
+    for cat in categories.iter().take(10) {
+        current_layer.use_text(&format!("{}: {} items", cat.category, cat.count), 11.0, Mm(25.0), Mm(y_pos), &font);
+        y_pos -= 7.0;
+    }
+
+    current_layer.use_text("Top Facts", 16.0, Mm(20.0), Mm(y_pos - 15.0), &font_bold);
+    y_pos -= 25.0;
+    for (i, fact) in facts.iter().take(15).enumerate() {
+        if y_pos < 30.0 {
+            break;
+        }
+        let summary = if fact.summary.len() > 60 {
+            format!("{}...", &fact.summary[..60])
+        } else {
+            fact.summary.clone()
+        };
+        current_layer.use_text(&format!("{}. [{}] {}", i + 1, fact.category.as_deref().unwrap_or("N/A"), summary), 9.0, Mm(25.0), Mm(y_pos), &font);
+        y_pos -= 6.0;
+    }
+
+    let mut pdf_bytes = Vec::new();
+    doc.save(&mut std::io::Cursor::new(&mut pdf_bytes)).map_err(|e| e.to_string())?;
+
+    Ok(pdf_bytes)
+}
+
+#[tauri::command]
+fn export_excel_report(state: State<AppState>) -> Result<Vec<u8>, String> {
+    use calamine::{Workbook, Xlsx, DataType};
+
+    let db = state.db.lock().unwrap();
+    let db_ref = db.as_ref().ok_or("Database not initialized")?;
+
+    let facts = db_ref.get_weighted_evidence(0.0, 1000).map_err(|e| e.to_string())?;
+    let categories = db_ref.get_category_distribution().map_err(|e| e.to_string())?;
+    let entities = db_ref.get_entity_centrality(None, 0.0).map_err(|e| e.to_string())?;
+    let timeline = db_ref.get_timeline_events(None, None, 1000).map_err(|e| e.to_string())?;
+
+    let mut workbook: Workbook<Xlsx, Vec<u8>> = Workbook::new();
+    
+    {
+        let sheet = workbook.add_worksheet("Facts");
+        sheet.set_name("Facts").map_err(|e| e.to_string())?;
+        
+        let headers = ["ID", "Filename", "Category", "Severity", "Confidence", "Quality", "Weight", "Summary", "Created"];
+        for (i, header) in headers.iter().enumerate() {
+            sheet.set_cell_value(0, i as u32, *header).map_err(|e| e.to_string())?;
+        }
+        
+        for (row, fact) in facts.iter().enumerate().take(1000) {
+            let r = (row + 1) as u32;
+            sheet.set_cell_value(r, 0, fact.id).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 1, fact.filename.as_str()).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 2, fact.category.as_deref().unwrap_or("")).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 3, fact.severity).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 4, fact.confidence.unwrap_or(0.0)).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 5, fact.quality.unwrap_or(0.0)).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 6, fact.weight).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 7, fact.summary.as_str()).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 8, fact.created_at.as_deref().unwrap_or("")).map_err(|e| e.to_string())?;
+        }
+    }
+
+    {
+        let sheet = workbook.add_worksheet("Categories");
+        sheet.set_name("Categories").map_err(|e| e.to_string())?;
+        
+        sheet.set_cell_value(0, 0, "Category").map_err(|e| e.to_string())?;
+        sheet.set_cell_value(0, 1, "Count").map_err(|e| e.to_string())?;
+        sheet.set_cell_value(0, 2, "Avg Severity").map_err(|e| e.to_string())?;
+        sheet.set_cell_value(0, 3, "Avg Confidence").map_err(|e| e.to_string())?;
+        
+        for (row, cat) in categories.iter().enumerate() {
+            let r = (row + 1) as u32;
+            sheet.set_cell_value(r, 0, cat.category.as_str()).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 1, cat.count).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 2, cat.avg_severity.unwrap_or(0.0)).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 3, cat.avg_confidence.unwrap_or(0.0)).map_err(|e| e.to_string())?;
+        }
+    }
+
+    {
+        let sheet = workbook.add_worksheet("Entities");
+        sheet.set_name("Entities").map_err(|e| e.to_string())?;
+        
+        sheet.set_cell_value(0, 0, "Entity ID").map_err(|e| e.to_string())?;
+        sheet.set_cell_value(0, 1, "Type").map_err(|e| e.to_string())?;
+        sheet.set_cell_value(0, 2, "Value").map_err(|e| e.to_string())?;
+        sheet.set_cell_value(0, 3, "Doc Count").map_err(|e| e.to_string())?;
+        sheet.set_cell_value(0, 4, "Occurrences").map_err(|e| e.to_string())?;
+        sheet.set_cell_value(0, 5, "Centrality").map_err(|e| e.to_string())?;
+        
+        for (row, entity) in entities.iter().enumerate().take(500) {
+            let r = (row + 1) as u32;
+            sheet.set_cell_value(r, 0, entity.entity_id).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 1, entity.entity_type.as_str()).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 2, entity.value.as_str()).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 3, entity.document_count).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 4, entity.occurrence_count).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 5, entity.centrality_score).map_err(|e| e.to_string())?;
+        }
+    }
+
+    {
+        let sheet = workbook.add_worksheet("Timeline");
+        sheet.set_name("Timeline").map_err(|e| e.to_string())?;
+        
+        sheet.set_cell_value(0, 0, "Date").map_err(|e| e.to_string())?;
+        sheet.set_cell_value(0, 1, "Event Type").map_err(|e| e.to_string())?;
+        sheet.set_cell_value(0, 2, "Description").map_err(|e| e.to_string())?;
+        sheet.set_cell_value(0, 3, "Filename").map_err(|e| e.to_string())?;
+        
+        for (row, event) in timeline.iter().enumerate().take(1000) {
+            let r = (row + 1) as u32;
+            sheet.set_cell_value(r, 0, event.date.as_str()).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 1, event.event_type.as_str()).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 2, event.description.as_str()).map_err(|e| e.to_string())?;
+            sheet.set_cell_value(r, 3, event.filename.as_deref().unwrap_or("")).map_err(|e| e.to_string())?;
+        }
+    }
+
+    workbook.save_new_buffer().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn get_models_dir() -> String {
     if IS_DEV {
         utils::dev_models_dir().to_string_lossy().to_string()

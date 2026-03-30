@@ -54,11 +54,13 @@ anyhow = "1"
 num_cpus = "1"
 
 pdf-extract = "0.7"
+printpdf = "0.7"
 ocrs = "0.12"
 image = "0.25"
 zip = "2"
 llama_cpp = "0.3"
 rand = "0.8"
+calamine = "0.26"
 
 [dev-dependencies]
 tempfile = "3"
