@@ -39,18 +39,6 @@
 			name: 'Llama 2 7B Chat',
 			size: '~3.8GB',
 			quantization: 'Q4_K_M'
-		},
-		{
-			id: 'TheBloke/Qwen-2.5-7B-Instruct-GGUF',
-			name: 'Qwen 2.5 7B Instruct',
-			size: '~4.7GB',
-			quantization: 'Q4_K_M'
-		},
-		{
-			id: 'TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF',
-			name: 'Mixtral 8x7B',
-			size: '~26GB',
-			quantization: 'Q4_K_M'
 		}
 	];
 
