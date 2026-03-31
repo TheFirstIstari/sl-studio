@@ -1218,16 +1218,21 @@ pub struct ModelInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HuggingFaceFile {
-    pub r#type: String,
-    pub size: u64,
-    pub download_url: Option<String>,
+    #[serde(alias = "rfilename")]
     pub path: String,
+    pub size: u64,
+    #[serde(alias = "downloadUrl")]
+    pub download_url: Option<String>,
 }
 
 fn get_huggingface_files(repo_id: &str) -> Result<Vec<HuggingFaceFile>, String> {
     let url = format!("https://huggingface.co/api/models/{}", repo_id);
 
-    let client = reqwest::blocking::Client::new();
+    let client = reqwest::blocking::Client::builder()
+        .user_agent("SL-Studio/0.2.0")
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
     let response = client
         .get(&url)
         .header("Accept", "application/json")
@@ -1238,14 +1243,18 @@ fn get_huggingface_files(repo_id: &str) -> Result<Vec<HuggingFaceFile>, String> 
         return Err(format!("HTTP error: {}", response.status()));
     }
 
+    let text = response.text().map_err(|e| format!("Failed to read response: {}", e))?;
+    
     #[derive(Deserialize)]
     struct ModelInfo {
         siblings: Option<Vec<HuggingFaceFile>>,
     }
 
-    let info: ModelInfo = response.json().map_err(|e| e.to_string())?;
+    let info: ModelInfo = serde_json::from_str(&text).map_err(|e| {
+        format!("Failed to parse response: {}. Response: {}", e, &text[..text.len().min(500)])
+    })?;
 
-    info.siblings.ok_or_else(|| "No files found".to_string())
+    info.siblings.ok_or_else(|| "No files found in model repository".to_string())
 }
 
 #[allow(dead_code)]
@@ -1278,21 +1287,28 @@ async fn download_model(
 ) -> Result<ModelInfo, String> {
     let files = get_huggingface_files(&repo_id)?;
 
-    let (download_url, total_size) = if filename.contains(".gguf") {
+    let file = if filename.contains(".gguf") {
         files
             .iter()
             .find(|f| f.path == filename)
-            .and_then(|f| f.download_url.as_ref().map(|url| (url.clone(), f.size)))
             .ok_or_else(|| "File not found in repository".to_string())?
     } else {
-        let file = files
+        files
             .iter()
             .find(|f| f.path.to_lowercase().ends_with(".gguf"))
-            .ok_or_else(|| "No GGUF files found".to_string())?;
-        (file.download_url.as_ref().unwrap().clone(), file.size)
+            .ok_or_else(|| "No GGUF files found".to_string())?
     };
 
-    let actual_filename = download_url.split('/').next_back().unwrap_or(&filename);
+    let filename_for_url = file.path.clone();
+    let actual_filename = file.path.clone();
+
+    // Construct download URL from repo_id and filename
+    let download_url = format!(
+        "https://huggingface.co/{}/resolve/main/{}",
+        repo_id, filename_for_url
+    );
+    let total_size = file.size;
+
     let models_dir = if IS_DEV {
         utils::dev_models_dir()
     } else {
@@ -1301,7 +1317,7 @@ async fn download_model(
 
     std::fs::create_dir_all(&models_dir).map_err(|e| e.to_string())?;
 
-    let output_path = models_dir.join(actual_filename);
+    let output_path = models_dir.join(&actual_filename);
 
     info!("Starting download from: {}", download_url);
 
@@ -1316,7 +1332,10 @@ async fn download_model(
     )
     .ok();
 
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .user_agent("SL-Studio/0.2.0")
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
 
     let response = client
         .get(&download_url)
