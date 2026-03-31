@@ -148,19 +148,32 @@ impl RegistryWorker {
                 }
             }
 
+            // Show total discovered (results.len()) not just new additions
             progress_tx
                 .send(RegistryProgress {
                     total: total_files,
-                    processed: new_count,
-                    current_file: format!("Inserted {} new files...", new_count),
+                    processed: results.len(),
+                    current_file: format!("Found {} files ({} new)...", results.len(), new_count),
                     phase: "hashing".to_string(),
                 })
                 .ok();
         }
 
+        // Send final completion
+        progress_tx
+            .send(RegistryProgress {
+                total: total_files,
+                processed: total_files,
+                current_file: format!("Scan complete: {} new, {} existing", new_count, total_files.saturating_sub(new_count)),
+                phase: "complete".to_string(),
+            })
+            .ok();
+
         info!(
-            "Registry scan complete. Added {} new files ({} already existed)",
-            new_count, existing_count
+            "Registry scan complete. Discovered {} files: {} new, {} already existed",
+            total_files,
+            new_count,
+            total_files.saturating_sub(new_count)
         );
 
         // Log audit
