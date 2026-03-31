@@ -48,22 +48,5 @@
 			}
 		}
 	},
-	"plugins": {
-		"shell": {
-			"open": true
-		},
-		"dialog": {
-			"open": true,
-			"save": true
-		},
-		"fs": {
-			"readFile": true,
-			"writeFile": true,
-			"readDir": true,
-			"copyFile": true,
-			"createDir": true,
-			"removeFile": true,
-			"removeDir": true
-		}
-	}
+	"plugins": {}
 }

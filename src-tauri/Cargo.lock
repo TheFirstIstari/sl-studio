@@ -5213,6 +5213,48 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2aa850e253778c88a04c3d7323b043aeda9d3e30d5971937c1855769763678e"
 
 [[package]]
+name = "sl-studio"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "criterion",
+ "dirs 5.0.1",
+ "futures",
+ "hex",
+ "image",
+ "llama_cpp",
+ "num_cpus",
+ "ocrs",
+ "pdf-extract",
+ "printpdf",
+ "rand 0.8.5",
+ "rayon",
+ "regex",
+ "reqwest 0.12.28",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sysinfo",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-opener",
+ "tauri-plugin-shell",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+ "walkdir",
+ "zip",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5287,48 +5329,6 @@ name = "stable_deref_trait"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
-
-[[package]]
-name = "steinline"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "criterion",
- "dirs 5.0.1",
- "futures",
- "hex",
- "image",
- "llama_cpp",
- "num_cpus",
- "ocrs",
- "pdf-extract",
- "printpdf",
- "rand 0.8.5",
- "rayon",
- "regex",
- "reqwest 0.12.28",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
- "sysinfo",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-opener",
- "tauri-plugin-shell",
- "tempfile",
- "thiserror 1.0.69",
- "tokio",
- "tokio-util",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
- "walkdir",
- "zip",
-]
 
 [[package]]
 name = "string_cache"
