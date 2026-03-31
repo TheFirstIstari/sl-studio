@@ -81,7 +81,26 @@ impl Deconstructor {
                     .pdf
                     .extract_text_with_fallback(path)
                     .map_err(|e| ExtractionError::PdfError(e.to_string()))?;
-                (text, "pdf".to_string())
+                
+                if text.len() < 100 {
+                    warn!("PDF extracted minimal text ({} chars), attempting OCR fallback", text.len());
+                    match self.ocr.extract_text(path) {
+                        Ok(ocr_text) if !ocr_text.is_empty() => {
+                            info!("OCR fallback successful: {} chars extracted", ocr_text.len());
+                            (ocr_text, "pdf_ocr".to_string())
+                        }
+                        Ok(_) => {
+                            warn!("OCR fallback returned empty text");
+                            (text, "pdf".to_string())
+                        }
+                        Err(e) => {
+                            warn!("OCR fallback failed: {}", e);
+                            (text, "pdf".to_string())
+                        }
+                    }
+                } else {
+                    (text, "pdf".to_string())
+                }
             }
             "jpg" | "jpeg" | "png" | "bmp" | "tiff" | "tif" => {
                 let text = self

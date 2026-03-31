@@ -148,7 +148,7 @@ impl PdfExtractor {
             return Ok(String::new());
         }
 
-        info!("Extracted {} chars from PDF", trimmed.len());
+        info!("Extracted {} chars from PDF: {}", trimmed.len(), path_str);
         Ok(trimmed.to_string())
     }
 

@@ -3,7 +3,7 @@ use crate::inference::llama::{LlamaConfig, LlamaModel};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use thiserror::Error;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 #[derive(Error, Debug)]
 pub enum ReasonerError {
@@ -155,10 +155,13 @@ impl Reasoner {
 
         info!("Analyzing file: {}", filename);
 
-        let extraction = self
-            .deconstructor
-            .extract(path)
-            .map_err(|e| ReasonerError::ExtractionError(e.to_string()))?;
+        let extraction = match self.deconstructor.extract(path) {
+            Ok(extraction) => extraction,
+            Err(e) => {
+                error!("Extraction failed for {}: {}", filename, e);
+                return Err(ReasonerError::ExtractionError(e.to_string()));
+            }
+        };
 
         if extraction.char_count == 0 {
             warn!("No text extracted from: {}", filename);
@@ -177,16 +180,18 @@ impl Reasoner {
 
         // Process chunks sequentially to stay within context limits
         // Parallel processing would require separate model instances
-        for chunk in &chunks {
+        info!("Processing {} chunks for {}", chunks.len(), filename);
+        for (i, chunk) in chunks.iter().enumerate() {
             let prompt = self.build_prompt(&chunk.source_file, &chunk.text);
             match model.generate_structured(&prompt) {
                 Ok(response) => {
                     raw_responses.push(response.clone());
                     let facts = self.parse_facts(&response);
                     all_facts.extend(facts);
+                    info!("Processed chunk {}/{} for {}", i + 1, chunks.len(), filename);
                 }
                 Err(e) => {
-                    warn!("Failed to process chunk: {}", e);
+                    error!("Failed to process chunk {}/{} for {}: {}", i + 1, chunks.len(), filename, e);
                 }
             }
         }
@@ -198,6 +203,8 @@ impl Reasoner {
             unique_facts.len(),
             filename
         );
+
+        info!("Analysis complete for {}", filename);
 
         Ok(AnalysisResult {
             filename,
