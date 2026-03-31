@@ -64,3 +64,11 @@
 ### Project
 
 - [Project Overview](project-overview.md) - Features, tech stack, getting started, database schema, migration notes
+
+### Quick Start
+
+1. **Configure**: Open Settings and set Evidence Root folder
+2. **Download Model**: In Settings, download a GGUF model (~4GB)
+3. **Scan**: Go to Analysis, click "Start Fingerprinting"
+4. **Analyze**: Click "Start Analysis" to extract facts
+5. **Explore**: Browse results in Results, Timeline, Statistics, Network pages

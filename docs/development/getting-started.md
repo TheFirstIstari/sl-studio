@@ -56,6 +56,42 @@ mise run dev
 
 This starts both the Vite dev server (port 1420) and the Tauri application.
 
+## First Use Workflow
+
+### 1. Configure Project
+
+1. Open **Settings** page
+2. Set **Evidence Root Folder** to your evidence directory (or network share)
+3. Set **Registry DB** and **Intelligence DB** paths (can be left as defaults)
+4. Set **Export Directory** for export reports
+
+### 2. Download LLM Model
+
+1. In **Settings**, go to Model section
+2. Select a model from the dropdown (Mistral 7B or Llama 2 7B)
+3. Click **Download Model** (~4GB, may take a while)
+4. Or manually download and set "Model Path" to the GGUF file
+
+### 3. Scan Evidence
+
+1. Go to **Analysis** page
+2. Click **Start Fingerprinting** to scan and fingerprint all files
+3. Watch progress as files are hashed and registered
+
+### 4. Run Analysis
+
+1. Click **Start Analysis** to run the neural reasoner on files
+2. The LLM will extract facts from each file
+3. Progress shows extracted facts count
+
+### 5. View Results
+
+- **Results** - Browse and filter extracted facts
+- **Timeline** - Chronological view of events
+- **Statistics** - Charts and distributions
+- **Network** - Entity relationship graphs
+- **Anomalies** - Detect outliers
+
 ## Project Structure
 
 ```

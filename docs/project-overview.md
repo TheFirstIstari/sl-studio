@@ -110,6 +110,98 @@ mise run release_appimage  # Linux AppImage
 mise run release_msi   # Windows MSI
 ```
 
+## Network Share Setup
+
+SL Studio supports accessing evidence files over the network via SMB.
+
+### Raspberry Pi SMB Setup
+
+1. Install Samba:
+
+   ```bash
+   sudo apt install samba
+   ```
+
+2. Create a shared folder:
+
+   ```bash
+   sudo mkdir /home/pi/stein_data/SteinLine
+   sudo chmod 777 /home/pi/stein_data/SteinLine
+   ```
+
+3. Edit Samba config:
+
+   ```bash
+   sudo nano /etc/samba/smb.conf
+   ```
+
+4. Add this to the config:
+
+   ```ini
+   [SteinLine]
+   path = /home/pi/stein_data/SteinLine
+   browseable = yes
+   read only = no
+   guest only = yes
+   guest ok = yes
+   ```
+
+5. Enable and start Samba:
+   ```bash
+   sudo systemctl enable smbd
+   sudo systemctl start smbd
+   ```
+
+### Accessing from macOS
+
+```bash
+# Via IP (Tailscale)
+open smb://100.68.179.53/SteinLine
+
+# Via hostname
+open smb://BENCHPI5._smb._tcp.local/SteinLine
+```
+
+### Accessing from Windows
+
+```
+\\100.68.179.53\SteinLine
+```
+
+### Recommended Folder Structure
+
+```
+SteinLine/
+├── evidence/        # Evidence files (shared)
+├── models/         # GGUF models (shared)
+├── exports/        # Export reports (shared)
+└── local/          # Can be local on each machine (not on share)
+    ├── registry.db
+    └── intelligence.db
+```
+
+**Note**: Keep databases local for performance (SQLite doesn't like network latency).
+
+## Model Download
+
+SL Studio can download GGUF models directly from HuggingFace.
+
+### Available Models
+
+| Model               | Size   | Description     |
+| ------------------- | ------ | --------------- |
+| Mistral 7B Instruct | ~4.1GB | General purpose |
+| Llama 2 7B Chat     | ~3.8GB | Chat-focused    |
+
+### Manual Download
+
+If the in-app download fails, manually download:
+
+1. Go to https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF
+2. Download a GGUF file (e.g., `Llama-2-7B-Chat.Q4_K_M.gguf`)
+3. Save to `~/Library/Application Support/slstudio/models/`
+4. In Settings, set "Model Path" to point to the file
+
 ## Configuration
 
 ### Mise Tasks
