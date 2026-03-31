@@ -1225,6 +1225,101 @@ pub struct HuggingFaceFile {
     pub download_url: Option<String>,
 }
 
+fn get_huggingface_tree(repo_id: &str) -> Result<String, String> {
+    let url = format!("https://huggingface.co/api/models/{}", repo_id);
+
+    let client = reqwest::blocking::Client::builder()
+        .user_agent("SL-Studio/0.2.0")
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    let response = client
+        .get(&url)
+        .header("Accept", "application/json")
+        .send()
+        .map_err(|e| format!("Failed to fetch model info: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!("HTTP error: {}", response.status()));
+    }
+
+    let text = response.text().map_err(|e| format!("Failed to read response: {}", e))?;
+    
+    #[derive(Deserialize)]
+    struct ModelInfo {
+        sha: Option<String>,
+        siblings: Option<Vec<HuggingFaceFile>>,
+    }
+
+    let info: ModelInfo = serde_json::from_str(&text).map_err(|e| {
+        format!("Failed to parse response: {}. Response: {}", e, &text[..text.len().min(500)])
+    })?;
+
+    let sha = info.sha.unwrap_or_else(|| "main".to_string());
+    Ok(sha)
+}
+
+fn get_huggingface_files_with_size(repo_id: &str) -> Result<Vec<HuggingFaceFile>, String> {
+    // First get the revision (commit SHA)
+    let revision = get_huggingface_tree(repo_id)?;
+    
+    // Then get the tree with file sizes
+    let url = format!(
+        "https://huggingface.co/api/models/{}/tree/{}?recursive=true",
+        repo_id, revision
+    );
+
+    let client = reqwest::blocking::Client::builder()
+        .user_agent("SL-Studio/0.2.0")
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    let response = client
+        .get(&url)
+        .header("Accept", "application/json")
+        .send()
+        .map_err(|e| format!("Failed to fetch tree: {}", e))?;
+
+    if !response.status().is_success() {
+        // Fallback to the regular API if tree fails
+        return get_huggingface_files(repo_id);
+    }
+
+    let text = response.text().map_err(|e| format!("Failed to read response: {}", e))?;
+    
+    #[derive(Deserialize)]
+    struct TreeEntry {
+        path: String,
+        size: Option<u64>,
+        #[serde(rename = "type")]
+        entry_type: String,
+    }
+
+    let tree: Vec<TreeEntry> = serde_json::from_str(&text).map_err(|e| {
+        format!("Failed to parse tree: {}. Response: {}", e, &text[..text.len().min(500)])
+    })?;
+
+    // Filter for GGUF files
+    let gguf_files: Vec<HuggingFaceFile> = tree
+        .into_iter()
+        .filter(|e| {
+            e.entry_type == "file" && e.path.to_lowercase().ends_with(".gguf")
+        })
+        .map(|e| HuggingFaceFile {
+            path: e.path,
+            size: e.size.unwrap_or(0),
+            download_url: None,
+        })
+        .collect();
+
+    if gguf_files.is_empty() {
+        // Fallback
+        get_huggingface_files(repo_id)
+    } else {
+        Ok(gguf_files)
+    }
+}
+
 fn get_huggingface_files(repo_id: &str) -> Result<Vec<HuggingFaceFile>, String> {
     let url = format!("https://huggingface.co/api/models/{}", repo_id);
 
@@ -1270,7 +1365,7 @@ fn find_gguf_file(files: &[HuggingFaceFile]) -> Option<(String, u64)> {
 
 #[tauri::command]
 async fn get_huggingface_models(repo_id: String) -> Result<Vec<String>, String> {
-    let files = get_huggingface_files(&repo_id)?;
+    let files = get_huggingface_files_with_size(&repo_id)?;
     let gguf_files: Vec<String> = files
         .into_iter()
         .filter(|f| f.path.to_lowercase().ends_with(".gguf"))
@@ -1285,7 +1380,7 @@ async fn download_model(
     repo_id: String,
     filename: String,
 ) -> Result<ModelInfo, String> {
-    let files = get_huggingface_files(&repo_id)?;
+    let files = get_huggingface_files_with_size(&repo_id)?;
 
     let file = if filename.contains(".gguf") {
         files
@@ -1302,7 +1397,7 @@ async fn download_model(
     let filename_for_url = file.path.clone();
     let actual_filename = file.path.clone();
 
-    // Construct download URL from repo_id and filename
+    // Construct download URL from repo_id and filename using proper HuggingFace URL format
     let download_url = format!(
         "https://huggingface.co/{}/resolve/main/{}",
         repo_id, filename_for_url
