@@ -58,7 +58,7 @@ impl Default for AppConfig {
         let app_dir = dirs::data_dir().unwrap_or_default().join("slstudio");
 
         AppConfig {
-            version: "0.1.0".to_string(),
+            version: "0.2.0".to_string(),
             project: ProjectConfig {
                 name: "New Investigation".to_string(),
                 evidence_root: String::new(),
