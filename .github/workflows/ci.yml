@@ -520,13 +520,15 @@ jobs:
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
-          args: --target x86_64-pc-windows-msvc --bundles msi,exe
+          args: --target x86_64-pc-windows-msvc --bundles msi,nsis
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: tauri-x86_64-pc-windows-msvc
-          path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/**/*.{msi,exe}
+          path: |
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/**/*.{msi,nsis}
+            src-tauri/target/x86_64-pc-windows-msvc/release/*.exe
           if-no-files-found: ignore
 
   # ============================================================
@@ -686,4 +688,4 @@ jobs:
           generate_release_notes: true
           prerelease: ${{ steps.count.outputs.platform_count == '1' }}
           files: |
-            artifacts/**/*.{dmg,app,deb,AppImage,msi,exe}
+            artifacts/**/*.{dmg,app,deb,AppImage,msi,nsis,exe}
