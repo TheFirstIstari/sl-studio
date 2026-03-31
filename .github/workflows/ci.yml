@@ -667,9 +667,12 @@ jobs:
       - name: Count platform artifacts
         id: count
         run: |
-          count=$(find artifacts -maxdepth 1 -mindepth 1 -type d | wc -l | tr -d ' ')
+          echo "Contents of artifacts folder:"
+          find artifacts -type f -name "*.exe" -o -name "*.dmg" -o -name "*.app" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" 2>/dev/null || true
+          ls -la artifacts/ 2>/dev/null || true
+          count=$(find artifacts -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.app" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" \) | wc -l | tr -d ' ')
           echo "platform_count=$count" >> "$GITHUB_OUTPUT"
-          echo "Found $count platform artifact directories"
+          echo "Found $count artifact files"
 
       - name: Check minimum artifacts
         if: steps.count.outputs.platform_count == '0'
@@ -683,9 +686,4 @@ jobs:
           generate_release_notes: true
           prerelease: ${{ steps.count.outputs.platform_count == '1' }}
           files: |
-            artifacts/tauri-*/**/*.dmg
-            artifacts/tauri-*/**/*.app/**
-            artifacts/tauri-*/**/*.deb
-            artifacts/tauri-*/**/*.AppImage
-            artifacts/tauri-*/**/*.msi
-            artifacts/tauri-*/**/*.exe
+            artifacts/**/*.{dmg,app,deb,AppImage,msi,exe}
