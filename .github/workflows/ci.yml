@@ -664,10 +664,24 @@ jobs:
         with:
           path: artifacts
 
+      - name: Count platform artifacts
+        id: count
+        run: |
+          count=$(find artifacts -maxdepth 1 -mindepth 1 -type d | wc -l | tr -d ' ')
+          echo "platform_count=$count" >> "$GITHUB_OUTPUT"
+          echo "Found $count platform artifact directories"
+
+      - name: Check minimum artifacts
+        if: steps.count.outputs.platform_count == '0'
+        run: |
+          echo "No platform artifacts found. Release requires at least one platform build."
+          exit 1
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          prerelease: ${{ steps.count.outputs.platform_count == '1' }}
           files: |
             artifacts/tauri-*/**/*.dmg
             artifacts/tauri-*/**/*.app/**
