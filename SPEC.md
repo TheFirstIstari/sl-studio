@@ -2950,13 +2950,13 @@ steinline/
 
 **GitHub Actions**
 
-- `.github/workflows/ci.yml` - Optimized CI pipeline (3 sequential jobs)
+- `.github/workflows/ci.yml` - Per-platform CI pipeline (frontend → rust/tests → build → release, parallel across platforms, skipped-safe release)
 
 ### Current Status
 
 - **GitHub Repo**: https://github.com/TheFirstIstari/sl-studio
 - **Self-hosted Runner**: Configured at `/opt/actions-runner` (Fedora)
-- **Version**: 1.0.0
+- **Version**: 0.2.0
 - **Phase 1**: ✅ COMPLETE - Foundation
 - **Phase 2**: ✅ COMPLETE - Text Extraction
 - **Phase 3**: ✅ COMPLETE - LLM Integration
