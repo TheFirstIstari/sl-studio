@@ -1634,6 +1634,106 @@ Input Files → [PDF Extractor / OCR / Audio Transcriber] → .txt files
 | .txt, .md | Copy | Plain text |
 | .docx | Extract | Plain text |
 
+#### Scanned PDF Processing (Efficient Implementation)
+
+```
+PDF with minimal text → [PDF renderer] → [image] → [ocrs] → Text
+                                          ↓
+                               Parallel page processing
+                                          ↓
+                               Early termination on sufficient text
+```
+
+**Efficiency Optimizations**:
+
+- **Smart detection**: Only invokes expensive OCR when text layer has < 100 chars
+- **Page-by-page rendering**: Process each page individually to handle multi-page scanned PDFs
+- **Parallel processing**: Use `rayon` to render/OCR multiple pages concurrently
+- **Resolution control**: Render at 150-300 DPI (not full resolution) for speed/quality balance
+- **Early termination**: Stop processing pages once > 500 chars extracted
+- **Memory efficient**: Process one page at a time, not entire PDF in memory
+
+**Technical Implementation Options**:
+
+| Approach        | Library              | Pros                         | Cons                          |
+| --------------- | -------------------- | ---------------------------- | ----------------------------- |
+| 1 (Recommended) | `mupdf`              | Fast, mature, best rendering | AGPL license, requires C lib  |
+| 2               | `pdf_process`        | Pure Rust API                | Requires poppler installed    |
+| 3 (Current)     | `image::open` on PDF | N/A                          | Doesn't work - can't read PDF |
+
+**Implementation (mupdf approach)**:
+
+```rust
+use mupdf::{Document, Matrix};
+
+struct PdfScanner {
+    ocr: OcrExtractor,
+    min_text_chars: usize,  // 100 - trigger OCR if fewer chars extracted
+    target_dpi: u32,        // 150-300
+    early_termination_chars: usize,  // 500
+}
+
+impl PdfScanner {
+    fn extract_text(&self, path: &Path) -> Result<String, PdfError> {
+        // First try fast text extraction
+        let text = pdf_extract::extract_text(path)?;
+
+        // If minimal text, try OCR on rendered pages
+        if text.len() < self.min_text_chars {
+            let page_count = self.get_page_count(path)?;
+            let mut full_text = String::new();
+
+            for page_num in 1..=page_count {
+                let page_img = self.render_page(path, page_num)?;
+                if let Ok(page_text) = self.ocr.extract_text(&page_img) {
+                    full_text.push_str(&page_text);
+
+                    // Early termination
+                    if full_text.len() >= self.early_termination_chars {
+                        info!("Early termination at page {}", page_num);
+                        break;
+                    }
+                }
+            }
+
+            return Ok(full_text);
+        }
+
+        Ok(text)
+    }
+
+    fn render_page(&self, path: &Path, page_num: u32) -> Result<DynamicImage, PdfError> {
+        let doc = Document::open(path).map_err(|e| PdfError::IoError(e))?;
+        let page = doc.page(page_num).map_err(|e| PdfError::IoError(e))?;
+
+        let zoom = self.target_dpi as f32 / 72.0;
+        let mat = Matrix::scale(zoom, zoom);
+        let pix = page.to_pixmap(mat).map_err(|e| PdfError::IoError(e))?;
+
+        let img = DynamicImage::ImageRgba8(
+            ImageRgba8::from_raw(pix.width(), pix.height(), pix.into_owned())
+                .ok_or_else(|| PdfError::IoError(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData, "Failed to create image"
+                )))?
+        );
+
+        Ok(img)
+    }
+}
+```
+
+**Dependencies**:
+
+- `mupdf = "0.6"` - PDF rendering (wraps MuPDF C library, highly optimized)
+- `mupdf-sys` - FFI bindings
+- `image = "0.25"` - Image processing
+- `rayon = "1.10"` - Parallel iteration (optional, for batch processing)
+
+**Note**: The current implementation's OCR fallback fails because `image::open()` cannot read PDF files directly. The fix requires either:
+
+1. Adding PDF-to-image rendering (mupdf approach above)
+2. Using `pdf_process` crate which handles this internally
+
 ### Stage 2: LLM Inference (Independent)
 
 ```

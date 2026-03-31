@@ -1,3 +1,5 @@
+use image::{DynamicImage, ImageRgba8};
+use mupdf::{Document, Matrix};
 use pdf_extract::extract_text;
 use std::path::Path;
 use thiserror::Error;
@@ -90,6 +92,9 @@ pub struct PdfExtractor {
     max_pages: usize,
     streaming: bool,
     max_file_size_mb: f64,
+    target_dpi: u32,
+    min_text_chars: usize,
+    early_termination_chars: usize,
 }
 
 impl PdfExtractor {
@@ -98,6 +103,9 @@ impl PdfExtractor {
             max_pages: 1000,
             streaming: false,
             max_file_size_mb: 500.0,
+            target_dpi: 200,
+            min_text_chars: 100,
+            early_termination_chars: 500,
         }
     }
 
@@ -106,7 +114,58 @@ impl PdfExtractor {
             max_pages,
             streaming: false,
             max_file_size_mb,
+            target_dpi: 200,
+            min_text_chars: 100,
+            early_termination_chars: 500,
         }
+    }
+
+    /// Get page count from PDF
+    pub fn get_page_count(&self, path: &Path) -> Result<usize, PdfError> {
+        let doc = Document::open(path).map_err(|e| {
+            PdfError::ExtractionError(format!("Failed to open PDF: {}", e))
+        })?;
+        Ok(doc.count_pages())
+    }
+
+    /// Render a single PDF page to an image
+    pub fn render_page(&self, path: &Path, page_num: u32) -> Result<DynamicImage, PdfError> {
+        let doc = Document::open(path).map_err(|e| {
+            PdfError::ExtractionError(format!("Failed to open PDF: {}", e))
+        })?;
+
+        let page = doc.page(page_num).map_err(|e| {
+            PdfError::ExtractionError(format!("Failed to get page {}: {}", page_num, e))
+        })?;
+
+        let zoom = self.target_dpi as f32 / 72.0;
+        let mat = Matrix::scale(zoom, zoom);
+        
+        let pix = page.to_pixmap(mat).map_err(|e| {
+            PdfError::ExtractionError(format!("Failed to render page {}: {}", page_num, e))
+        })?;
+
+        let img = DynamicImage::ImageRgba8(
+            ImageRgba8::from_raw(pix.width(), pix.height(), pix.into_owned())
+                .ok_or_else(|| {
+                    PdfError::ExtractionError("Failed to create image from rendered page".to_string())
+                })?
+        );
+
+        Ok(img)
+    }
+
+    /// Render all pages to images (for parallel processing)
+    pub fn render_all_pages(&self, path: &Path) -> Result<Vec<DynamicImage>, PdfError> {
+        let page_count = self.get_page_count(path)?;
+        let mut images = Vec::with_capacity(page_count);
+
+        for page_num in 1..=page_count as u32 {
+            let img = self.render_page(path, page_num)?;
+            images.push(img);
+        }
+
+        Ok(images)
     }
 
     /// Estimate page count from form feeds in text
@@ -241,6 +300,14 @@ impl PdfExtractor {
 
         info!("Extracted {} chars from PDF", trimmed.len());
         Ok(trimmed.to_string())
+    }
+
+    /// Extract text from rendered page image (for OCR fallback)
+    pub fn extract_text_from_image(&self, img: &DynamicImage) -> Result<String, PdfError> {
+        let rgb = img.to_rgb8();
+        let (width, height) = rgb.dimensions();
+        
+        Ok(String::new()) // Placeholder - actual OCR will be done by OcrExtractor
     }
 }
 

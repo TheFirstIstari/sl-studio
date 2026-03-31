@@ -1,6 +1,7 @@
 use crate::extractors::audio::AudioExtractor;
 use crate::extractors::ocr::OcrExtractor;
 use crate::extractors::pdf::PdfExtractor;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
@@ -83,18 +84,19 @@ impl Deconstructor {
                     .map_err(|e| ExtractionError::PdfError(e.to_string()))?;
                 
                 if text.len() < 100 {
-                    warn!("PDF extracted minimal text ({} chars), attempting OCR fallback", text.len());
-                    match self.ocr.extract_text(path) {
+                    warn!("PDF extracted minimal text ({} chars), attempting page-by-page OCR", text.len());
+                    let ocr_result = self.extract_scanned_pdf(path);
+                    match ocr_result {
                         Ok(ocr_text) if !ocr_text.is_empty() => {
-                            info!("OCR fallback successful: {} chars extracted", ocr_text.len());
+                            info!("Scanned PDF OCR successful: {} chars extracted", ocr_text.len());
                             (ocr_text, "pdf_ocr".to_string())
                         }
                         Ok(_) => {
-                            warn!("OCR fallback returned empty text");
+                            warn!("Scanned PDF OCR returned empty text");
                             (text, "pdf".to_string())
                         }
                         Err(e) => {
-                            warn!("OCR fallback failed: {}", e);
+                            warn!("Scanned PDF OCR failed: {}", e);
                             (text, "pdf".to_string())
                         }
                     }
@@ -198,6 +200,61 @@ impl Deconstructor {
 
     pub fn is_audio_available(&self) -> bool {
         self.audio.is_some()
+    }
+
+    /// Extract text from a scanned PDF by rendering pages and running OCR
+    /// Uses parallel processing for efficiency
+    pub fn extract_scanned_pdf(&self, path: &Path) -> Result<String, ExtractionError> {
+        let path_str = path.to_string_lossy();
+        info!("Extracting scanned PDF with parallel page-by-page OCR: {}", path_str);
+
+        let page_count = self.pdf.get_page_count(path)
+            .map_err(|e| ExtractionError::PdfError(e.to_string()))?;
+        
+        info!("Rendering {} pages for OCR", page_count);
+
+        // Render all pages first (parallel)
+        let pages: Vec<(u32, image::DynamicImage)> = (1..=page_count as u32)
+            .into_par_iter()
+            .map(|page_num| {
+                let img = self.pdf.render_page(path, page_num)
+                    .map_err(|e| ExtractionError::PdfError(e.to_string()))?;
+                Ok((page_num, img))
+            })
+            .filter_map(|r| r.ok())
+            .collect();
+
+        // Sort by page number to maintain order
+        let mut pages: Vec<_> = pages;
+        pages.sort_by_key(|(num, _)| *num);
+
+        let mut full_text = String::new();
+        let early_termination = 500;
+
+        // Process OCR on rendered pages
+        for (page_num, page_img) in pages {
+            match self.ocr.extract_text_from_image(&page_img) {
+                Ok(page_text) => {
+                    if !page_text.is_empty() {
+                        full_text.push_str(&page_text);
+                        full_text.push('\n');
+                        
+                        if full_text.len() >= early_termination {
+                            info!("Early termination at page {} ({} chars total)", page_num, full_text.len());
+                            break;
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!("OCR failed for page {}: {}", page_num, e);
+                }
+            }
+        }
+
+        let result = full_text.trim().to_string();
+        info!("Scanned PDF OCR complete: {} chars from {} pages", result.len(), page_count);
+        
+        Ok(result)
     }
 
     pub fn supported_extensions() -> Vec<&'static str> {

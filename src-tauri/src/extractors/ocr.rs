@@ -152,6 +152,13 @@ impl OcrExtractor {
 
         let img = image::open(path).map_err(|e| OcrError::ImageError(e.to_string()))?;
 
+        self.extract_text_from_image(&img)
+    }
+
+    /// Extract text from a DynamicImage (for scanned PDF pages)
+    pub fn extract_text_from_image(&self, img: &DynamicImage) -> Result<String, OcrError> {
+        info!("Running OCR on image ({}x{})", img.width(), img.height());
+
         let rgb = img.to_rgb8();
         let (width, height) = rgb.dimensions();
 
@@ -170,9 +177,9 @@ impl OcrExtractor {
 
         let trimmed = text.trim();
         if trimmed.is_empty() {
-            warn!("OCR returned empty text for: {}", path_str);
+            warn!("OCR returned empty text");
         } else {
-            info!("OCR extracted {} chars from {}", trimmed.len(), path_str);
+            info!("OCR extracted {} chars from image", trimmed.len());
         }
 
         Ok(trimmed.to_string())
