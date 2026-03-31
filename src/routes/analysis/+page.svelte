@@ -45,6 +45,11 @@
 		try {
 			config = await invoke<Config>('load_config');
 			modelLoaded = await invoke<boolean>('is_model_loaded');
+
+			// Initialize the project with config to set up database
+			if (config) {
+				await invoke('init_project', { config });
+			}
 		} catch (e) {
 			console.error('Failed to load config:', e);
 		}
