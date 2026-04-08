@@ -1225,6 +1225,7 @@ pub struct HuggingFaceFile {
     pub download_url: Option<String>,
 }
 
+#[allow(dead_code)]
 fn get_huggingface_tree(repo_id: &str) -> Result<String, String> {
     let url = format!("https://huggingface.co/api/models/{}", repo_id);
 
@@ -1243,8 +1244,10 @@ fn get_huggingface_tree(repo_id: &str) -> Result<String, String> {
         return Err(format!("HTTP error: {}", response.status()));
     }
 
-    let text = response.text().map_err(|e| format!("Failed to read response: {}", e))?;
-    
+    let text = response
+        .text()
+        .map_err(|e| format!("Failed to read response: {}", e))?;
+
     #[derive(Deserialize)]
     struct ModelInfo {
         sha: Option<String>,
@@ -1252,7 +1255,11 @@ fn get_huggingface_tree(repo_id: &str) -> Result<String, String> {
     }
 
     let info: ModelInfo = serde_json::from_str(&text).map_err(|e| {
-        format!("Failed to parse response: {}. Response preview: {}", e, &text[..text.len().min(300)])
+        format!(
+            "Failed to parse response: {}. Response preview: {}",
+            e,
+            &text[..text.len().min(300)]
+        )
     })?;
 
     let sha = info.sha.unwrap_or_else(|| "main".to_string());
@@ -1262,13 +1269,13 @@ fn get_huggingface_tree(repo_id: &str) -> Result<String, String> {
 fn get_huggingface_files_with_size(repo_id: &str) -> Result<Vec<HuggingFaceFile>, String> {
     // Use the regular API first
     let files = get_huggingface_files(repo_id)?;
-    
+
     // Filter for GGUF files
     let gguf_files: Vec<HuggingFaceFile> = files
         .into_iter()
         .filter(|f| f.path.to_lowercase().ends_with(".gguf"))
         .collect();
-    
+
     Ok(gguf_files)
 }
 
@@ -1290,18 +1297,25 @@ fn get_huggingface_files(repo_id: &str) -> Result<Vec<HuggingFaceFile>, String> 
         return Err(format!("HTTP error: {}", response.status()));
     }
 
-    let text = response.text().map_err(|e| format!("Failed to read response: {}", e))?;
-    
+    let text = response
+        .text()
+        .map_err(|e| format!("Failed to read response: {}", e))?;
+
     #[derive(Deserialize)]
     struct ModelInfo {
         siblings: Option<Vec<HuggingFaceFile>>,
     }
 
     let info: ModelInfo = serde_json::from_str(&text).map_err(|e| {
-        format!("Failed to parse response: {}. Response preview: {}", e, &text[..text.len().min(300)])
+        format!(
+            "Failed to parse response: {}. Response preview: {}",
+            e,
+            &text[..text.len().min(300)]
+        )
     })?;
 
-    info.siblings.ok_or_else(|| "No files found in model repository".to_string())
+    info.siblings
+        .ok_or_else(|| "No files found in model repository".to_string())
 }
 
 #[allow(dead_code)]
@@ -1358,7 +1372,12 @@ async fn download_model(
 
     let models_dir = utils::models_dir();
 
-    std::fs::create_dir_all(&models_dir).map_err(|e| format!("Failed to create models directory: {}. Check permissions.", e))?;
+    std::fs::create_dir_all(&models_dir).map_err(|e| {
+        format!(
+            "Failed to create models directory: {}. Check permissions.",
+            e
+        )
+    })?;
 
     let output_path = models_dir.join(&actual_filename);
 

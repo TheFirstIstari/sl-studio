@@ -18,6 +18,11 @@
 		};
 	}
 
+	interface RegistryFile {
+		path: string;
+		fingerprint: string;
+	}
+
 	interface RegistryProgress {
 		total: number;
 		processed: number;
@@ -129,7 +134,7 @@
 
 			progress.phase = 'Analyzing files...';
 
-			const unprocessed = await invoke<any[]>('get_unprocessed_files', { limit: 10 });
+			const unprocessed = await invoke<RegistryFile[]>('get_unprocessed_files', { limit: 10 });
 
 			if (unprocessed.length === 0) {
 				progress.phase = 'complete';

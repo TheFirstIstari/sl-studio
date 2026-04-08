@@ -30,7 +30,10 @@
 	}
 
 	function measureMemory() {
-		const memory = (performance as any).memory;
+		const perf = window.performance as unknown as {
+			memory?: { usedJSHeapSize: number; totalJSHeapSize: number };
+		};
+		const memory = perf?.memory;
 		if (memory) {
 			collectMetric('heap_used', memory.usedJSHeapSize / 1024 / 1024, 'MB');
 			collectMetric('heap_total', memory.totalJSHeapSize / 1024 / 1024, 'MB');

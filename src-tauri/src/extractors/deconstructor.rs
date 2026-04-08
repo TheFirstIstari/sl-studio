@@ -82,13 +82,19 @@ impl Deconstructor {
                     .pdf
                     .extract_text_with_fallback(path)
                     .map_err(|e| ExtractionError::PdfError(e.to_string()))?;
-                
+
                 if text.len() < 100 {
-                    warn!("PDF extracted minimal text ({} chars), attempting page-by-page OCR", text.len());
+                    warn!(
+                        "PDF extracted minimal text ({} chars), attempting page-by-page OCR",
+                        text.len()
+                    );
                     let ocr_result = self.extract_scanned_pdf(path);
                     match ocr_result {
                         Ok(ocr_text) if !ocr_text.is_empty() => {
-                            info!("Scanned PDF OCR successful: {} chars extracted", ocr_text.len());
+                            info!(
+                                "Scanned PDF OCR successful: {} chars extracted",
+                                ocr_text.len()
+                            );
                             (ocr_text, "pdf_ocr".to_string())
                         }
                         Ok(_) => {
@@ -206,22 +212,28 @@ impl Deconstructor {
     /// Uses parallel processing for efficiency
     pub fn extract_scanned_pdf(&self, path: &Path) -> Result<String, ExtractionError> {
         let path_str = path.to_string_lossy();
-        info!("Extracting scanned PDF with parallel page-by-page OCR: {}", path_str);
+        info!(
+            "Extracting scanned PDF with parallel page-by-page OCR: {}",
+            path_str
+        );
 
-        let page_count = self.pdf.get_page_count(path)
+        let page_count = self
+            .pdf
+            .get_page_count(path)
             .map_err(|e| ExtractionError::PdfError(e.to_string()))?;
-        
+
         info!("Rendering {} pages for OCR", page_count);
 
         // Render all pages first (parallel)
         let pages: Vec<(u32, image::DynamicImage)> = (1..=page_count as u32)
             .into_par_iter()
-            .map(|page_num| {
-                let img = self.pdf.render_page(path, page_num)
-                    .map_err(|e| ExtractionError::PdfError(e.to_string()))?;
-                Ok((page_num, img))
+            .filter_map(|page_num| match self.pdf.render_page(path, page_num) {
+                Ok(img) => Some((page_num, img)),
+                Err(e) => {
+                    warn!("Failed to render page {}: {}", page_num, e);
+                    None
+                }
             })
-            .filter_map(|r| r.ok())
             .collect();
 
         // Sort by page number to maintain order
@@ -238,9 +250,13 @@ impl Deconstructor {
                     if !page_text.is_empty() {
                         full_text.push_str(&page_text);
                         full_text.push('\n');
-                        
+
                         if full_text.len() >= early_termination {
-                            info!("Early termination at page {} ({} chars total)", page_num, full_text.len());
+                            info!(
+                                "Early termination at page {} ({} chars total)",
+                                page_num,
+                                full_text.len()
+                            );
                             break;
                         }
                     }
@@ -252,8 +268,12 @@ impl Deconstructor {
         }
 
         let result = full_text.trim().to_string();
-        info!("Scanned PDF OCR complete: {} chars from {} pages", result.len(), page_count);
-        
+        info!(
+            "Scanned PDF OCR complete: {} chars from {} pages",
+            result.len(),
+            page_count
+        );
+
         Ok(result)
     }
 

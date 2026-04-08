@@ -1,5 +1,5 @@
-use image::{DynamicImage, ImageRgba8};
-use mupdf::{Document, Matrix};
+use image::{DynamicImage, RgbaImage};
+use mupdf::{Colorspace, Document, Matrix};
 use pdf_extract::extract_text;
 use std::path::Path;
 use thiserror::Error;
@@ -122,34 +122,46 @@ impl PdfExtractor {
 
     /// Get page count from PDF
     pub fn get_page_count(&self, path: &Path) -> Result<usize, PdfError> {
-        let doc = Document::open(path).map_err(|e| {
-            PdfError::ExtractionError(format!("Failed to open PDF: {}", e))
-        })?;
-        Ok(doc.count_pages())
+        let doc = Document::open(path)
+            .map_err(|e| PdfError::ExtractionError(format!("Failed to open PDF: {}", e)))?;
+        let pages = doc
+            .pages()
+            .map_err(|e| PdfError::ExtractionError(format!("Failed to get pages: {}", e)))?;
+        Ok(pages.count())
     }
 
     /// Render a single PDF page to an image
     pub fn render_page(&self, path: &Path, page_num: u32) -> Result<DynamicImage, PdfError> {
-        let doc = Document::open(path).map_err(|e| {
-            PdfError::ExtractionError(format!("Failed to open PDF: {}", e))
-        })?;
+        let doc = Document::open(path)
+            .map_err(|e| PdfError::ExtractionError(format!("Failed to open PDF: {}", e)))?;
 
-        let page = doc.page(page_num).map_err(|e| {
+        let pages: Vec<_> = doc
+            .pages()
+            .map_err(|e| PdfError::ExtractionError(format!("Failed to get pages: {}", e)))?
+            .collect();
+
+        let page = pages
+            .get(page_num as usize - 1)
+            .ok_or_else(|| PdfError::ExtractionError(format!("Page {} not found", page_num)))?;
+
+        let page = page.as_ref().map_err(|e| {
             PdfError::ExtractionError(format!("Failed to get page {}: {}", page_num, e))
         })?;
 
         let zoom = self.target_dpi as f32 / 72.0;
-        let mat = Matrix::scale(zoom, zoom);
-        
-        let pix = page.to_pixmap(mat).map_err(|e| {
+        let mut mat = Matrix::new(1.0, 0.0, 0.0, 1.0, 0.0, 0.0);
+        mat.scale(zoom, zoom);
+
+        let cs = Colorspace::device_rgb();
+        let pix = page.to_pixmap(&mat, &cs, false, false).map_err(|e| {
             PdfError::ExtractionError(format!("Failed to render page {}: {}", page_num, e))
         })?;
 
+        let rgba_data = pix.samples().to_vec();
         let img = DynamicImage::ImageRgba8(
-            ImageRgba8::from_raw(pix.width(), pix.height(), pix.into_owned())
-                .ok_or_else(|| {
-                    PdfError::ExtractionError("Failed to create image from rendered page".to_string())
-                })?
+            RgbaImage::from_raw(pix.width(), pix.height(), rgba_data).ok_or_else(|| {
+                PdfError::ExtractionError("Failed to create image from rendered page".to_string())
+            })?,
         );
 
         Ok(img)
@@ -305,8 +317,8 @@ impl PdfExtractor {
     /// Extract text from rendered page image (for OCR fallback)
     pub fn extract_text_from_image(&self, img: &DynamicImage) -> Result<String, PdfError> {
         let rgb = img.to_rgb8();
-        let (width, height) = rgb.dimensions();
-        
+        let (_width, _height) = rgb.dimensions();
+
         Ok(String::new()) // Placeholder - actual OCR will be done by OcrExtractor
     }
 }

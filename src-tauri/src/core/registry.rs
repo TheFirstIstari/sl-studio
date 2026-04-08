@@ -164,7 +164,11 @@ impl RegistryWorker {
             .send(RegistryProgress {
                 total: total_files,
                 processed: total_files,
-                current_file: format!("Scan complete: {} new, {} existing", new_count, total_files.saturating_sub(new_count)),
+                current_file: format!(
+                    "Scan complete: {} new, {} existing",
+                    new_count,
+                    total_files.saturating_sub(new_count)
+                ),
                 phase: "complete".to_string(),
             })
             .ok();

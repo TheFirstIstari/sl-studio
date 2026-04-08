@@ -188,10 +188,21 @@ impl Reasoner {
                     raw_responses.push(response.clone());
                     let facts = self.parse_facts(&response);
                     all_facts.extend(facts);
-                    info!("Processed chunk {}/{} for {}", i + 1, chunks.len(), filename);
+                    info!(
+                        "Processed chunk {}/{} for {}",
+                        i + 1,
+                        chunks.len(),
+                        filename
+                    );
                 }
                 Err(e) => {
-                    error!("Failed to process chunk {}/{} for {}: {}", i + 1, chunks.len(), filename, e);
+                    error!(
+                        "Failed to process chunk {}/{} for {}: {}",
+                        i + 1,
+                        chunks.len(),
+                        filename,
+                        e
+                    );
                 }
             }
         }

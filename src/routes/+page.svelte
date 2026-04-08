@@ -7,6 +7,12 @@
 		intelligence_count: number;
 	}
 
+	interface Config {
+		model: {
+			local_path: string;
+		};
+	}
+
 	interface HardwareStatus {
 		cpu_threads: number;
 		total_memory_gb: number;
@@ -39,7 +45,7 @@
 
 			hardware = await invoke<HardwareStatus>('detect_hardware');
 
-			const config = await invoke<any>('load_config');
+			const config = await invoke<Config>('load_config');
 			modelPath = config.model?.local_path || '';
 			modelLoaded = await invoke<boolean>('is_model_loaded');
 		} catch (e) {

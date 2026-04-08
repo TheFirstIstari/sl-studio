@@ -58,7 +58,6 @@
 	let saving = $state(false);
 	let statusMessage = $state('');
 
-	let modelsDir = $state('');
 	let downloadedModels = $state<ModelInfo[]>([]);
 	let downloading = $state(false);
 	let downloadProgress = $state<DownloadProgress | null>(null);
@@ -85,9 +84,29 @@
 		}
 	}
 
+	interface LoadedConfig {
+		project?: {
+			name?: string;
+			evidence_root?: string;
+			registry_db?: string;
+			intelligence_db?: string;
+		};
+		model?: {
+			local_path?: string;
+			context_length?: number;
+		};
+		hardware?: {
+			cpu_workers?: number;
+			vram_allocation?: number;
+		};
+		processing?: {
+			batch_size?: number;
+		};
+	}
+
 	onMount(async () => {
 		try {
-			const loaded = await invoke<any>('load_config');
+			const loaded = await invoke<LoadedConfig>('load_config');
 			if (loaded) {
 				config = {
 					projectName: loaded.project?.name || 'New Investigation',
@@ -108,7 +127,6 @@
 				config.batchSize = hwStatus.scaling?.batch_size || 24;
 			}
 
-			modelsDir = await invoke<string>('get_models_dir');
 			downloadedModels = await invoke<ModelInfo[]>('list_downloaded_models');
 
 			unlisten = await listen<DownloadProgress>('download_status', (event) => {

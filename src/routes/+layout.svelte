@@ -59,6 +59,7 @@
 		window.addEventListener('keydown', handleKeydown);
 		return () => window.removeEventListener('keydown', handleKeydown);
 	});
+	let { children } = $props();
 </script>
 
 <div class="app">
@@ -142,7 +143,7 @@
 		</nav>
 
 		<main class="content">
-			<slot />
+			{@render children()}
 		</main>
 	</div>
 
@@ -155,8 +156,10 @@
 </div>
 
 {#if showShortcuts}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<div class="modal-overlay" onclick={() => (showShortcuts = false)}>
-		<div class="modal" onclick={(e) => e.stopPropagation()}>
+		<div class="modal" role="dialog" aria-modal="true" onclick={(e) => e.stopPropagation()}>
 			<h2>Keyboard Shortcuts</h2>
 
 			<div class="modal-section">
