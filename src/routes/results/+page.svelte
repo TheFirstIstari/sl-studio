@@ -22,6 +22,7 @@
 
 	let facts = $state<Fact[]>([]);
 	let loading = $state(true);
+	let error = $state('');
 	let filter = $state('');
 	let sortBy = $state<'severity' | 'date'>('severity');
 	let selectedFact = $state<Fact | null>(null);
@@ -89,10 +90,12 @@
 
 	async function loadFacts() {
 		loading = true;
+		error = '';
 		try {
 			facts = await invoke<Fact[]>('search_facts', { query: '*', limit: 500 });
 		} catch (e) {
 			console.error('Error loading facts:', e);
+			error = `Failed to load facts: ${e}`;
 			facts = [];
 		} finally {
 			loading = false;
@@ -166,6 +169,12 @@
 <div class="results">
 	<div class="results-header">
 		<h1>Results</h1>
+
+		{#if error}
+			<div class="error-banner" role="alert">
+				<span>{error}</span>
+			</div>
+		{/if}
 
 		<div class="controls">
 			<div class="history-controls">
@@ -365,6 +374,15 @@
 </div>
 
 <style>
+	.error-banner {
+		background: #fee2e2;
+		color: #991b1b;
+		padding: 0.5rem 1rem;
+		border-radius: 6px;
+		font-size: 0.875rem;
+		width: 100%;
+	}
+
 	.results {
 		height: 100%;
 		display: flex;

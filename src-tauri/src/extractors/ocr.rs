@@ -41,6 +41,10 @@ fn adjust_contrast(img: &DynamicImage) -> DynamicImage {
         })
         .collect();
 
+    if luminance.is_empty() {
+        return DynamicImage::ImageRgb8(rgb.clone());
+    }
+
     luminance.sort();
     let median = luminance[luminance.len() / 2];
 

@@ -38,6 +38,7 @@
 	let modelLoaded = $state(false);
 	let modelPath = $state('');
 	let loading = $state(true);
+	let error = $state('');
 
 	onMount(async () => {
 		try {
@@ -50,14 +51,26 @@
 			modelLoaded = await invoke<boolean>('is_model_loaded');
 		} catch (e) {
 			console.error('Failed to load data:', e);
+			error = `Failed to load data: ${e}`;
 		} finally {
 			loading = false;
 		}
 	});
+
+	function dismissError() {
+		error = '';
+	}
 </script>
 
 <div class="dashboard">
 	<h1>Dashboard</h1>
+
+	{#if error}
+		<div class="error-banner" role="alert">
+			<span>{error}</span>
+			<button onclick={dismissError} aria-label="Dismiss error">×</button>
+		</div>
+	{/if}
 
 	<div class="cards">
 		<div class="card">
@@ -202,6 +215,27 @@
 </div>
 
 <style>
+	.error-banner {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		background: #fee2e2;
+		color: #991b1b;
+		padding: 0.75rem 1rem;
+		border-radius: 6px;
+		margin-bottom: 1.5rem;
+		border: 1px solid #fecaca;
+	}
+
+	.error-banner button {
+		background: none;
+		border: none;
+		color: #991b1b;
+		font-size: 1.25rem;
+		cursor: pointer;
+		padding: 0 0.25rem;
+	}
+
 	.dashboard {
 		max-width: 1200px;
 	}

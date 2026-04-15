@@ -4,6 +4,50 @@ use std::path::Path;
 use thiserror::Error;
 use tracing::{info, warn};
 
+/// Windows-1252 to UTF-8 lossy conversion
+fn lossy_utf8_from_windows1252(bytes: &[u8]) -> String {
+    bytes
+        .iter()
+        .map(|&b| {
+            // Windows-1252 code points 0x80-0x9F map to specific characters
+            match b {
+                0x80 => '\u{20AC}', // Euro sign
+                0x82 => '\u{201A}', // Single low-9 quotation mark
+                0x83 => '\u{0192}', // Latin small letter f with hook
+                0x84 => '\u{201E}', // Double low-9 quotation mark
+                0x85 => '\u{2026}', // Horizontal ellipsis
+                0x86 => '\u{2020}', // Dagger
+                0x87 => '\u{2021}', // Double dagger
+                0x88 => '\u{02C6}', // Modifier letter circumflex accent
+                0x89 => '\u{2030}', // Per mille sign
+                0x8A => '\u{0160}', // Latin capital letter S with caron
+                0x8B => '\u{2039}', // Single left-pointing angle quotation mark
+                0x8C => '\u{0161}', // Latin small letter s with caron
+                0x8D => '\u{0178}', // Latin capital letter Y with diaeresis
+                0x8E => '\u{017D}', // Latin capital letter Z with caron
+                0x8F => '\u{017E}', // Latin small letter z with caron
+                0x90 => '\u{0178}', // Latin capital letter Y with diaeresis
+                0x91 => '\u{2018}', // Left single quotation mark
+                0x92 => '\u{2019}', // Right single quotation mark
+                0x93 => '\u{201C}', // Left double quotation mark
+                0x94 => '\u{201D}', // Right double quotation mark
+                0x95 => '\u{2022}', // Bullet
+                0x96 => '\u{2013}', // En dash
+                0x97 => '\u{2014}', // Em dash
+                0x98 => '\u{02DC}', // Small tilde
+                0x99 => '\u{2122}', // Trade mark sign
+                0x9A => '\u{0161}', // Latin small letter s with caron
+                0x9B => '\u{203A}', // Single right-pointing angle quotation mark
+                0x9C => '\u{0160}', // Latin capital letter S with caron
+                0x9D => '\u{0178}', // Latin capital letter Y with diaeresis
+                0x9E => '\u{017E}', // Latin small letter z with caron
+                0x9F => '\u{017D}', // Latin capital letter Z with caron
+                _ => b as char,     // ASCII and Latin-1 Supplement (valid as-is in UTF-8)
+            }
+        })
+        .collect()
+}
+
 #[derive(Error, Debug)]
 pub enum DocumentError {
     #[error("Failed to read document: {0}")]
@@ -61,8 +105,9 @@ pub fn read_text_file(path: &Path) -> Result<String, DocumentError> {
             Ok(text.trim().to_string())
         }
         "WINDOWS-1252" => {
-            // Convert Latin-1 to UTF-8
-            let text: String = bytes.iter().map(|&b| b as char).collect();
+            // Windows-1252 to UTF-8: lossy conversion replaces invalid sequences
+            // This is a pragmatic approach without adding encoding_rs dependency
+            let text = lossy_utf8_from_windows1252(&bytes);
             Ok(text.trim().to_string())
         }
         _ => {

@@ -2488,11 +2488,14 @@ impl Database {
             .map(|w| w.to_lowercase())
             .collect();
 
-        let keyword_where = keywords
+        let conditions: Vec<String> = keywords
             .iter()
-            .map(|k| format!("LOWER(fact_summary) LIKE '%{}%'", k))
-            .collect::<Vec<_>>()
-            .join(" OR ");
+            .map(|k| {
+                let escaped = k.replace('\'', "''").replace('\\', "\\\\");
+                format!("LOWER(fact_summary) LIKE '%{}%' ESCAPE '\\'", escaped)
+            })
+            .collect();
+        let keyword_where = conditions.join(" OR ");
 
         let sql = format!(
             "SELECT id, fact_summary, category, severity_score, confidence
@@ -2703,9 +2706,16 @@ impl Database {
     ) -> Result<Vec<SearchResult>> {
         let conn = self.intelligence_conn.lock().unwrap();
 
+        if tags.is_empty() {
+            return Ok(Vec::new());
+        }
+
         let conditions: Vec<String> = tags
             .iter()
-            .map(|t| format!("tags LIKE '%{}%'", t))
+            .map(|t| {
+                let escaped = t.replace('\'', "''").replace('\\', "\\\\");
+                format!("tags LIKE '%{}%' ESCAPE '\\'", escaped)
+            })
             .collect();
 
         let where_clause = if match_all {
