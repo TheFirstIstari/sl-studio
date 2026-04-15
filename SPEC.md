@@ -3091,3 +3091,154 @@ Each phase is complete when:
 - No clippy warnings
 - Documentation updated
 - Feature works end-to-end
+
+---
+
+## Known Issues
+
+> Last Updated: April 2026
+
+This section tracks issues identified during code review. Issues are organized by severity and component.
+
+### Critical Issues
+
+#### Frontend (SvelteKit)
+
+| ID     | File                              | Line  | Description                                           | Impact                                       | Status    |
+| ------ | --------------------------------- | ----- | ----------------------------------------------------- | -------------------------------------------- | --------- |
+| FE-001 | `src/routes/+layout.svelte`       | 40    | Uses `window.location.href` causing full page reloads | Loses app state, defeats client-side routing | **FIXED** |
+| FE-002 | `src/routes/results/+page.svelte` | 4     | Imports `SvelteSet` from private `svelte/reactivity`  | Unstable API, may break in Svelte updates    | **FIXED** |
+| FE-003 | `src/routes/network/+page.svelte` | 5     | Imports `SvelteMap` from private `svelte/reactivity`  | Unstable API, may break in Svelte updates    | **FIXED** |
+| FE-004 | `src/routes/compare/+page.svelte` | 86-88 | `$effect` with no dependencies runs every render      | Infinite loop risk, performance degradation  | **FIXED** |
+
+#### Backend (Rust)
+
+| ID     | File                                | Line      | Description                                          | Impact                                          | Status    |
+| ------ | ----------------------------------- | --------- | ---------------------------------------------------- | ----------------------------------------------- | --------- |
+| BE-001 | `src-tauri/src/lib.rs`              | 35        | `unwrap_or_default()` hides config errors            | Silent failures, hard to debug                  | **FIXED** |
+| BE-002 | `src-tauri/src/lib.rs`              | 1660      | `.expect()` causes panic on Tauri init               | Application crashes instead of graceful failure | **FIXED** |
+| BE-003 | `src-tauri/src/lib.rs`              | Multiple  | `.unwrap()` on mutex locks                           | Potential panics on lock poisoning              | -         |
+| BE-004 | `src-tauri/src/lib.rs`              | 106-107   | Hardcoded GPU stats (returns 0.0)                    | GPU monitoring shows incorrect data             | **FIXED** |
+| BE-005 | `src-tauri/src/lib.rs`              | 1014-1016 | `path` field incorrectly set to project name         | Data corruption, wrong paths stored             | **FIXED** |
+| BE-006 | `src-tauri/src/lib.rs`              | 876-1011  | Database leak in `compare_projects` (db2 not closed) | Resource leak, potential crashes                | **FIXED** |
+| BE-007 | `src-tauri/src/extractors/audio.rs` | 52-78     | Audio transcription completely stubbed               | No audio processing capability                  | -         |
+| BE-008 | `src-tauri/src/inference/llama.rs`  | 48-74     | LLM returns hardcoded responses                      | No actual LLM inference                         | -         |
+
+#### Configuration
+
+| ID      | File                                  | Line  | Description                                    | Impact                                                    | Status    |
+| ------- | ------------------------------------- | ----- | ---------------------------------------------- | --------------------------------------------------------- | --------- |
+| CFG-001 | `src-tauri/capabilities/default.json` | 19-23 | Overly broad filesystem permissions (no scope) | Security vulnerability - app can access entire filesystem | **FIXED** |
+| CFG-002 | `src-tauri/tauri.conf.json`           | 51    | Missing fs plugin registration                 | Runtime issues despite permissions                        | **FIXED** |
+
+---
+
+### Major Issues
+
+#### Frontend
+
+| ID     | File                                           | Line    | Description                                          |
+| ------ | ---------------------------------------------- | ------- | ---------------------------------------------------- |
+| FE-005 | Multiple pages                                 | -       | No user-facing error handling (only `console.error`) |
+| FE-006 | `src/routes/stats/+page.svelte`                | 33-40   | SSR-incompatible: `window.performance.memory`        |
+| FE-007 | `src/routes/maps/+page.svelte`                 | 52-65   | SSR-incompatible: `window.performance.memory`        |
+| FE-008 | `src/lib/components/PerformanceMonitor.svelte` | 32-41   | SSR-incompatible: `window.performance.memory`        |
+| FE-009 | `src/routes/stats/+page.svelte`                | 51-53   | Chart.js instances never destroyed (memory leak)     |
+| FE-010 | `src/routes/maps/+page.svelte`                 | 106-111 | Race condition in map reload                         |
+| FE-011 | `src/routes/export/+page.svelte`               | 60-64   | Incorrect PDF export (expects `number[]` for binary) |
+
+#### Backend
+
+| ID     | File                                   | Line      | Description                                          |
+| ------ | -------------------------------------- | --------- | ---------------------------------------------------- |
+| BE-009 | `src-tauri/src/core/database.rs`       | 2706-2715 | SQL injection risk in `search_by_tags`               |
+| BE-010 | `src-tauri/src/core/database.rs`       | 2491-2504 | SQL injection risk in `get_chain_suggestions`        |
+| BE-011 | `src-tauri/src/core/database.rs`       | 2363-2407 | O(n²) complexity in `detect_chains`                  |
+| BE-012 | `src-tauri/src/core/database.rs`       | 1994-1997 | Unused `depth` parameter in `get_connected_entities` |
+| BE-013 | `src-tauri/src/extractors/document.rs` | 63-67     | Incorrect WINDOWS-1252 decoding                      |
+| BE-014 | `src-tauri/src/extractors/ocr.rs`      | 44-45     | Potential panic on empty luminance vector            |
+| BE-015 | `src-tauri/src/lib.rs`                 | 1110-1146 | Database not reloaded after `restore_backup`         |
+| BE-016 | `src-tauri/src/core/database.rs`       | 2902-2921 | Missing caching in `get_severity_distribution`       |
+
+#### Configuration
+
+| ID      | File                                | Line       | Description                                                 |
+| ------- | ----------------------------------- | ---------- | ----------------------------------------------------------- |
+| CFG-003 | `src-tauri/Cargo.toml`              | 56-63      | Outdated dependencies: `llama_cpp = "0.3"`, `mupdf = "0.6"` |
+| CFG-004 | `tauri.conf.json` vs `package.json` | -          | Version mismatch (0.2.0 vs 0.1.0)                           |
+| CFG-005 | `package.json`                      | -          | Missing `@tauri-apps/plugin-fs` frontend dependency         |
+| CFG-006 | `mise.toml`                         | 35-38, 242 | Alias conflict: "t" used twice                              |
+
+---
+
+### Minor Issues
+
+#### Frontend
+
+| ID     | File                               | Line         | Description                                        |
+| ------ | ---------------------------------- | ------------ | -------------------------------------------------- |
+| FE-012 | `src/routes/results/+page.svelte`  | 103-111      | Inefficient SvelteSet recreation on toggle         |
+| FE-013 | `src/routes/timeline/+page.svelte` | 57           | Incorrect `$derived` usage (returns function)      |
+| FE-014 | `src/routes/stats/+page.svelte`    | 88, 121, 147 | Hardcoded chart colors (not theme-consistent)      |
+| FE-015 | `src/routes/+layout.svelte`        | 158-194      | Modal lacks keyboard handling for outside click    |
+| FE-016 | `src/routes/settings/+page.svelte` | 137          | System monitor causes full re-render every 2s      |
+| FE-017 | Multiple files                     | -            | Missing return type annotations on async functions |
+
+#### Backend
+
+| ID     | File                              | Line      | Description                                                  |
+| ------ | --------------------------------- | --------- | ------------------------------------------------------------ |
+| BE-017 | `src-tauri/src/extractors/pdf.rs` | 299-301   | Unused `max_pages` parameter in `extract_text_limited`       |
+| BE-018 | `src-tauri/src/extractors/ocr.rs` | 296-299   | `is_multipage_tiff` always returns false (stub)              |
+| BE-019 | `src-tauri/src/extractors/pdf.rs` | 317-323   | `extract_text_from_image` returns empty string (placeholder) |
+| BE-020 | `src-tauri/src/core/database.rs`  | 1338-1398 | Incomplete query parser edge case handling                   |
+| BE-021 | `src-tauri/src/lib.rs`            | 54-58     | Unwrap on Option in `load_config`                            |
+| BE-022 | `src-tauri/src/lib.rs`            | 1229-1267 | Blocking HTTP client in potentially async contexts           |
+
+#### Configuration
+
+| ID      | File           | Description                                  |
+| ------- | -------------- | -------------------------------------------- |
+| CFG-007 | `package.json` | Empty description field                      |
+| CFG-008 | `.gitignore`   | Incorrect path pattern `src-tauri/~/.rustup` |
+| CFG-009 | Project root   | No `.env.example` template                   |
+
+---
+
+### Issue Priority for Fixes
+
+#### Phase 1: Security & Stability (High Priority)
+
+- [ ] CFG-001: Fix filesystem permissions scope
+- [ ] BE-001: Replace `unwrap_or_default()` with proper error handling
+- [ ] BE-002: Replace `.expect()` with graceful error handling
+- [ ] BE-003: Replace `.unwrap()` on mutex locks with proper error handling
+- [ ] BE-009, BE-010: Fix SQL injection vulnerabilities
+- [ ] BE-005: Fix incorrect path assignment bug
+
+#### Phase 2: Core Functionality
+
+- [ ] BE-007: Implement audio transcription
+- [ ] BE-008: Implement LLM inference
+- [ ] BE-004: Fix hardcoded GPU statistics
+- [ ] BE-006: Fix database leak
+- [ ] BE-015: Reload database after restore_backup
+
+#### Phase 3: Performance
+
+- [ ] BE-011: Optimize O(n²) chain detection algorithm
+- [ ] FE-004: Fix infinite $effect loop
+- [ ] FE-009: Add Chart.js cleanup on unmount
+
+#### Phase 4: User Experience
+
+- [ ] FE-001: Fix navigation to use SvelteKit client-side routing
+- [ ] FE-005: Add user-facing error handling
+- [ ] FE-006, FE-007, FE-008: Fix SSR-incompatible browser APIs
+
+#### Phase 5: Code Quality
+
+- [ ] FE-002, FE-003: Replace private Svelte APIs
+- [ ] BE-012: Implement unused depth parameter or remove it
+- [ ] CFG-003: Update outdated dependencies
+- [ ] CFG-004: Fix version mismatch

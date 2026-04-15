@@ -48,5 +48,11 @@
 			}
 		}
 	},
-	"plugins": {}
+	"plugins": {
+		"fs": {
+			"scope": {
+				"allow": ["$APPDATA/**", "$DOCUMENT/**", "$HOME/.slstudio/**"]
+			}
+		}
+	}
 }

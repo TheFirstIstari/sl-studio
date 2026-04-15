@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/core';
 	import { onMount } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Fact {
 		id: number;
@@ -26,7 +25,7 @@
 	let filter = $state('');
 	let sortBy = $state<'severity' | 'date'>('severity');
 	let selectedFact = $state<Fact | null>(null);
-	let selectedIds = new SvelteSet<number>();
+	let selectedIds = $state(new Set<number>());
 	let selectAll = $state(false);
 
 	let history = $state<HistoryState[]>([]);
@@ -50,7 +49,7 @@
 			const state = history[historyIndex];
 			filter = state.filter;
 			sortBy = state.sortBy;
-			selectedIds = new SvelteSet(state.selectedIds);
+			selectedIds = new Set(state.selectedIds);
 		}
 	}
 
@@ -60,7 +59,7 @@
 			const state = history[historyIndex];
 			filter = state.filter;
 			sortBy = state.sortBy;
-			selectedIds = new SvelteSet(state.selectedIds);
+			selectedIds = new Set(state.selectedIds);
 		}
 	}
 
@@ -101,7 +100,7 @@
 	}
 
 	function toggleSelect(id: number) {
-		const newSet = new SvelteSet(selectedIds);
+		const newSet = new Set(selectedIds);
 		if (newSet.has(id)) {
 			newSet.delete(id);
 		} else {
@@ -113,10 +112,10 @@
 
 	function toggleSelectAll() {
 		if (selectAll) {
-			selectedIds = new SvelteSet();
+			selectedIds = new Set();
 			selectAll = false;
 		} else {
-			selectedIds = new SvelteSet(filteredFacts.map((f) => f.id));
+			selectedIds = new Set(filteredFacts.map((f) => f.id));
 			selectAll = true;
 		}
 		saveToHistory();

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/core';
 	import { open } from '@tauri-apps/plugin-dialog';
+	import { onMount } from 'svelte';
 
 	interface ProjectSummary {
 		name: string;
@@ -83,7 +84,7 @@
 		}
 	}
 
-	$effect(() => {
+	onMount(() => {
 		loadCurrentProject();
 	});
 </script>

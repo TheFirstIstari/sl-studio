@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 
 	const navItems = [
 		{ href: '/', label: 'Dashboard', icon: 'dashboard', shortcut: 'G D' },
@@ -37,7 +38,7 @@
 				(n) => n.shortcut.toLowerCase().replace('g ', '').replace(',', '') === key.toLowerCase()
 			);
 			if (nav) {
-				window.location.href = nav.href;
+				goto(nav.href);
 				pressedKeys = [];
 				return;
 			}

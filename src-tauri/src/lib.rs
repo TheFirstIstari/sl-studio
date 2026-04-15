@@ -15,7 +15,7 @@ pub use models::{ModelManager, Quantization};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, State};
-use tracing::info;
+use tracing::{error, info};
 
 #[cfg(feature = "custom-protocol")]
 const IS_DEV: bool = true;
@@ -32,7 +32,13 @@ pub struct AppState {
 
 impl Default for AppState {
     fn default() -> Self {
-        let config = AppConfig::load().unwrap_or_default();
+        let config = match AppConfig::load() {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                error!("Failed to load config, using defaults: {}", e);
+                AppConfig::default()
+            }
+        };
         AppState {
             config: Mutex::new(config),
             db: Mutex::new(None),
@@ -104,7 +110,7 @@ fn get_system_monitor() -> SystemMonitor {
 
     let gpu_status = gpu::detect();
     let gpu_usage = gpu_status.gpu_info.first().map(|_| 0.0f32);
-    let gpu_memory = gpu_status.gpu_info.first().map(|g| g.vram_mb / 2);
+    let gpu_memory = gpu_status.gpu_info.first().map(|g| g.vram_mb);
 
     SystemMonitor {
         cpu_usage_percent: cpu_usage,
@@ -871,122 +877,130 @@ fn compare_projects(
     state: State<AppState>,
     project2_path: String,
 ) -> Result<ProjectComparison, String> {
-    let db1 = state.db.lock().unwrap();
-    let db_ref1 = db1.as_ref().ok_or("Database not initialized")?;
+    // Extract data from state - need to hold lock during extraction
+    let (entities1, timeline1, project1_name) = {
+        let db_guard = state.db.lock().unwrap();
+        let db = db_guard.as_ref().ok_or("Database not initialized")?;
+        
+        let entities1 = db.get_entity_centrality(None, 0.0)
+            .map_err(|e| e.to_string())?;
+        let timeline1 = db.get_timeline_events(None, None, 1000)
+            .map_err(|e| e.to_string())?;
+        
+        let config = state.config.lock().unwrap();
+        let project1_name = config.project.name.clone();
+        
+        (entities1, timeline1, project1_name)
+    };
 
-    let config = state.config.lock().unwrap();
-    let project1_name = config.project.name.clone();
+    // Now db2 goes out of scope and is closed when this block ends
+    {
+        let db2 = open_project_db(&project2_path)?;
 
-    let db2 = open_project_db(&project2_path)?;
+        let entities2 = db2
+            .get_entity_centrality(None, 0.0)
+            .map_err(|e| e.to_string())?;
+        let timeline2 = db2
+            .get_timeline_events(None, None, 1000)
+            .map_err(|e| e.to_string())?;
 
-    let entities1 = db_ref1
-        .get_entity_centrality(None, 0.0)
-        .map_err(|e| e.to_string())?;
-    let entities2 = db2
-        .get_entity_centrality(None, 0.0)
-        .map_err(|e| e.to_string())?;
+        // Calculate entity overlap
+        let mut entity_overlap = Vec::new();
+        let mut common_entities = Vec::new();
 
-    let mut entity_overlap = Vec::new();
-    let mut common_entities = Vec::new();
+        let mut entity_map1: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
+        for e in &entities1 {
+            *entity_map1.entry(e.value.clone()).or_insert(0) += e.occurrence_count;
+        }
 
-    let mut entity_map1: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
-    for e in &entities1 {
-        *entity_map1.entry(e.value.clone()).or_insert(0) += e.occurrence_count;
-    }
+        let mut entity_map2: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
+        for e in &entities2 {
+            *entity_map2.entry(e.value.clone()).or_insert(0) += e.occurrence_count;
+        }
 
-    let mut entity_map2: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
-    for e in &entities2 {
-        *entity_map2.entry(e.value.clone()).or_insert(0) += e.occurrence_count;
-    }
+        for (value, count1) in &entity_map1 {
+            if let Some(&count2) = entity_map2.get(value) {
+                let entity_type = entities1
+                    .iter()
+                    .find(|e| &e.value == value)
+                    .map(|e| e.entity_type.clone())
+                    .unwrap_or_default();
 
-    for (value, count1) in &entity_map1 {
-        if let Some(&count2) = entity_map2.get(value) {
-            let entity_type = entities1
-                .iter()
-                .find(|e| &e.value == value)
-                .map(|e| e.entity_type.clone())
-                .unwrap_or_default();
+                entity_overlap.push(EntityOverlap {
+                    entity_value: value.clone(),
+                    entity_type,
+                    count_project1: *count1,
+                    count_project2: count2,
+                });
 
-            entity_overlap.push(EntityOverlap {
-                entity_value: value.clone(),
-                entity_type,
-                count_project1: *count1,
-                count_project2: count2,
-            });
-
-            if let Some(e1) = entities1.iter().find(|e| &e.value == value) {
-                common_entities.push(e1.clone());
+                if let Some(e1) = entities1.iter().find(|e| &e.value == value) {
+                    common_entities.push(e1.clone());
+                }
             }
         }
-    }
 
-    let timeline1 = db_ref1
-        .get_timeline_events(None, None, 1000)
-        .map_err(|e| e.to_string())?;
-    let timeline2 = db2
-        .get_timeline_events(None, None, 1000)
-        .map_err(|e| e.to_string())?;
+        // Calculate timeline correlation
+        let mut dates1: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for e in &timeline1 {
+            dates1.insert(e.date.clone());
+        }
 
-    let mut dates1: std::collections::HashSet<String> = std::collections::HashSet::new();
-    for e in &timeline1 {
-        dates1.insert(e.date.clone());
-    }
+        let mut dates2: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for e in &timeline2 {
+            dates2.insert(e.date.clone());
+        }
 
-    let mut dates2: std::collections::HashSet<String> = std::collections::HashSet::new();
-    for e in &timeline2 {
-        dates2.insert(e.date.clone());
-    }
+        let intersection: std::collections::HashSet<_> = dates1.intersection(&dates2).collect();
+        let union: std::collections::HashSet<_> = dates1.union(&dates2).collect();
 
-    let intersection: std::collections::HashSet<_> = dates1.intersection(&dates2).collect();
-    let union: std::collections::HashSet<_> = dates1.union(&dates2).collect();
-
-    let correlation_score = if union.is_empty() {
-        0.0
-    } else {
-        intersection.len() as f64 / union.len() as f64
-    };
-
-    let timeline_correlation = TimelineCorrelation {
-        correlation_score,
-        aligned_events: intersection.len() as i32,
-        project1_date_range: (
-            timeline1
-                .first()
-                .map(|e| e.date.clone())
-                .unwrap_or_default(),
-            timeline1.last().map(|e| e.date.clone()).unwrap_or_default(),
-        ),
-        project2_date_range: (
-            timeline2
-                .first()
-                .map(|e| e.date.clone())
-                .unwrap_or_default(),
-            timeline2.last().map(|e| e.date.clone()).unwrap_or_default(),
-        ),
-    };
-
-    let fact_similarity = if common_entities.is_empty() {
-        0.0
-    } else {
-        let total_entities = entity_map1.len() + entity_map2.len();
-        if total_entities == 0 {
+        let correlation_score = if union.is_empty() {
             0.0
         } else {
-            2.0 * common_entities.len() as f64 / total_entities as f64
-        }
-    };
+            intersection.len() as f64 / union.len() as f64
+        };
 
-    Ok(ProjectComparison {
-        project1_name,
-        project2_name: std::path::Path::new(&project2_path)
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| "Project 2".to_string()),
-        entity_overlap,
-        common_entities,
-        timeline_correlation,
-        fact_similarity,
-    })
+        let timeline_correlation = TimelineCorrelation {
+            correlation_score,
+            aligned_events: intersection.len() as i32,
+            project1_date_range: (
+                timeline1
+                    .first()
+                    .map(|e| e.date.clone())
+                    .unwrap_or_default(),
+                timeline1.last().map(|e| e.date.clone()).unwrap_or_default(),
+            ),
+            project2_date_range: (
+                timeline2
+                    .first()
+                    .map(|e| e.date.clone())
+                    .unwrap_or_default(),
+                timeline2.last().map(|e| e.date.clone()).unwrap_or_default(),
+            ),
+        };
+
+        let fact_similarity = if common_entities.is_empty() {
+            0.0
+        } else {
+            let total_entities = entity_map1.len() + entity_map2.len();
+            if total_entities == 0 {
+                0.0
+            } else {
+                2.0 * common_entities.len() as f64 / total_entities as f64
+            }
+        };
+
+        return Ok(ProjectComparison {
+            project1_name,
+            project2_name: std::path::Path::new(&project2_path)
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| "Project 2".to_string()),
+            entity_overlap,
+            common_entities,
+            timeline_correlation,
+            fact_similarity,
+        });
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -1010,9 +1024,14 @@ fn get_project_summary(state: State<AppState>) -> Result<ProjectSummary, String>
 
     let config = state.config.lock().unwrap();
 
+    let project_path = std::path::Path::new(&config.project.registry_db)
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
     Ok(ProjectSummary {
         name: config.project.name.clone(),
-        path: config.project.name.clone(),
+        path: project_path,
         fact_count: stats.total_facts,
         entity_count: stats.total_entities,
         timeline_count: timeline.len() as i64,
@@ -1652,5 +1671,8 @@ pub fn run() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .unwrap_or_else(|e| {
+            error!("Failed to run Tauri application: {}", e);
+            std::process::exit(1);
+        });
 }
