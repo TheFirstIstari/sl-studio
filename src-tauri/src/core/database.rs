@@ -1991,10 +1991,13 @@ impl Database {
         Ok(results)
     }
 
+    /// Get entities connected to a given entity through shared evidence.
+    /// Currently returns direct connections (distance=1) only.
+    /// The `depth` parameter is reserved for future recursive traversal implementation.
     pub fn get_connected_entities(
         &self,
         entity_id: i64,
-        _depth: i32,
+        #[allow(unused)] depth: i32,
         min_confidence: f64,
     ) -> Result<Vec<ConnectedEntity>> {
         let conn = self.intelligence_conn.lock().unwrap();

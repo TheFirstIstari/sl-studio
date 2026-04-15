@@ -1130,7 +1130,10 @@ fn restore_backup(state: State<AppState>, backup_path: String) -> Result<(), Str
     let file = std::fs::File::open(&backup_path).map_err(|e| e.to_string())?;
     let mut archive = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
 
-    let config = state.config.lock().unwrap();
+    let (registry_db, intelligence_db) = {
+        let config = state.config.lock().unwrap();
+        (config.project.registry_db.clone(), config.project.intelligence_db.clone())
+    };
 
     for i in 0..archive.len() {
         let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
@@ -1138,17 +1141,18 @@ fn restore_backup(state: State<AppState>, backup_path: String) -> Result<(), Str
 
         match name.as_str() {
             "registry.db" => {
-                let path = std::path::Path::new(&config.project.registry_db);
+                let path = std::path::Path::new(&registry_db);
                 let mut out = std::fs::File::create(path).map_err(|e| e.to_string())?;
                 std::io::copy(&mut file, &mut out).map_err(|e| e.to_string())?;
             }
             "intelligence.db" => {
-                let path = std::path::Path::new(&config.project.intelligence_db);
+                let path = std::path::Path::new(&intelligence_db);
                 let mut out = std::fs::File::create(path).map_err(|e| e.to_string())?;
                 std::io::copy(&mut file, &mut out).map_err(|e| e.to_string())?;
             }
             n if n.starts_with("evidence/") => {
                 let rel_path = &n[9..];
+                let config = state.config.lock().unwrap();
                 let dest = std::path::Path::new(&config.project.evidence_root).join(rel_path);
                 if let Some(parent) = dest.parent() {
                     std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -1159,6 +1163,11 @@ fn restore_backup(state: State<AppState>, backup_path: String) -> Result<(), Str
             _ => {}
         }
     }
+
+    // Reinitialize the database with restored files
+    let db = Database::new(&registry_db, &intelligence_db)
+        .map_err(|e| format!("Failed to reopen database: {}", e))?;
+    *state.db.lock().unwrap() = Some(db);
 
     info!("Backup restored from: {}", backup_path);
     Ok(())

@@ -103,11 +103,13 @@
 		return '#4ade80';
 	}
 
-	function reloadMap() {
+	async function reloadMap() {
 		if (map) {
 			map.remove();
+			map = null;
 		}
-		loadLocations().then(initMap);
+		await loadLocations();
+		initMap();
 	}
 </script>
 

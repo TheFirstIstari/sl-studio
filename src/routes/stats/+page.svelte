@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/core';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { Chart, registerables } from 'chart.js';
 
 	Chart.register(...registerables);
@@ -55,6 +55,21 @@
 	onMount(async () => {
 		await loadStats();
 		initCharts();
+	});
+
+	onDestroy(() => {
+		if (severityChart) {
+			severityChart.destroy();
+			severityChart = null;
+		}
+		if (categoryChart) {
+			categoryChart.destroy();
+			categoryChart = null;
+		}
+		if (entityChart) {
+			entityChart.destroy();
+			entityChart = null;
+		}
 	});
 
 	async function loadStats() {
