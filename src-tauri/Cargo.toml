@@ -4,7 +4,7 @@ version = "0.2.0"
 description = "SL Studio - Forensic Document Analysis Platform"
 authors = ["SL Studio Team"]
 edition = "2021"
-license = "MIT"
+license = "AGPL-3.0-only"
 
 [lib]
 name = "steinline_lib"

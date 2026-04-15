@@ -39,6 +39,7 @@
 		"shortDescription": "Forensic Document Analysis Platform",
 		"longDescription": "SL Studio is a forensic document analysis workstation that enables investigators to process large volumes of evidence through AI-powered reasoning to extract structured facts.",
 		"copyright": "Copyright © 2026 SL Studio Team",
+		"license": "AGPL-3.0-only",
 		"macOS": {
 			"minimumSystemVersion": "12.0"
 		},
