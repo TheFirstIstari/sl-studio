@@ -152,7 +152,8 @@
 				
 				await invoke('init_reasoner', {
 					modelPath: modelPath,
-					contextSize: config.model.context_length || 16384
+					contextSize: config.model.context_length || 16384,
+					gpuLayers: 32  // Use Metal GPU acceleration on macOS
 				});
 				modelLoaded = true;
 			}

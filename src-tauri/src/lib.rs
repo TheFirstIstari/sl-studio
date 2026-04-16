@@ -1556,10 +1556,29 @@ fn init_reasoner(
     state: State<AppState>,
     model_path: String,
     context_size: u32,
+    gpu_layers: Option<i32>,
 ) -> Result<bool, String> {
+    // Default to 32 GPU layers for Apple Silicon, 0 for CPU only
+    let actual_gpu_layers = gpu_layers.unwrap_or_else(|| {
+        // Check if we have Apple Silicon for GPU acceleration
+        #[cfg(target_os = "macos")]
+        {
+            // Use GPU layers if on macOS (Metal support)
+            32
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            0
+        }
+    });
+    
+    info!("Initializing reasoner with GPU layers: {}", actual_gpu_layers);
+    
     let config = ReasonerConfig {
         model_path,
         context_size,
+        gpu_layers: actual_gpu_layers,
+        temperature: 0.1,
         ..Default::default()
     };
 

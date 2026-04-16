@@ -190,7 +190,10 @@ impl Reasoner {
             match model.generate_structured(&prompt) {
                 Ok(response) => {
                     raw_responses.push(response.clone());
+                    // Debug: log the raw LLM output
+                    info!("LLM raw response (first 500 chars): {:?}", &response.text[..response.text.len().min(500)]);
                     let facts = self.parse_facts(&response.text);
+                    info!("Parsed {} facts from response", facts.len());
                     all_facts.extend(facts);
                     info!(
                         "Processed chunk {}/{} for {}",
