@@ -31,16 +31,30 @@
 		phase: string;
 	}
 
+	interface AnalysisProgress {
+		phase: string;
+		current_file: string;
+		processed: number;
+		total: number;
+	}
+
 	let config = $state<Config | null>(null);
 	let modelLoaded = $state(false);
 	let scanning = $state(false);
 	let analyzing = $state(false);
-	let progress = $state<RegistryProgress>({
+	let registryProgress = $state<RegistryProgress>({
 		total: 0,
 		processed: 0,
 		current: 0,
 		current_file: '',
 		phase: ''
+	});
+	
+	let analysisProgress = $state<AnalysisProgress>({
+		phase: '',
+		current_file: '',
+		processed: 0,
+		total: 0
 	});
 
 	let unlistenProgress: (() => void) | null = null;
@@ -60,12 +74,12 @@
 		}
 
 		unlistenProgress = await listen<RegistryProgress>('registry_progress', (event) => {
-			progress = event.payload;
+			registryProgress = event.payload;
 		});
 
 		unlistenComplete = await listen<number>('registry_complete', (event) => {
-			progress.phase = 'complete';
-			progress.processed = event.payload;
+			registryProgress.phase = 'complete';
+			registryProgress.processed = event.payload;
 			scanning = false;
 		});
 	});
@@ -95,60 +109,71 @@
 
 	async function startScan() {
 		if (!config?.project.evidence_root) {
-			progress.phase = 'error';
-			progress.current_file = 'Please configure evidence folder first';
+			registryProgress.phase = 'error';
+			registryProgress.current_file = 'Please configure evidence folder first';
 			return;
 		}
 
 		scanning = true;
-		progress = { phase: 'Initializing...', current: 0, processed: 0, total: 0, current_file: '' };
+		registryProgress = { phase: 'Initializing...', current: 0, processed: 0, total: 0, current_file: '' };
 
 		try {
 			await invoke('start_registry');
 		} catch (e) {
 			console.error('Scan error:', e);
-			progress.phase = 'error';
-			progress.current_file = `Error: ${e}`;
+			registryProgress.phase = 'error';
+			registryProgress.current_file = `Error: ${e}`;
 			scanning = false;
 		}
 	}
 
 	async function initAndAnalyze() {
 		if (!config?.model.local_path) {
-			progress.phase = 'error';
-			progress.current_file = 'No model configured. Please download a model in Settings.';
+			analysisProgress.phase = 'error';
+			analysisProgress.current_file = 'No model configured. Please download a model in Settings.';
 			return;
 		}
 
 		analyzing = true;
-		progress = { phase: 'Loading model...', current: 0, processed: 0, total: 0, current_file: '' };
+		analysisProgress = { phase: 'Loading model...', current_file: '', processed: 0, total: 0 };
 
 		try {
 			if (!modelLoaded) {
+				// Construct the actual model file path
+				const modelsDir = config.model.local_path;
+				// The model file is in the models directory, need to get the actual file
+				// We'll call list_downloaded_models to get the actual file path
+				const models = await invoke<Array<{path: string}>>('list_downloaded_models');
+				const modelPath = models.length > 0 ? models[0].path : null;
+				
+				if (!modelPath) {
+					throw new Error('No model file found. Please download a model in Settings.');
+				}
+				
 				await invoke('init_reasoner', {
-					modelPath: config.model.local_path,
+					modelPath: modelPath,
 					contextSize: config.model.context_length || 16384
 				});
 				modelLoaded = true;
 			}
 
-			progress.phase = 'Analyzing files...';
+			analysisProgress.phase = 'Analyzing files...';
 
 			const unprocessed = await invoke<RegistryFile[]>('get_unprocessed_files', { limit: 10 });
 
 			if (unprocessed.length === 0) {
-				progress.phase = 'complete';
-				progress.current_file = 'No files to analyze';
+				analysisProgress.phase = 'complete';
+				analysisProgress.current_file = 'No files to analyze';
 				analyzing = false;
 				return;
 			}
 
-			progress.total = unprocessed.length;
+			analysisProgress.total = unprocessed.length;
 
 			for (let i = 0; i < unprocessed.length; i++) {
 				const file = unprocessed[i];
-				progress.current_file = file.path;
-				progress.processed = i + 1;
+				analysisProgress.current_file = file.path;
+				analysisProgress.processed = i + 1;
 
 				try {
 					await invoke('analyze_file', { path: file.path });
@@ -158,11 +183,11 @@
 				}
 			}
 
-			progress.phase = 'complete';
+			analysisProgress.phase = 'complete';
 		} catch (e) {
 			console.error('Analysis error:', e);
-			progress.phase = 'error';
-			progress.current_file = `Error: ${e}`;
+			analysisProgress.phase = 'error';
+			analysisProgress.current_file = `Error: ${e}`;
 		} finally {
 			analyzing = false;
 		}
@@ -210,21 +235,21 @@
 					<div class="progress-bar">
 						<div
 							class="progress-fill"
-							style="width: {progress.total > 0
-								? (progress.processed / progress.total) * 100
+							style="width: {registryProgress.total > 0
+								? (registryProgress.processed / registryProgress.total) * 100
 								: 50}%"
 						></div>
 					</div>
 					<div class="progress-text">
-						{progress.phase} - {progress.processed}/{progress.total || '...'}
+						{registryProgress.phase} - {registryProgress.processed}/{registryProgress.total || '...'}
 					</div>
-					{#if progress.current_file}
-						<div class="current-file">{progress.current_file}</div>
+					{#if registryProgress.current_file}
+						<div class="current-file">{registryProgress.current_file}</div>
 					{/if}
-				{:else if progress.phase === 'complete'}
-					<div class="idle-text">Scan complete - {progress.processed} files processed</div>
-				{:else if progress.phase === 'error'}
-					<div class="error-text">{progress.current_file}</div>
+				{:else if registryProgress.phase === 'complete'}
+					<div class="idle-text">Scan complete - {registryProgress.processed} files processed</div>
+				{:else if registryProgress.phase === 'error'}
+					<div class="error-text">{registryProgress.current_file}</div>
 				{:else}
 					<div class="idle-text">Ready to scan</div>
 				{/if}
@@ -264,14 +289,14 @@
 					<div class="progress-bar">
 						<div class="progress-fill indeterminate"></div>
 					</div>
-					<div class="progress-text">{progress.phase}</div>
-					{#if progress.current_file}
-						<div class="current-file">{progress.current_file}</div>
+					<div class="progress-text">{analysisProgress.phase}</div>
+					{#if analysisProgress.current_file}
+						<div class="current-file">{analysisProgress.current_file}</div>
 					{/if}
-				{:else if progress.phase === 'complete'}
+				{:else if analysisProgress.phase === 'complete'}
 					<div class="idle-text">Analysis complete</div>
-				{:else if progress.phase === 'error'}
-					<div class="error-text">{progress.current_file}</div>
+				{:else if analysisProgress.phase === 'error'}
+					<div class="error-text">{analysisProgress.current_file}</div>
 				{:else}
 					<div class="idle-text">Ready to analyze</div>
 				{/if}
