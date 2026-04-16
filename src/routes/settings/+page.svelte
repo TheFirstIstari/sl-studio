@@ -59,7 +59,7 @@
 		modelPath: '',
 		contextSize: 8192,
 		cpuWorkers: 6,
-		vramAllocation: 0.40,
+		vramAllocation: 0.4,
 		batchSize: 6,
 		gpuBackend: 'cpu'
 	});
@@ -74,6 +74,14 @@
 	let downloadProgress = $state<DownloadProgress | null>(null);
 	let selectedModel = $state('');
 	let downloadError = $state('');
+
+	let hardwareInfo = $state<{
+		cpu_threads: number;
+		total_memory_gb: number;
+		available_memory_gb: number;
+		recommended_workers: number;
+		recommended_batch_size: number;
+	} | null>(null);
 
 	interface SystemMonitor {
 		cpu_usage_percent: number;
@@ -130,7 +138,7 @@
 					modelPath: loaded.model?.local_path || '',
 					contextSize: loaded.model?.context_length || 8192,
 					cpuWorkers: loaded.hardware?.cpu_workers || 6,
-					vramAllocation: loaded.hardware?.vram_allocation || 0.40,
+					vramAllocation: loaded.hardware?.vram_allocation || 0.4,
 					batchSize: loaded.processing?.batch_size || 6,
 					gpuBackend: loaded.hardware?.gpu_backend || 'cpu'
 				};
@@ -146,6 +154,8 @@
 				config.cpuWorkers = hwStatus.cpu_threads || 8;
 				config.batchSize = hwStatus.scaling?.batch_size || 24;
 			}
+
+			hardwareInfo = await invoke<typeof hardwareInfo>('get_hardware_info');
 
 			downloadedModels = await invoke<ModelInfo[]>('list_downloaded_models');
 
@@ -513,6 +523,42 @@
 					<p class="loading-text">Loading system monitor...</p>
 				{/if}
 			</section>
+
+			{#if hardwareInfo}
+				<section class="settings-section hardware-section">
+					<h2>Hardware Stats</h2>
+					<div class="hardware-cards">
+						<div class="hardware-card">
+							<div class="hardware-icon">🖥️</div>
+							<div class="hardware-data">
+								<span class="hardware-value">{hardwareInfo.cpu_threads}</span>
+								<span class="hardware-label">CPU Cores</span>
+							</div>
+						</div>
+						<div class="hardware-card">
+							<div class="hardware-icon">💾</div>
+							<div class="hardware-data">
+								<span class="hardware-value">{hardwareInfo.total_memory_gb.toFixed(1)} GB</span>
+								<span class="hardware-label">Total RAM</span>
+							</div>
+						</div>
+						<div class="hardware-card">
+							<div class="hardware-icon">⚡</div>
+							<div class="hardware-data">
+								<span class="hardware-value">{hardwareInfo.recommended_workers}</span>
+								<span class="hardware-label">Recommended Workers</span>
+							</div>
+						</div>
+						<div class="hardware-card">
+							<div class="hardware-icon">📦</div>
+							<div class="hardware-data">
+								<span class="hardware-value">{hardwareInfo.recommended_batch_size}</span>
+								<span class="hardware-label">Recommended Batch Size</span>
+							</div>
+						</div>
+					</div>
+				</section>
+			{/if}
 		</div>
 
 		<div class="actions">
@@ -817,5 +863,51 @@
 	.loading-text {
 		color: #9ca3af;
 		font-size: 0.875rem;
+	}
+
+	.hardware-section {
+		grid-column: 1 / -1;
+	}
+
+	.hardware-cards {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+		gap: 1rem;
+	}
+
+	.hardware-card {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		padding: 1rem;
+		background-color: #1a1a2e;
+		border: 1px solid #0f3460;
+		border-radius: 8px;
+		transition: all 0.2s;
+	}
+
+	.hardware-card:hover {
+		border-color: #e94560;
+		transform: translateY(-2px);
+	}
+
+	.hardware-icon {
+		font-size: 2rem;
+	}
+
+	.hardware-data {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.hardware-value {
+		font-size: 1.25rem;
+		font-weight: 600;
+		color: #e94560;
+	}
+
+	.hardware-label {
+		font-size: 0.75rem;
+		color: #9ca3af;
 	}
 </style>
