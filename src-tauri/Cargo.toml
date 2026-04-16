@@ -59,7 +59,7 @@ printpdf = "0.7"
 ocrs = "0.12"
 image = "0.25"
 zip = "2"
-llama_cpp = "0.3"
+llama_cpp = { version = "0.3", features = ["metal"] }
 rand = "0.8"
 mupdf = "0.6"
 
