@@ -72,19 +72,19 @@ impl Default for AppConfig {
                 source: ModelSource::HuggingFace,
                 id: "Qwen/Qwen2.5-7B-Instruct-AWQ".to_string(),
                 quantization: "awq".to_string(),
-                context_length: 16384,
+                context_length: 8192,
                 downloaded: false,
                 local_path: app_dir.join("models").to_string_lossy().to_string(),
             },
             hardware: HardwareConfig {
                 gpu_backend: GpuBackend::Cpu,
-                gpu_memory_fraction: 0.45,
+                gpu_memory_fraction: 0.40,
                 cpu_workers: num_cpus::get() as u32,
                 ocr_provider: "onnx".to_string(),
                 whisper_size: "base".to_string(),
             },
             processing: ProcessingConfig {
-                batch_size: 24,
+                batch_size: 6,
                 max_image_resolution: 2048,
             },
         }

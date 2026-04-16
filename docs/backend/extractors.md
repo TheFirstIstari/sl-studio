@@ -45,6 +45,7 @@ Uses the `pdf-extract` crate to extract text from PDF files.
 - Quality assessment (character count, word density, scanned detection)
 - Size limits with fallback for large files
 - Error handling for password-protected and corrupted files
+- Panic handling with descriptive error messages
 
 ## OcrExtractor
 

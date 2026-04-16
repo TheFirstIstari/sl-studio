@@ -111,9 +111,13 @@ The backend exposes 60+ commands to the frontend via Tauri's IPC mechanism. All 
 | Command                    | Parameters   | Returns                    | Description               |
 | -------------------------- | ------------ | -------------------------- | ------------------------- |
 | `extract_file`             | `file_path`  | `Result<ExtractionResult>` | Extract text from file    |
+| `extract_batch`            | `file_paths` | `Vec<ExtractionResult>`    | Extract multiple files    |
 | `get_supported_extensions` | None         | `Vec<String>`              | List supported file types |
 | `init_reasoner`            | `model_path` | `Result<()>`               | Initialize LLM reasoner   |
 | `analyze_file`             | `file_path`  | `Result<AnalysisResult>`   | Full file analysis        |
+| `analyze_batch`            | `file_paths` | `Vec<AnalysisResult>`      | Analyze multiple files    |
+| `get_extraction_queue`     | None         | `QueueStatus`              | Get extraction queue      |
+| `get_analysis_queue`       | None         | `QueueStatus`              | Get analysis queue        |
 | `is_model_loaded`          | None         | `bool`                     | Check if model is loaded  |
 | `get_reasoner_config`      | None         | `ReasonerConfig`           | Get reasoner settings     |
 

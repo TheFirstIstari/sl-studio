@@ -3023,6 +3023,143 @@ impl Database {
             Ok(1)
         })
     }
+
+    /// Get files that need text extraction (has_extracted_text = FALSE)
+    pub fn get_extraction_queue(&self, limit: i64) -> Result<Vec<RegistryEntry>> {
+        let conn = self.registry_conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, fingerprint, path, file_size, file_type, file_name,
+                    last_modified, last_hash_check, has_extracted_text,
+                    extracted_at, processed_at, processed,
+                    processing_priority, retry_count, extraction_quality, created_at
+             FROM registry
+             WHERE has_extracted_text = 0
+             ORDER BY processing_priority ASC, last_modified DESC
+             LIMIT ?1",
+        )?;
+
+        let entries = stmt.query_map([limit], |row: &rusqlite::Row| {
+            Ok(RegistryEntry {
+                id: row.get(0)?,
+                fingerprint: row.get(1)?,
+                path: row.get(2)?,
+                file_size: row.get(3)?,
+                file_type: row.get(4)?,
+                file_name: row.get(5)?,
+                last_modified: row.get(6)?,
+                last_hash_check: row.get(7)?,
+                has_extracted_text: row.get(8)?,
+                extracted_at: row.get(9)?,
+                processed_at: row.get(10)?,
+                processed: row.get(11)?,
+                processing_priority: row.get(12)?,
+                retry_count: row.get(13)?,
+                extraction_quality: row.get(14)?,
+                created_at: row.get(15)?,
+            })
+        })?;
+
+        entries.collect()
+    }
+
+    /// Get files that have extracted text but haven't been analyzed
+    pub fn get_analysis_queue(&self, limit: i64) -> Result<Vec<RegistryEntry>> {
+        let conn = self.registry_conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, fingerprint, path, file_size, file_type, file_name,
+                    last_modified, last_hash_check, has_extracted_text,
+                    extracted_at, processed_at, processed,
+                    processing_priority, retry_count, extraction_quality, created_at
+             FROM registry
+             WHERE has_extracted_text = 1 AND processed = 0
+             ORDER BY processing_priority ASC, last_modified DESC
+             LIMIT ?1",
+        )?;
+
+        let entries = stmt.query_map([limit], |row: &rusqlite::Row| {
+            Ok(RegistryEntry {
+                id: row.get(0)?,
+                fingerprint: row.get(1)?,
+                path: row.get(2)?,
+                file_size: row.get(3)?,
+                file_type: row.get(4)?,
+                file_name: row.get(5)?,
+                last_modified: row.get(6)?,
+                last_hash_check: row.get(7)?,
+                has_extracted_text: row.get(8)?,
+                extracted_at: row.get(9)?,
+                processed_at: row.get(10)?,
+                processed: row.get(11)?,
+                processing_priority: row.get(12)?,
+                retry_count: row.get(13)?,
+                extraction_quality: row.get(14)?,
+                created_at: row.get(15)?,
+            })
+        })?;
+
+        entries.collect()
+    }
+
+    /// Mark a file as having extracted text
+    pub fn mark_extracted(&self, fingerprint: &str, is_partial: bool) -> Result<()> {
+        let conn = self.registry_conn.lock().unwrap();
+        conn.execute(
+            "UPDATE registry SET 
+                has_extracted_text = 1,
+                extracted_at = CURRENT_TIMESTAMP,
+                extraction_quality = CASE WHEN ?2 = 1 THEN 0.5 ELSE 1.0 END
+             WHERE fingerprint = ?1",
+            params![fingerprint, is_partial as i32],
+        )?;
+        Ok(())
+    }
+
+    /// Get extracted text from text_cache
+    pub fn get_extracted_text(&self, fingerprint: &str) -> Result<Option<String>> {
+        let conn = self.registry_conn.lock().unwrap();
+        let mut stmt =
+            conn.prepare("SELECT extracted_text FROM text_cache WHERE fingerprint = ?1")?;
+
+        let mut rows = stmt.query(params![fingerprint])?;
+        if let Some(row) = rows.next()? {
+            Ok(Some(row.get(0)?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Get registry entry by fingerprint
+    pub fn get_registry_entry(&self, fingerprint: &str) -> Result<RegistryEntry> {
+        let conn = self.registry_conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, fingerprint, path, file_size, file_type, file_name,
+                    last_modified, last_hash_check, has_extracted_text,
+                    extracted_at, processed_at, processed,
+                    processing_priority, retry_count, extraction_quality, created_at
+             FROM registry WHERE fingerprint = ?1",
+        )?;
+
+        stmt.query_row([fingerprint], |row: &rusqlite::Row| {
+            Ok(RegistryEntry {
+                id: row.get(0)?,
+                fingerprint: row.get(1)?,
+                path: row.get(2)?,
+                file_size: row.get(3)?,
+                file_type: row.get(4)?,
+                file_name: row.get(5)?,
+                last_modified: row.get(6)?,
+                last_hash_check: row.get(7)?,
+                has_extracted_text: row.get(8)?,
+                extracted_at: row.get(9)?,
+                processed_at: row.get(10)?,
+                processed: row.get(11)?,
+                processing_priority: row.get(12)?,
+                retry_count: row.get(13)?,
+                extraction_quality: row.get(14)?,
+                created_at: row.get(15)?,
+            })
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

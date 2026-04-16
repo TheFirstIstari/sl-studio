@@ -6,6 +6,12 @@ A high-performance desktop application for forensic document analysis, built wit
 
 SL Studio processes evidence files (PDFs, images, audio/video) through a pipeline of extraction and AI-powered reasoning to extract structured facts for forensic investigations.
 
+### Current Status
+
+- **Two-Stage Pipeline**: Working
+- **Stage 1 (Text Extraction)**: Fully functional with rayon parallel processing
+- **Stage 2 (LLM Analysis)**: Implemented, pending full testing
+
 ### Key Features
 
 - **Local Processing**: All processing runs locally (privacy-first, no cloud dependencies)

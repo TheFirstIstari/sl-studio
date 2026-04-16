@@ -109,9 +109,10 @@ SL Studio is a desktop application built with Tauri (Rust backend + SvelteKit fr
 | Resource               | Limit         | Configurable       |
 | ---------------------- | ------------- | ------------------ |
 | Max file size          | 500 MB        | Yes (NFR-FILE-002) |
-| LLM context            | Model limit   | No                 |
+| LLM context (16GB Mac) | 8192          | Yes                |
+| GPU layers (16GB Mac)  | 32            | Yes                |
+| Batch size (16GB Mac)  | 6             | Yes (NFR-PERF-003) |
 | GPU memory             | 80% available | Yes (NFR-PERF-002) |
-| Batch size             | 32 files      | Yes (NFR-PERF-003) |
 | Concurrent extractions | CPU cores     | Yes                |
 
 #### Large File Handling
@@ -263,8 +264,96 @@ SL Studio is a desktop application built with Tauri (Rust backend + SvelteKit fr
 #### Processing {#fr-per}
 
 - **FR-PER-001** {#fr-per-001}: The system MUST process evidence files through a two-stage pipeline: text extraction followed by LLM inference.
+- **FR-STAGE-001** {#fr-stage-001}: The system SHALL allow running extraction and inference stages independently via separate UI buttons ("Extract All" and "Analyze Extracted").
+- **FR-STAGE-002** {#fr-stage-002}: The system SHALL track extraction (`has_extracted_text`) and processing (`processed`) status separately in the registry table.
+- **FR-STAGE-003** {#fr-stage-003}: The system SHALL support running Stage 1 extraction with CPU parallelism while Stage 2 inference uses GPU acceleration.
+- **FR-STAGE-004** {#fr-stage-004}: The system SHALL allow auto-optimization of resource allocation based on detected hardware (16GB Mac defaults: context=8192, batch=6, gpu_layers=32).
 - **FR-INC-001** {#fr-inc-001}: The system SHALL support incremental processing, detecting new and modified files since the last run. [SN-005](#stakeholder-needs)
 - **FR-INC-002** {#fr-inc-002}: The system MUST prioritize processing in this order: new files (highest), modified files, extracted-only files, rerun candidates.
+
+#### New Rust Commands
+
+The following Tauri commands implement the two-stage pipeline:
+
+| Command                | Description                                                                                                                             |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `extract_batch`        | Parallel text extraction using rayon thread pool for CPU parallel processing with configurable worker count (batch limit: 10,000 files) |
+| `analyze_batch`        | Sequential LLM analysis on pre-extracted text                                                                                           |
+| `get_extraction_queue` | Returns files where `has_extracted_text = FALSE`                                                                                        |
+| `get_analysis_queue`   | Returns files where `has_extracted_text = TRUE AND processed = FALSE`                                                                   |
+
+#### Database Functions
+
+New database functions support the two-stage pipeline:
+
+| Function                                  | Description                              |
+| ----------------------------------------- | ---------------------------------------- |
+| `get_extraction_queue(limit: i64)`        | Returns `Vec<RegistryEntry>` for Stage 1 |
+| `get_analysis_queue(limit: i64)`          | Returns `Vec<RegistryEntry>` for Stage 2 |
+| `mark_extracted(fingerprint, is_partial)` | Updates `has_extracted_text` status      |
+| `get_extracted_text(fingerprint)`         | Retrieves cached extracted text          |
+| `get_registry_entry(fingerprint)`         | Gets entry by fingerprint                |
+| `analyze_text(text, prompt)`              | Method on Reasoner for LLM inference     |
+
+#### UI Panels
+
+The analysis page displays four sequential panels:
+
+1. **Panel 1: Project Setup** - Configure evidence root and databases
+2. **Panel 2: Registry Scanner (Fingerprinting)** - SHA-256 hashing with duplicate detection
+3. **Panel 3: Stage 1: Text Extraction** - CPU parallel extraction with "Extract All Files" button
+4. **Panel 4: Stage 2: LLM Analysis** - GPU-accelerated inference with "Analyze Extracted" button
+
+#### Bug Fixes
+
+The following issues were fixed during implementation:
+
+- Fixed `gpu_backend` configuration error (added missing `GpuBackend` field)
+- Fixed compilation errors (moved functions outside impl blocks)
+- Fixed `save_text_cache` signature (corrected parameter types)
+- Fixed batch limit (50 → 10,000 files for "Extract All" to process all unprocessed files)
+- Fixed UI progress updates (added `extraction_progress` events for real-time progress)
+- Fixed scan completion (explicit state reset + 5-minute timeout fallback)
+- Fixed parallel extraction (using rayon for CPU parallel processing with configurable workers)
+- Fixed PDF extraction panic handling (added try/catch for problematic PDFs)
+- Fixed scan completion with state reset + timeout fallback
+
+#### Current Implementation Status
+
+**Stage 1: Text Extraction (Fully Functional)**
+
+- Uses rayon for CPU parallel processing
+- Configurable worker count (default: 10 workers)
+- Batch limit: 10,000 files per extraction run
+- Emits real-time progress events to UI
+- Panic catching prevents crashes from problematic PDFs
+- Stores extracted text in `text_cache` table
+- Updates `has_extracted_text` status in registry
+
+**Stage 2: LLM Analysis (Implemented, Not Yet Fully Tested)**
+
+- Uses pre-extracted text from cache
+- Runs sequentially (GPU memory optimization)
+- Pending full testing and verification
+
+**UI (Fully Functional)**
+
+- 4-panel sequential layout: Project Setup → Registry Scanner → Stage 1 Extraction → Stage 2 Analysis
+- Progress events for both extraction and analysis stages
+- Scan completion fix: explicit state reset + 5-minute timeout fallback
+
+**What's Working**
+
+- Registry scanning/fingerprinting (SHA-256 hash)
+- Two-stage pipeline with separate extraction and analysis stages
+- Text storage in `text_cache` table
+- Database tracking (`has_extracted_text`, `processed` flags)
+- Frontend progress updates via events
+
+**What's NOT Working/Incomplete**
+
+- Stage 2: LLM Analysis - Not yet fully tested
+- Intelligence DB - Facts not being extracted by LLM
 
 #### Pipeline {#fr-plp}
 
@@ -568,17 +657,25 @@ SL Studio is a desktop application built with Tauri (Rust backend + SvelteKit fr
 |                   SvelteKit Frontend                        |
 |  Dashboard | Analysis | Pipeline | Results | Map | Settings |
 +----------------------------+--------------------------------+
-                             | Tauri Commands (IPC)
+                              | Tauri Commands (IPC)
 +----------------------------v--------------------------------+
 |                      Rust Backend                           |
+|  +------------------------------------------------------+ |
+|  |           TWO-STAGE PIPELINE                          | |
+|  |                                                      | |
+|  |  STAGE 1          →    STAGE 2                       | |
+|  |  Text Extraction      LLM Analysis                   | |
+|  |  (CPU Parallel)        (GPU Sequential)              | |
+|  |                                                      | |
+|  +------------------------------------------------------+ |
 |  +-------------+  +-------------+  +--------------------+   |
 |  |   Text      |  |    LLM      |  |   Database         |   |
-|  | Extraction  |→ | Pipeline    |→ |   Manager          |   |
-|  | (Separate)  |  | (Multi-pass)|  |   (SQLite)         |   |
+|  | Extractor   |  | Reasoner    |  |   Manager          |   |
+|  | (Parallel) |  | (Chunked)   |  |   (SQLite)         |   |
 |  +-------------+  +-------------+  +--------------------+   |
 |  +-------------+  +-------------+  +--------------------+   |
 |  | Text Cache  |  | Deduplicator|  | Job Checkpoints    |   |
-|  | (.txt files)|  |             |  |                    |   |
+|  | (In-DB)   |  |             |  |                    |   |
 |  +-------------+  +-------------+  +--------------------+   |
 |  +-------------+  +-------------+  +--------------------+   |
 |  |GPU Detection|  |  Profiler   |  | Error Queue        |   |
@@ -586,12 +683,51 @@ SL Studio is a desktop application built with Tauri (Rust backend + SvelteKit fr
 +-------------------------------------------------------------+
 ```
 
+### Two-Stage Pipeline
+
+The system implements a two-stage pipeline for RAM optimization on constrained hardware (e.g., 16GB Mac):
+
+**Stage 1: Text Extraction (CPU Parallel)**
+
+- Runs on CPU with configurable parallel workers
+- Extracts text from PDFs, images, audio using specialized extractors
+- Stores extracted text in `text_cache` table (in-database for fast retrieval)
+- Updates `has_extracted_text = TRUE` in registry
+
+**Stage 2: LLM Analysis (GPU Sequential)**
+
+- Uses pre-extracted text from cache
+- Runs sequentially to minimize GPU memory usage
+- Extracts structured facts from text using LLM inference
+- Updates `processed = TRUE` in registry
+
+**Configuration for 16GB Mac:**
+
+- Default context: 8192 tokens
+- Batch size: 6 files
+- GPU layers: 32
+
 ### Processing Priority Order
 
-1. **New files** - Never processed before (highest priority)
-2. **Modified files** - Changed since last extraction
-3. **Extracted only** - Text cached, no inference
-4. **Rerun candidates** - Already processed, for accuracy improvement
+The system uses a two-stage pipeline with independent queues:
+
+**Stage 1: Text Extraction Queue** (CPU Parallel)
+
+- Files where `has_extracted_text = FALSE`
+- Processed in parallel with configurable workers
+
+**Stage 2: Analysis Queue** (GPU Sequential)
+
+- Files where `has_extracted_text = TRUE` AND `processed = FALSE`
+- Uses pre-extracted text from cache
+- Runs sequentially to optimize GPU memory
+
+**File Priority Within Each Stage:**
+
+1. **New files** - Never processed before (highest priority, priority=0)
+2. **Modified files** - Changed since last extraction (priority=1)
+3. **Extracted only** - Text cached, no analysis (priority=2)
+4. **Rerun candidates** - Already processed, for accuracy improvement (priority=3)
 
 ---
 
@@ -653,22 +789,23 @@ CREATE INDEX idx_registry_priority ON registry(processing_priority);
 CREATE INDEX idx_registry_modified ON registry(last_modified);
 ```
 
-### Text Cache (Extracted Text Files)
+### Text Cache (Extracted Text Storage)
 
 ```sql
--- Text is stored as .txt files alongside originals
--- Schema tracks what's cached
+-- Extracted text is stored directly in database (for RAM optimization on constrained systems)
 CREATE TABLE text_cache (
-    fingerprint TEXT PRIMARY KEY,
-    text_file_path TEXT NOT NULL,
-    char_count INTEGER,
-    text_hash TEXT,                    -- Hash of text for change detection
-    extraction_method TEXT,            -- pdf, ocr, audio
-    extraction_quality REAL,           -- Quality score 0-1
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fingerprint TEXT NOT NULL UNIQUE,
+    file_name TEXT NOT NULL,
+    extracted_text TEXT,              -- Full extracted text (stored directly)
+    text_hash TEXT,                  -- Hash of text for change detection
+    extraction_time_ms INTEGER,      -- Time taken for extraction
+    quality_score REAL,             -- Quality score 0-1
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_textcache_hash ON text_cache(text_hash);
+CREATE INDEX idx_text_cache_fingerprint ON text_cache(fingerprint);
+CREATE INDEX idx_text_cache_hash ON text_cache(text_hash);
 ```
 
 ### Intelligence DB (Facts)
@@ -3250,23 +3387,22 @@ This section tracks issues identified during code review. Issues are organized b
 | Low      | BE-008  | LLM inference stub (hardcoded JSON)                       |
 | Low      | BE-003  | Many `.unwrap()` on mutexes (~225 instances, low risk)    |
 
-================================================================================
-================================================================================
+# ================================================================================
 
 ## Additional Fixes Applied (April 2026)
 
 ### Recent Fixes
 
-| ID      | File                               | Description                                         | Status    |
-| ------- | --------------------------------- | --------------------------------------------------- | --------- |
-| FIX-001 | e2e/navigation.test.ts         | Fixed heading assertions for maps and anomalies pages    | FIXED     |
-| FIX-002 | src-tauri/tauri.conf.json       | Removed unsafe-inline from CSP (XSS protection)         | FIXED     |
-| FIX-003 | src-tauri/Cargo.toml           | Disabled devtools in production builds                | FIXED     |
-| FIX-004 | src-tauri/src/gpu/detect.rs   | Use absolute path for sysctl commands                | FIXED     |
-| FIX-005 | src-tauri/Cargo.lock         | Generated lockfile for reproducible builds         | FIXED     |
-| FIX-006 | mise.toml                    | Consolidated commands (run, test, precommit)    | FIXED     |
-| FIX-007 | eslint.config.js            | Disabled prefer-svelte-reactivity (false positives) | FIXED     |
-| FIX-008 | package.json                 | Version 0.2.0, added description                | FIXED     |
+| ID      | File                        | Description                                           | Status |
+| ------- | --------------------------- | ----------------------------------------------------- | ------ |
+| FIX-001 | e2e/navigation.test.ts      | Fixed heading assertions for maps and anomalies pages | FIXED  |
+| FIX-002 | src-tauri/tauri.conf.json   | Removed unsafe-inline from CSP (XSS protection)       | FIXED  |
+| FIX-003 | src-tauri/Cargo.toml        | Disabled devtools in production builds                | FIXED  |
+| FIX-004 | src-tauri/src/gpu/detect.rs | Use absolute path for sysctl commands                 | FIXED  |
+| FIX-005 | src-tauri/Cargo.lock        | Generated lockfile for reproducible builds            | FIXED  |
+| FIX-006 | mise.toml                   | Consolidated commands (run, test, precommit)          | FIXED  |
+| FIX-007 | eslint.config.js            | Disabled prefer-svelte-reactivity (false positives)   | FIXED  |
+| FIX-008 | package.json                | Version 0.2.0, added description                      | FIXED  |
 
 ### Security Audit Results
 
@@ -3277,31 +3413,30 @@ This section tracks issues identified during code review. Issues are organized b
 
 ### Security Posture: MEDIUM-HIGH
 
-| Category   | Status  |
-| -----------| --------|
+| Category      | Status                            |
+| ------------- | --------------------------------- |
 | SQL Injection | Protected (parameterized queries) |
-| XSS           | Protected (no @html in Svelte) |
-| CSRF          | Tauri IPC isolation |
-| Secrets       | No hardcoded secrets |
-| Unsafe Code  | forbidden via lint |
-| CSP           | Strengthened (no unsafe-inline) |
-| DevTools      | Disabled in production |
+| XSS           | Protected (no @html in Svelte)    |
+| CSRF          | Tauri IPC isolation               |
+| Secrets       | No hardcoded secrets              |
+| Unsafe Code   | forbidden via lint                |
+| CSP           | Strengthened (no unsafe-inline)   |
+| DevTools      | Disabled in production            |
 
 ### Mise Commands
 
-| Command            | Alias  | Description                          |
-| -------------------| ------ | ------------------------------------ |
-| mise run run        | ci     | Full CI pipeline                      |
-| mise run test       | -      | TypeScript + E2E tests                |
-| mise run precommit | pc     | Quick check before commit             |
-| mise run prepush    | push   | Full check before push               |
-| mise run dev       | -      | Start dev server                    |
-| mise run build     | -      | Build release                       |
+| Command            | Alias | Description               |
+| ------------------ | ----- | ------------------------- |
+| mise run run       | ci    | Full CI pipeline          |
+| mise run test      | -     | TypeScript + E2E tests    |
+| mise run precommit | pc    | Quick check before commit |
+| mise run prepush   | push  | Full check before push    |
+| mise run dev       | -     | Start dev server          |
+| mise run build     | -     | Build release             |
 
 ================================================================================
 
-================================================================================
-================================================================================
+# ================================================================================
 
 # Appendix: Current Project State (April 2026)
 
@@ -3309,75 +3444,75 @@ This section tracks issues identified during code review. Issues are organized b
 
 ### Core Components
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| **Tauri Backend** | ✅ Complete | Rust with Tauri 2 |
-| **SvelteKit Frontend** | ✅ Complete | 11 routes implemented |
-| **LLM Integration** | ✅ Complete | llama_cpp 0.3 with GGUF support |
-| **Database** | ✅ Complete | SQLite with FTS5 |
-| **Model Download** | ✅ Complete | HuggingFace integration |
-| **Release Build** | ✅ Complete | DMG and App bundle created |
+| Component              | Status      | Notes                           |
+| ---------------------- | ----------- | ------------------------------- |
+| **Tauri Backend**      | ✅ Complete | Rust with Tauri 2               |
+| **SvelteKit Frontend** | ✅ Complete | 11 routes implemented           |
+| **LLM Integration**    | ✅ Complete | llama_cpp 0.3 with GGUF support |
+| **Database**           | ✅ Complete | SQLite with FTS5                |
+| **Model Download**     | ✅ Complete | HuggingFace integration         |
+| **Release Build**      | ✅ Complete | DMG and App bundle created      |
 
 ### Implemented Pages (Frontend)
 
-| Page | Route | Status |
-|------|-------|--------|
-| Dashboard | `/` | ✅ Complete |
-| Analysis | `/analysis` | ✅ Complete |
-| Results | `/results` | ✅ Complete |
-| Timeline | `/timeline` | ✅ Complete |
-| Network | `/network` | ✅ Complete |
-| Maps | `/maps` | ✅ Complete |
-| Anomalies | `/anomalies` | ✅ Complete |
-| Compare | `/compare` | ✅ Complete |
-| Stats | `/stats` | ✅ Complete |
-| Settings | `/settings` | ✅ Complete |
-| Backup/Export | `/backup` | ✅ Complete |
+| Page          | Route        | Status      |
+| ------------- | ------------ | ----------- |
+| Dashboard     | `/`          | ✅ Complete |
+| Analysis      | `/analysis`  | ✅ Complete |
+| Results       | `/results`   | ✅ Complete |
+| Timeline      | `/timeline`  | ✅ Complete |
+| Network       | `/network`   | ✅ Complete |
+| Maps          | `/maps`      | ✅ Complete |
+| Anomalies     | `/anomalies` | ✅ Complete |
+| Compare       | `/compare`   | ✅ Complete |
+| Stats         | `/stats`     | ✅ Complete |
+| Settings      | `/settings`  | ✅ Complete |
+| Backup/Export | `/backup`    | ✅ Complete |
 
 ### Backend Modules
 
-| Module | Location | Status |
-|--------|----------|--------|
-| **Extractors** | `src-tauri/src/extractors/` | ✅ PDF, OCR, document, audio |
-| **LLM Inference** | `src-tauri/src/inference/` | ✅ Reasoner, pipeline, llama.rs |
-| **GPU Detection** | `src-tauri/src/gpu/` | ✅ Hardware detection |
-| **Database** | `src-tauri/src/core/database.rs` | ✅ Full schema |
-| **Config** | `src-tauri/src/config/` | ✅ Project management |
+| Module            | Location                         | Status                          |
+| ----------------- | -------------------------------- | ------------------------------- |
+| **Extractors**    | `src-tauri/src/extractors/`      | ✅ PDF, OCR, document, audio    |
+| **LLM Inference** | `src-tauri/src/inference/`       | ✅ Reasoner, pipeline, llama.rs |
+| **GPU Detection** | `src-tauri/src/gpu/`             | ✅ Hardware detection           |
+| **Database**      | `src-tauri/src/core/database.rs` | ✅ Full schema                  |
+| **Config**        | `src-tauri/src/config/`          | ✅ Project management           |
 
 ### Build Artifacts
 
-| Artifact | Path | Size |
-|----------|------|------|
-| **macOS App** | `src-tauri/target/release/bundle/macos/SL Studio.app` | ~17MB |
-| **DMG Installer** | `src-tauri/target/release/bundle/dmg/SL Studio_0.2.0_aarch64.dmg` | - |
-| **Executable** | `src-tauri/target/release/sl-studio` | ~17MB |
+| Artifact          | Path                                                              | Size  |
+| ----------------- | ----------------------------------------------------------------- | ----- |
+| **macOS App**     | `src-tauri/target/release/bundle/macos/SL Studio.app`             | ~17MB |
+| **DMG Installer** | `src-tauri/target/release/bundle/dmg/SL Studio_0.2.0_aarch64.dmg` | -     |
+| **Executable**    | `src-tauri/target/release/sl-studio`                              | ~17MB |
 
 ### Storage Locations
 
-| Data Type | Location |
-|-----------|----------|
-| **Models** | `~/Library/Application Support/slstudio/models/` |
+| Data Type    | Location                                                 |
+| ------------ | -------------------------------------------------------- |
+| **Models**   | `~/Library/Application Support/slstudio/models/`         |
 | **Database** | `~/Library/Application Support/slstudio/intelligence.db` |
-| **Registry** | `~/Library/Application Support/slstudio/registry.db` |
-| **Config** | `~/Library/Application Support/slstudio/config.json` |
-| **Logs** | `~/Library/Application Support/slstudio/logs/` |
+| **Registry** | `~/Library/Application Support/slstudio/registry.db`     |
+| **Config**   | `~/Library/Application Support/slstudio/config.json`     |
+| **Logs**     | `~/Library/Application Support/slstudio/logs/`           |
 
 ### Known Issues
 
-| Issue | Severity | Status |
-|-------|----------|--------|
-| Download crash during model loading | Medium | Under investigation |
-| LLM inference returns fallback JSON | Low | API integration complete |
+| Issue                               | Severity | Status                   |
+| ----------------------------------- | -------- | ------------------------ |
+| Download crash during model loading | Medium   | Under investigation      |
+| LLM inference returns fallback JSON | Low      | API integration complete |
 
 ### Technology Versions
 
-| Component | Version |
-|-----------|---------|
-| **Tauri** | 2.x |
-| **SvelteKit** | 2.x |
-| **llama_cpp** | 0.3.2 |
-| **rusqlite** | 0.32 |
-| **Rust** | stable |
+| Component     | Version |
+| ------------- | ------- |
+| **Tauri**     | 2.x     |
+| **SvelteKit** | 2.x     |
+| **llama_cpp** | 0.3.2   |
+| **rusqlite**  | 0.32    |
+| **Rust**      | stable  |
 
 ### Features Ready for Use
 
@@ -3398,18 +3533,19 @@ This section tracks issues identified during code review. Issues are organized b
 3. Quality scoring integration
 4. More complete pipeline customization UI
 
-================================================================================
-================================================================================
+# ================================================================================
 
 ### UX Improvement: Registry Scanner Status Feedback
 
 When all files in the evidence folder are already fingerprinted and stored in the database, the registry scanner currently shows a perpetual "Searching..." or "Hashing files..." state without indicating completion.
 
 **Current Behavior:**
+
 - Shows "0/154" or similar indefinitely when all files already exist
 - No clear indication that scan is complete when no new files found
 
 **Desired Behavior:**
+
 - When all files already scanned: Display "All files scanned" or "154 files already registered"
 - Only show "Searching..." when genuinely looking for new files
 - Provide clear completion status with file counts

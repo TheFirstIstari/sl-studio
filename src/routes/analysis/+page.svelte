@@ -16,6 +16,17 @@
 			local_path: string;
 			context_length: number;
 		};
+		hardware: {
+			gpu_backend: string;
+			gpu_memory_fraction: number;
+			cpu_workers: number;
+			ocr_provider: string;
+			whisper_size: string;
+		};
+		processing: {
+			batch_size: number;
+			max_image_resolution: number;
+		};
 	}
 
 	interface RegistryFile {
@@ -31,6 +42,15 @@
 		phase: string;
 	}
 
+	interface ExtractionProgress {
+		phase: string;
+		current_file: string;
+		processed: number;
+		total: number;
+		success_count: number;
+		error_count: number;
+	}
+
 	interface AnalysisProgress {
 		phase: string;
 		current_file: string;
@@ -38,10 +58,20 @@
 		total: number;
 	}
 
+	interface ExtractionResult {
+		fingerprint: string;
+		path: string;
+		success: boolean;
+		char_count: number;
+		error: string | null;
+	}
+
 	let config = $state<Config | null>(null);
 	let modelLoaded = $state(false);
 	let scanning = $state(false);
+	let extracting = $state(false);
 	let analyzing = $state(false);
+
 	let registryProgress = $state<RegistryProgress>({
 		total: 0,
 		processed: 0,
@@ -49,7 +79,16 @@
 		current_file: '',
 		phase: ''
 	});
-	
+
+	let extractionProgress = $state<ExtractionProgress>({
+		phase: '',
+		current_file: '',
+		processed: 0,
+		total: 0,
+		success_count: 0,
+		error_count: 0
+	});
+
 	let analysisProgress = $state<AnalysisProgress>({
 		phase: '',
 		current_file: '',
@@ -59,6 +98,7 @@
 
 	let unlistenProgress: (() => void) | null = null;
 	let unlistenComplete: (() => void) | null = null;
+	let unlistenExtraction: (() => void) | null = null;
 
 	onMount(async () => {
 		try {
@@ -82,11 +122,16 @@
 			registryProgress.processed = event.payload;
 			scanning = false;
 		});
+
+		unlistenExtraction = await listen<ExtractionProgress>('extraction_progress', (event) => {
+			extractionProgress = event.payload;
+		});
 	});
 
 	onDestroy(() => {
 		if (unlistenProgress) unlistenProgress();
 		if (unlistenComplete) unlistenComplete();
+		if (unlistenExtraction) unlistenExtraction();
 	});
 
 	async function configureFolders() {
@@ -115,10 +160,32 @@
 		}
 
 		scanning = true;
-		registryProgress = { phase: 'Initializing...', current: 0, processed: 0, total: 0, current_file: '' };
+		registryProgress = {
+			phase: 'Initializing...',
+			current: 0,
+			processed: 0,
+			total: 0,
+			current_file: ''
+		};
+
+		const scanComplete = (processed: number) => {
+			registryProgress.phase = 'complete';
+			registryProgress.processed = processed;
+			scanning = false;
+		};
+
+		setTimeout(() => {
+			if (scanning) {
+				console.warn('Scan timeout - forcing completion state');
+				registryProgress.phase = 'complete';
+				registryProgress.current_file = 'Scan completed (timeout)';
+				scanning = false;
+			}
+		}, 300000);
 
 		try {
-			await invoke('start_registry');
+			const result = await invoke<number>('start_registry');
+			scanComplete(result);
 		} catch (e) {
 			console.error('Scan error:', e);
 			registryProgress.phase = 'error';
@@ -127,7 +194,59 @@
 		}
 	}
 
-	async function initAndAnalyze() {
+	// NEW: Separate extraction function
+	async function extractAllFiles() {
+		extracting = true;
+		extractionProgress = {
+			phase: 'Loading...',
+			current_file: '',
+			processed: 0,
+			total: 0,
+			success_count: 0,
+			error_count: 0
+		};
+
+		try {
+			// Get files that need extraction
+			const extractionQueue = await invoke<RegistryFile[]>('get_extraction_queue', {
+				limit: 10000
+			});
+
+			if (extractionQueue.length === 0) {
+				extractionProgress.phase = 'complete';
+				extractionProgress.current_file = 'No files need extraction';
+				extracting = false;
+				return;
+			}
+
+			extractionProgress.total = extractionQueue.length;
+			extractionProgress.phase = 'Extracting text...';
+
+			const fingerprints = extractionQueue.map((f) => f.fingerprint);
+
+			// Call the batch extraction
+			const results = await invoke<ExtractionResult[]>('extract_batch', {
+				fingerprints: fingerprints,
+				cpuWorkers: config?.hardware?.cpu_workers || 6
+			});
+
+			// Update progress
+			extractionProgress.success_count = results.filter((r) => r.success).length;
+			extractionProgress.error_count = results.filter((r) => !r.success).length;
+			extractionProgress.processed = results.length;
+			extractionProgress.phase = 'complete';
+			extractionProgress.current_file = `Extracted ${extractionProgress.success_count}/${results.length} files`;
+		} catch (e) {
+			console.error('Extraction error:', e);
+			extractionProgress.phase = 'error';
+			extractionProgress.current_file = `Error: ${e}`;
+		} finally {
+			extracting = false;
+		}
+	}
+
+	// NEW: Separate analysis function that uses pre-extracted text
+	async function analyzeExtractedFiles() {
 		if (!config?.model.local_path) {
 			analysisProgress.phase = 'error';
 			analysisProgress.current_file = 'No model configured. Please download a model in Settings.';
@@ -139,52 +258,44 @@
 
 		try {
 			if (!modelLoaded) {
-				// Construct the actual model file path
-				const modelsDir = config.model.local_path;
-				// The model file is in the models directory, need to get the actual file
-				// We'll call list_downloaded_models to get the actual file path
-				const models = await invoke<Array<{path: string}>>('list_downloaded_models');
+				const models = await invoke<Array<{ path: string }>>('list_downloaded_models');
 				const modelPath = models.length > 0 ? models[0].path : null;
-				
+
 				if (!modelPath) {
 					throw new Error('No model file found. Please download a model in Settings.');
 				}
-				
+
 				await invoke('init_reasoner', {
 					modelPath: modelPath,
-					contextSize: config.model.context_length || 16384,
-					gpuLayers: 32  // Use Metal GPU acceleration on macOS
+					contextSize: config.model.context_length || 8192,
+					gpuLayers: 32 // Full GPU acceleration on M4
 				});
 				modelLoaded = true;
 			}
 
-			analysisProgress.phase = 'Analyzing files...';
+			analysisProgress.phase = 'Getting analysis queue...';
 
-			const unprocessed = await invoke<RegistryFile[]>('get_unprocessed_files', { limit: 10 });
+			// Get files that have extracted text but haven't been analyzed
+			const analysisQueue = await invoke<RegistryFile[]>('get_analysis_queue', { limit: 10 });
 
-			if (unprocessed.length === 0) {
+			if (analysisQueue.length === 0) {
 				analysisProgress.phase = 'complete';
-				analysisProgress.current_file = 'No files to analyze';
+				analysisProgress.current_file = 'No files need analysis';
 				analyzing = false;
 				return;
 			}
 
-			analysisProgress.total = unprocessed.length;
+			analysisProgress.total = analysisQueue.length;
+			analysisProgress.phase = 'Analyzing files...';
 
-			for (let i = 0; i < unprocessed.length; i++) {
-				const file = unprocessed[i];
-				analysisProgress.current_file = file.path;
-				analysisProgress.processed = i + 1;
+			const fingerprints = analysisQueue.map((f) => f.fingerprint);
 
-				try {
-					await invoke('analyze_file', { path: file.path });
-					await invoke('mark_processed', { fingerprint: file.fingerprint });
-				} catch (e) {
-					console.error('Analysis error for', file.path, e);
-				}
-			}
+			// Call batch analysis
+			await invoke('analyze_batch', { fingerprints });
 
+			analysisProgress.processed = analysisQueue.length;
 			analysisProgress.phase = 'complete';
+			analysisProgress.current_file = `Analyzed ${analysisQueue.length} files`;
 		} catch (e) {
 			console.error('Analysis error:', e);
 			analysisProgress.phase = 'error';
@@ -242,7 +353,8 @@
 						></div>
 					</div>
 					<div class="progress-text">
-						{registryProgress.phase} - {registryProgress.processed}/{registryProgress.total || '...'}
+						{registryProgress.phase} - {registryProgress.processed}/{registryProgress.total ||
+							'...'}
 					</div>
 					{#if registryProgress.current_file}
 						<div class="current-file">{registryProgress.current_file}</div>
@@ -256,16 +368,66 @@
 				{/if}
 			</div>
 
-			<button class="action-btn primary" onclick={startScan} disabled={scanning || analyzing}>
+			<button
+				class="action-btn primary"
+				onclick={startScan}
+				disabled={scanning || extracting || analyzing}
+			>
 				{scanning ? 'Scanning...' : 'Start Fingerprinting'}
 			</button>
 		</section>
 
+		<!-- NEW: Stage 1: Extraction Panel -->
 		<section class="panel">
-			<h2>Neural Reasoner</h2>
+			<h2>Stage 1: Text Extraction</h2>
 			<p class="description">
-				Extract facts from processed files using local LLM inference. The model is cached in memory
-				for fast processing.
+				Extract text from all files using CPU parallelism. Run this first to cache extracted text.
+				Files can be processed in parallel for maximum throughput.
+			</p>
+
+			<div class="progress-section">
+				{#if extracting}
+					<div class="progress-bar">
+						<div class="progress-fill indeterminate"></div>
+					</div>
+					<div class="progress-text">{extractionProgress.phase}</div>
+					{#if extractionProgress.current_file}
+						<div class="current-file">{extractionProgress.current_file}</div>
+					{/if}
+					<div class="progress-stats">
+						<span>Processed: {extractionProgress.processed}/{extractionProgress.total}</span>
+					</div>
+				{:else if extractionProgress.phase === 'complete'}
+					<div class="idle-text">
+						{#if extractionProgress.success_count > 0}
+							✓ {extractionProgress.success_count} extracted
+						{/if}
+						{#if extractionProgress.error_count > 0}
+							<br />✗ {extractionProgress.error_count} failed
+						{/if}
+					</div>
+				{:else if extractionProgress.phase === 'error'}
+					<div class="error-text">{extractionProgress.current_file}</div>
+				{:else}
+					<div class="idle-text">Ready to extract</div>
+				{/if}
+			</div>
+
+			<button
+				class="action-btn primary"
+				onclick={extractAllFiles}
+				disabled={scanning || extracting || analyzing}
+			>
+				{extracting ? 'Extracting...' : 'Extract All Files'}
+			</button>
+		</section>
+
+		<!-- NEW: Stage 2: LLM Analysis Panel -->
+		<section class="panel">
+			<h2>Stage 2: LLM Analysis</h2>
+			<p class="description">
+				Run LLM inference on extracted text to extract structured facts. Uses GPU acceleration for
+				maximum performance.
 			</p>
 
 			<div class="model-info">
@@ -281,7 +443,11 @@
 				</div>
 				<div class="info-row">
 					<span class="info-label">Context:</span>
-					<span class="info-value">{config?.model.context_length || 16384} tokens</span>
+					<span class="info-value">{config?.model.context_length || 8192} tokens</span>
+				</div>
+				<div class="info-row">
+					<span class="info-label">GPU:</span>
+					<span class="info-value">{config?.hardware?.gpu_backend || 'metal'}</span>
 				</div>
 			</div>
 
@@ -295,20 +461,20 @@
 						<div class="current-file">{analysisProgress.current_file}</div>
 					{/if}
 				{:else if analysisProgress.phase === 'complete'}
-					<div class="idle-text">Analysis complete</div>
+					<div class="idle-text">{analysisProgress.current_file}</div>
 				{:else if analysisProgress.phase === 'error'}
 					<div class="error-text">{analysisProgress.current_file}</div>
 				{:else}
-					<div class="idle-text">Ready to analyze</div>
+					<div class="idle-text">Ready to analyze (run extraction first)</div>
 				{/if}
 			</div>
 
 			<button
 				class="action-btn primary"
-				onclick={initAndAnalyze}
-				disabled={scanning || analyzing || !config?.model.local_path}
+				onclick={analyzeExtractedFiles}
+				disabled={scanning || extracting || analyzing || !config?.model.local_path}
 			>
-				{analyzing ? 'Analyzing...' : 'Start Neural Reasoner'}
+				{analyzing ? 'Analyzing...' : 'Analyze Extracted Files'}
 			</button>
 		</section>
 	</div>
@@ -421,6 +587,12 @@
 	.progress-text {
 		font-size: 0.875rem;
 		color: #9ca3af;
+	}
+
+	.progress-stats {
+		font-size: 0.75rem;
+		color: #6b7280;
+		margin-top: 0.25rem;
 	}
 
 	.current-file {

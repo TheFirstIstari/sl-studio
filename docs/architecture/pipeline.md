@@ -2,12 +2,33 @@
 
 ## Overview
 
-SL Studio processes evidence files through a two-stage pipeline:
+SL Studio processes evidence files through a two-stage pipeline with parallel extraction:
 
-1. **Stage 1: Text Extraction** - Extract raw text from various file formats
+1. **Stage 1: Text Extraction** - Extract raw text from various file formats (parallel with rayon)
 2. **Stage 2: LLM Inference** - Analyze extracted text through AI-powered reasoning pipelines
 
 Both stages run independently and can be resumed from checkpoints.
+
+## Two-Stage Architecture
+
+```
+File Input
+    │
+    ▼
+┌─────────────────────────────┐
+│    Stage 1: Extraction     │ ← Parallel processing via rayon
+│  (PDF, OCR, Audio, Doc)    │
+└────────────┬───────────────┘
+             │ Extracted Text
+             ▼
+┌─────────────────────────────┐
+│    Stage 2: Analysis       │ ← LLM inference via llama.cpp
+│   (Reasoner + LLM Model)   │
+└────────────┬───────────────┘
+             │
+             ▼
+         Facts DB
+```
 
 ## Stage 1: Text Extraction
 

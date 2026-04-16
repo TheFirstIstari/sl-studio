@@ -1,6 +1,7 @@
 use image::{DynamicImage, RgbaImage};
 use mupdf::{Colorspace, Document, Matrix};
 use pdf_extract::extract_text;
+use std::panic::catch_unwind;
 use std::path::Path;
 use thiserror::Error;
 use tracing::{error, info, warn};
@@ -185,6 +186,36 @@ impl PdfExtractor {
         text.matches('\u{0C}').count() + 1
     }
 
+    fn extract_text_safe(path: &Path) -> Result<String, PdfError> {
+        let result = catch_unwind(|| extract_text(path));
+        match result {
+            Ok(Ok(text)) => Ok(text),
+            Ok(Err(e)) => {
+                let err_str = e.to_string();
+                if err_str.contains("password") || err_str.contains("encrypted") {
+                    Err(PdfError::PasswordProtected)
+                } else if err_str.contains("PDF") && err_str.contains("error") {
+                    Err(PdfError::Corrupted(err_str))
+                } else {
+                    Err(PdfError::ExtractionError(err_str))
+                }
+            }
+            Err(panic_info) => {
+                let msg = if let Some(s) = panic_info.downcast_ref::<&str>() {
+                    s.to_string()
+                } else if let Some(s) = panic_info.downcast_ref::<String>() {
+                    s.clone()
+                } else {
+                    "Unknown panic".to_string()
+                };
+                Err(PdfError::ExtractionError(format!(
+                    "Panic during extraction: {}",
+                    msg
+                )))
+            }
+        }
+    }
+
     pub fn extract_text(&self, path: &Path) -> Result<String, PdfError> {
         let path_str = path.to_string_lossy();
         info!("Extracting text from PDF: {}", path_str);
@@ -202,16 +233,7 @@ impl PdfExtractor {
             }
         }
 
-        let text = extract_text(path).map_err(|e| {
-            let err_str = e.to_string();
-            if err_str.contains("password") || err_str.contains("encrypted") {
-                PdfError::PasswordProtected
-            } else if err_str.contains("PDF") && err_str.contains("error") {
-                PdfError::Corrupted(err_str)
-            } else {
-                PdfError::ExtractionError(err_str)
-            }
-        })?;
+        let text = Self::extract_text_safe(path)?;
 
         let trimmed = text.trim();
         if trimmed.is_empty() {
@@ -242,16 +264,7 @@ impl PdfExtractor {
             }
         }
 
-        let text = extract_text(path).map_err(|e| {
-            let err_str = e.to_string();
-            if err_str.contains("password") || err_str.contains("encrypted") {
-                PdfError::PasswordProtected
-            } else if err_str.contains("PDF") && err_str.contains("error") {
-                PdfError::Corrupted(err_str)
-            } else {
-                PdfError::ExtractionError(err_str)
-            }
-        })?;
+        let text = Self::extract_text_safe(path)?;
 
         // Estimate page count from form feeds
         let page_count = Self::estimate_page_count(&text);
@@ -302,7 +315,7 @@ impl PdfExtractor {
         let path_str = path.to_string_lossy();
         info!("Extracting text from PDF: {}", path_str);
 
-        let text = extract_text(path).map_err(|e| PdfError::ExtractionError(e.to_string()))?;
+        let text = Self::extract_text_safe(path)?;
 
         let trimmed = text.trim();
         if trimmed.is_empty() {

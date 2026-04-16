@@ -21,6 +21,7 @@
 	interface HardwareStatus {
 		cpu_threads: number;
 		total_memory_gb: number;
+		recommended_backend: string;
 		scaling: {
 			batch_size: number;
 			cpu_workers: number;
@@ -42,18 +43,28 @@
 		}
 	];
 
+	const GPU_BACKENDS = [
+		{ value: 'metal', label: 'Metal (Apple Silicon)' },
+		{ value: 'cuda', label: 'CUDA (NVIDIA)' },
+		{ value: 'vulkan', label: 'Vulkan' },
+		{ value: 'opencl', label: 'OpenCL' },
+		{ value: 'cpu', label: 'CPU Only' }
+	];
+
 	let config = $state({
 		projectName: 'New Investigation',
 		evidenceRoot: '',
 		registryDb: '',
 		intelligenceDb: '',
 		modelPath: '',
-		contextSize: 16384,
-		cpuWorkers: 8,
-		vramAllocation: 0.45,
-		batchSize: 24
+		contextSize: 8192,
+		cpuWorkers: 6,
+		vramAllocation: 0.40,
+		batchSize: 6,
+		gpuBackend: 'cpu'
 	});
 
+	let recommendedBackend = $state('cpu');
 	let loading = $state(true);
 	let saving = $state(false);
 	let statusMessage = $state('');
@@ -96,8 +107,11 @@
 			context_length?: number;
 		};
 		hardware?: {
+			gpu_backend?: string;
 			cpu_workers?: number;
 			vram_allocation?: number;
+			ocr_provider?: string;
+			whisper_size?: string;
 		};
 		processing?: {
 			batch_size?: number;
@@ -114,15 +128,21 @@
 					registryDb: loaded.project?.registry_db || '',
 					intelligenceDb: loaded.project?.intelligence_db || '',
 					modelPath: loaded.model?.local_path || '',
-					contextSize: loaded.model?.context_length || 16384,
-					cpuWorkers: loaded.hardware?.cpu_workers || 8,
-					vramAllocation: loaded.hardware?.vram_allocation || 0.45,
-					batchSize: loaded.processing?.batch_size || 24
+					contextSize: loaded.model?.context_length || 8192,
+					cpuWorkers: loaded.hardware?.cpu_workers || 6,
+					vramAllocation: loaded.hardware?.vram_allocation || 0.40,
+					batchSize: loaded.processing?.batch_size || 6,
+					gpuBackend: loaded.hardware?.gpu_backend || 'cpu'
 				};
 			}
 
 			const hwStatus = await invoke<HardwareStatus>('detect_hardware');
 			if (hwStatus) {
+				recommendedBackend = hwStatus.recommended_backend || 'cpu';
+				// If config doesn't have gpu_backend set yet, use recommended
+				if (!config.gpuBackend || config.gpuBackend === 'cpu') {
+					config.gpuBackend = recommendedBackend;
+				}
 				config.cpuWorkers = hwStatus.cpu_threads || 8;
 				config.batchSize = hwStatus.scaling?.batch_size || 24;
 			}
@@ -152,6 +172,7 @@
 		statusMessage = '';
 		try {
 			const configData = {
+				version: '0.2.0',
 				project: {
 					name: config.projectName,
 					evidence_root: config.evidenceRoot,
@@ -159,16 +180,23 @@
 					intelligence_db: config.intelligenceDb
 				},
 				model: {
+					source: 'local',
 					id: 'qwen-2.5-7b',
-					local_path: config.modelPath,
-					context_length: config.contextSize
+					quantization: 'awq',
+					context_length: config.contextSize,
+					downloaded: false,
+					local_path: config.modelPath
 				},
 				hardware: {
+					gpu_backend: config.gpuBackend,
+					gpu_memory_fraction: config.vramAllocation,
 					cpu_workers: config.cpuWorkers,
-					vram_allocation: config.vramAllocation
+					ocr_provider: 'onnx',
+					whisper_size: 'base'
 				},
 				processing: {
-					batch_size: config.batchSize
+					batch_size: config.batchSize,
+					max_image_resolution: 2048
 				}
 			};
 
@@ -415,8 +443,20 @@
 				<h2>Hardware</h2>
 
 				<div class="form-group">
+					<label for="gpuBackend">GPU Backend</label>
+					<select id="gpuBackend" bind:value={config.gpuBackend}>
+						{#each GPU_BACKENDS as backend}
+							<option value={backend.value}>
+								{backend.label}
+							</option>
+						{/each}
+					</select>
+					<p class="hint">Recommended: {recommendedBackend}</p>
+				</div>
+
+				<div class="form-group">
 					<label for="cpuWorkers">CPU Workers</label>
-					<input type="number" id="cpuWorkers" bind:value={config.cpuWorkers} min="1" max="32" />
+					<input type="number" id="cpuWorkers" bind:value={config.cpuWorkers} min="1" max="64" />
 					<p class="hint">Number of parallel workers</p>
 				</div>
 
@@ -439,7 +479,7 @@
 
 				<div class="form-group">
 					<label for="batchSize">Batch Size</label>
-					<input type="number" id="batchSize" bind:value={config.batchSize} min="1" max="128" />
+					<input type="number" id="batchSize" bind:value={config.batchSize} min="1" max="64" />
 					<p class="hint">Files per inference batch</p>
 				</div>
 			</section>

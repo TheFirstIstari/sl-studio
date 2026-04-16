@@ -202,10 +202,8 @@ async fn start_registry(app: AppHandle, state: State<'_, AppState>) -> Result<us
     let mut worker = RegistryWorker::new(&evidence_root, &registry_db, &intelligence_db)
         .map_err(|e| e.to_string())?;
 
-    // Create channel for progress
     let (tx, rx) = std::sync::mpsc::channel::<RegistryProgress>();
 
-    // Spawn progress listener
     let app_clone = app.clone();
     std::thread::spawn(move || {
         for progress in rx {
@@ -215,6 +213,7 @@ async fn start_registry(app: AppHandle, state: State<'_, AppState>) -> Result<us
 
     let result = worker.scan(tx).map_err(|e| e.to_string())?;
 
+    info!("Registry scan complete: {} files", result);
     app.emit("registry_complete", result).ok();
     Ok(result)
 }
@@ -1661,6 +1660,10 @@ pub fn run() {
             get_huggingface_models,
             list_downloaded_models,
             extract_file,
+            extract_batch,
+            analyze_batch,
+            get_extraction_queue,
+            get_analysis_queue,
             get_supported_extensions,
             init_reasoner,
             analyze_file,
@@ -1710,4 +1713,293 @@ pub fn run() {
             error!("Failed to run Tauri application: {}", e);
             std::process::exit(1);
         });
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExtractionResult {
+    pub fingerprint: String,
+    pub path: String,
+    pub success: bool,
+    pub char_count: usize,
+    pub error: Option<String>,
+    pub quality: Option<f64>,
+    #[serde(skip)]
+    pub extraction_text: Option<String>,
+    #[serde(skip)]
+    pub is_partial: bool,
+}
+
+impl Default for ExtractionResult {
+    fn default() -> Self {
+        Self {
+            fingerprint: String::new(),
+            path: String::new(),
+            success: false,
+            char_count: 0,
+            error: None,
+            quality: None,
+            extraction_text: None,
+            is_partial: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExtractionProgress {
+    pub total: usize,
+    pub processed: usize,
+    pub current_file: String,
+    pub phase: String,
+    pub success_count: usize,
+    pub error_count: usize,
+}
+
+#[tauri::command]
+async fn extract_batch(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    fingerprints: Vec<String>,
+    cpu_workers: Option<u32>,
+) -> Result<Vec<ExtractionResult>, String> {
+    use extractors::{Deconstructor, ExtractorConfig};
+    use rayon::prelude::*;
+    
+    let workers = cpu_workers.unwrap_or(6) as usize;
+    info!("Extracting batch of {} files with {} workers", fingerprints.len(), workers);
+    
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(workers)
+        .build_global()
+        .map_err(|e| e.to_string())?;
+    
+    let total = fingerprints.len();
+    
+    let db_guard = state.db.lock().unwrap();
+    let db = db_guard.as_ref().ok_or("Database not initialized")?;
+    
+    let file_data: Vec<(String, String)> = fingerprints
+        .par_iter()
+        .filter_map(|fingerprint| {
+            match db.get_registry_entry(fingerprint) {
+                Ok(entry) => Some((fingerprint.clone(), entry.path)),
+                Err(_) => None,
+            }
+        })
+        .collect();
+    
+    let valid_fingerprints: Vec<String> = file_data.iter().map(|(fp, _)| fp.clone()).collect();
+    
+    drop(db_guard);
+    
+    let results: Vec<ExtractionResult> = valid_fingerprints
+        .par_iter()
+        .filter_map(|fingerprint| {
+            let config = ExtractorConfig::default();
+            let deconstructor = match Deconstructor::new(config) {
+                Ok(d) => d,
+                Err(e) => {
+                    return Some(ExtractionResult {
+                        fingerprint: fingerprint.clone(),
+                        path: String::new(),
+                        success: false,
+                        char_count: 0,
+                        error: Some(format!("Deconstructor init failed: {}", e)),
+                        quality: None,
+                        extraction_text: None,
+                        is_partial: false,
+                    });
+                }
+            };
+            
+            let db_guard = state.db.lock().unwrap();
+            let db = match db_guard.as_ref() {
+                Some(d) => d,
+                None => return None,
+            };
+            
+            let path = match db.get_registry_entry(fingerprint) {
+                Ok(entry) => entry.path,
+                Err(e) => {
+                    return Some(ExtractionResult {
+                        fingerprint: fingerprint.clone(),
+                        path: String::new(),
+                        success: false,
+                        char_count: 0,
+                        error: Some(format!("Registry lookup failed: {}", e)),
+                        quality: None,
+                        extraction_text: None,
+                        is_partial: false,
+                    });
+                }
+            };
+            
+            drop(db_guard);
+            
+            let file_path = std::path::Path::new(&path);
+            if !file_path.exists() {
+                return Some(ExtractionResult {
+                    fingerprint: fingerprint.clone(),
+                    path,
+                    success: false,
+                    char_count: 0,
+                    error: Some("File not found".to_string()),
+                    quality: None,
+                    extraction_text: None,
+                    is_partial: false,
+                });
+            }
+            
+            let _start = std::time::Instant::now();
+            match deconstructor.extract(file_path) {
+                Ok(extraction) => {
+                    Some(ExtractionResult {
+                        fingerprint: fingerprint.clone(),
+                        path: path.clone(),
+                        success: true,
+                        char_count: extraction.char_count,
+                        error: None,
+                        quality: Some(extraction.is_partial as u8 as f64),
+                        extraction_text: Some(extraction.text),
+                        is_partial: extraction.is_partial,
+                    })
+                }
+                Err(e) => {
+                    error!("Extraction failed for {}: {}", path, e);
+                    Some(ExtractionResult {
+                        fingerprint: fingerprint.clone(),
+                        path,
+                        success: false,
+                        char_count: 0,
+                        error: Some(e.to_string()),
+                        quality: None,
+                        extraction_text: None,
+                        is_partial: false,
+                    })
+                }
+            }
+        })
+        .collect();
+    
+    let success_results: Vec<ExtractionResult> = results
+        .iter()
+        .filter(|r| r.success)
+        .cloned()
+        .collect();
+    
+    let db_guard = state.db.lock().unwrap();
+    let db = db_guard.as_ref().ok_or("Database not initialized")?;
+    
+    for result in &success_results {
+        if let Some(ref text) = result.extraction_text {
+            let _ = db.save_text_cache(
+                &result.fingerprint,
+                &result.path,
+                text,
+                &result.fingerprint,
+                0,
+                result.quality.unwrap_or(0.0),
+            );
+            let _ = db.mark_extracted(&result.fingerprint, result.is_partial);
+        }
+    }
+    
+    drop(db_guard);
+    
+    let mut success_count = 0;
+    let mut error_count = 0;
+    let processed = results.len();
+    
+    for result in &results {
+        if result.success {
+            success_count += 1;
+        } else {
+            error_count += 1;
+        }
+    }
+    
+    let progress = ExtractionProgress {
+        total,
+        processed,
+        current_file: String::new(),
+        phase: "Complete".to_string(),
+        success_count,
+        error_count,
+    };
+    app.emit("extraction_progress", progress).ok();
+    
+    info!("Extraction complete: {}/{} successful", success_count, results.len());
+    
+    Ok(results)
+}
+
+#[tauri::command]
+async fn analyze_batch(
+    state: State<'_, AppState>,
+    fingerprints: Vec<String>,
+) -> Result<Vec<inference::AnalysisResult>, String> {
+    let reasoner_arc = {
+        let cached = state.reasoner.lock().unwrap();
+        cached.clone()
+    };
+    
+    let reasoner = reasoner_arc.ok_or("Reasoner not initialized. Call init_reasoner first.")?;
+    
+    let db_guard = state.db.lock().unwrap();
+    let db = db_guard.as_ref().ok_or("Database not initialized")?;
+    let mut results = Vec::new();
+    
+    for fingerprint in fingerprints {
+        // Get registry entry to find file path
+        let entry = match db.get_registry_entry(&fingerprint) {
+            Ok(e) => e,
+            Err(e) => {
+                error!("Registry lookup failed for {}: {}", fingerprint, e);
+                continue;
+            }
+        };
+        
+        let file_path = std::path::Path::new(&entry.path);
+        
+        // Get extracted text from cache
+        let text = match db.get_extracted_text(&fingerprint) {
+            Ok(Some(t)) => t,
+            Ok(None) => {
+                error!("No extracted text found for {}", fingerprint);
+                continue;
+            }
+            Err(e) => {
+                error!("Failed to get extracted text for {}: {}", fingerprint, e);
+                continue;
+            }
+        };
+        
+        // Run analysis on the already-extracted text
+        match reasoner.analyze_text(&fingerprint, &entry.file_name, &text) {
+            Ok(result) => {
+                // Mark as processed
+                let _ = db.mark_processed(&fingerprint);
+                results.push(result);
+            }
+            Err(e) => {
+                error!("Analysis failed for {}: {}", fingerprint, e);
+            }
+        }
+    }
+    
+    info!("Analysis complete: {} files processed", results.len());
+    Ok(results)
+}
+
+#[tauri::command]
+fn get_extraction_queue(state: State<AppState>, limit: i64) -> Result<Vec<core::RegistryEntry>, String> {
+    let db_guard = state.db.lock().unwrap();
+    let db = db_guard.as_ref().ok_or("Database not initialized")?;
+    db.get_extraction_queue(limit).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_analysis_queue(state: State<AppState>, limit: i64) -> Result<Vec<core::RegistryEntry>, String> {
+    let db_guard = state.db.lock().unwrap();
+    let db = db_guard.as_ref().ok_or("Database not initialized")?;
+    db.get_analysis_queue(limit).map_err(|e| e.to_string())
 }

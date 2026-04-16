@@ -191,7 +191,10 @@ impl Reasoner {
                 Ok(response) => {
                     raw_responses.push(response.clone());
                     // Debug: log the raw LLM output
-                    info!("LLM raw response (first 500 chars): {:?}", &response.text[..response.text.len().min(500)]);
+                    info!(
+                        "LLM raw response (first 500 chars): {:?}",
+                        &response.text[..response.text.len().min(500)]
+                    );
                     let facts = self.parse_facts(&response.text);
                     info!("Parsed {} facts from response", facts.len());
                     all_facts.extend(facts);
@@ -227,7 +230,11 @@ impl Reasoner {
         Ok(AnalysisResult {
             filename,
             facts: unique_facts,
-            raw_response: raw_responses.iter().map(|r| r.text.as_str()).collect::<Vec<_>>().join("\n---\n"),
+            raw_response: raw_responses
+                .iter()
+                .map(|r| r.text.as_str())
+                .collect::<Vec<_>>()
+                .join("\n---\n"),
             tokens_used: 0,
         })
     }
@@ -288,7 +295,7 @@ impl Reasoner {
     fn parse_facts(&self, response: &str) -> Vec<Fact> {
         let mut facts = Vec::new();
 
-        let items = extract_json_objects(response);
+        let items = Self::extract_json_objects(response);
 
         for item in items {
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&item) {
@@ -351,38 +358,112 @@ Output ONLY valid JSON array objects like: {"source": "...", "date": "...", "sum
 Do not include any explanations or text before/after the JSON.<|im_end|>
 "#.to_string()
     }
-}
 
-fn extract_json_objects(text: &str) -> Vec<String> {
-    let mut results = Vec::new();
-    let mut depth = 0;
-    let mut start = None;
+    fn extract_json_objects(text: &str) -> Vec<String> {
+        let mut results = Vec::new();
+        let mut depth = 0;
+        let mut start = None;
 
-    for (i, c) in text.char_indices() {
-        match c {
-            '{' => {
-                if depth == 0 {
-                    start = Some(i);
+        for (i, c) in text.char_indices() {
+            match c {
+                '{' => {
+                    if depth == 0 {
+                        start = Some(i);
+                    }
+                    depth += 1;
                 }
-                depth += 1;
-            }
-            '}' => {
-                depth -= 1;
-                if depth == 0 {
-                    if let Some(s) = start {
-                        let obj = &text[s..=i];
-                        if serde_json::from_str::<serde_json::Value>(obj).is_ok() {
-                            results.push(obj.to_string());
+                '}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        if let Some(s) = start {
+                            let obj = &text[s..=i];
+                            if serde_json::from_str::<serde_json::Value>(obj).is_ok() {
+                                results.push(obj.to_string());
+                            }
+                            start = None;
                         }
-                        start = None;
                     }
                 }
+                _ => {}
             }
-            _ => {}
         }
+
+        results
     }
 
-    results
+    /// Analyze pre-extracted text (for two-stage pipeline)
+    pub fn analyze_text(
+        &self,
+        fingerprint: &str,
+        filename: &str,
+        text: &str,
+    ) -> Result<AnalysisResult, ReasonerError> {
+        let model = self.model.as_ref().ok_or(ReasonerError::NoModel)?;
+
+        info!("Analyzing pre-extracted text for: {}", filename);
+
+        if text.is_empty() {
+            warn!("No text provided for: {}", filename);
+            return Ok(AnalysisResult {
+                filename: filename.to_string(),
+                facts: vec![],
+                raw_response: "No text content provided".to_string(),
+                tokens_used: 0,
+            });
+        }
+
+        let chunks = self.chunk_text(text, fingerprint.to_string());
+
+        let mut all_facts = Vec::new();
+        let mut raw_responses: Vec<crate::inference::llama::GenerationResult> = Vec::new();
+
+        info!("Processing {} chunks for {}", chunks.len(), filename);
+        for (i, chunk) in chunks.iter().enumerate() {
+            let prompt = self.build_prompt(&chunk.source_file, &chunk.text);
+            match model.generate_structured(&prompt) {
+                Ok(response) => {
+                    raw_responses.push(response.clone());
+                    let facts = self.parse_facts(&response.text);
+                    info!("Parsed {} facts from response", facts.len());
+                    all_facts.extend(facts);
+                    info!(
+                        "Processed chunk {}/{} for {}",
+                        i + 1,
+                        chunks.len(),
+                        filename
+                    );
+                }
+                Err(e) => {
+                    error!(
+                        "Failed to process chunk {}/{} for {}: {}",
+                        i + 1,
+                        chunks.len(),
+                        filename,
+                        e
+                    );
+                }
+            }
+        }
+
+        let unique_facts = self.deduplicate_facts(all_facts);
+
+        info!(
+            "Extracted {} unique facts from {}",
+            unique_facts.len(),
+            filename
+        );
+
+        Ok(AnalysisResult {
+            filename: filename.to_string(),
+            facts: unique_facts,
+            raw_response: raw_responses
+                .iter()
+                .map(|r| r.text.as_str())
+                .collect::<Vec<_>>()
+                .join("\n---\n"),
+            tokens_used: 0,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -399,7 +480,7 @@ mod tests {
     #[test]
     fn test_extract_json_objects() {
         let text = r#"{"source": "file.txt", "summary": "test"}"#;
-        let results = extract_json_objects(text);
+        let results = Reasoner::extract_json_objects(text);
         assert_eq!(results.len(), 1);
     }
 }
