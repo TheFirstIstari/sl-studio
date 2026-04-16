@@ -32,4 +32,4 @@ mise run test
 
 ## License
 
-MIT
+AGPL-3.0-only (see LICENSE file)
