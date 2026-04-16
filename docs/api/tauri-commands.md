@@ -18,11 +18,13 @@ The backend exposes 60+ commands to the frontend via Tauri's IPC mechanism. All 
 
 ## Hardware Commands
 
-| Command                | Parameters | Returns           | Description                   |
-| ---------------------- | ---------- | ----------------- | ----------------------------- |
-| `detect_hardware`      | None       | `HardwareInfo`    | Detect CPU/GPU/memory         |
-| `get_system_monitor`   | None       | `SystemMetrics`   | Real-time system metrics      |
-| `get_processing_stats` | None       | `ProcessingStats` | Current processing statistics |
+| Command                    | Parameters | Returns               | Description                       |
+| -------------------------- | ---------- | --------------------- | --------------------------------- |
+| `detect_hardware`          | None       | `HardwareInfo`        | Detect CPU/GPU/memory             |
+| `get_system_monitor`       | None       | `SystemMetrics`       | Real-time system metrics          |
+| `get_processing_stats`     | None       | `ProcessingStats`     | Current processing statistics     |
+| `get_hardware_info`        | None       | `HardwareInfo`        | Get current hardware capabilities |
+| `get_recommended_settings` | None       | `RecommendedSettings` | Get auto-scaled processing params |
 
 ## Registry Commands
 

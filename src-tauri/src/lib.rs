@@ -14,7 +14,19 @@ pub use models::{ModelManager, Quantization};
 
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
+use std::sync::OnceLock;
 use tauri::{AppHandle, Emitter, State};
+
+static GLOBAL_THREAD_POOL: OnceLock<rayon::ThreadPool> = OnceLock::new();
+
+fn get_or_create_thread_pool(workers: usize) -> &'static rayon::ThreadPool {
+    GLOBAL_THREAD_POOL.get_or_init(|| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(workers)
+            .build()
+            .expect("Failed to create global thread pool")
+    })
+}
 use tracing::{error, info};
 
 #[cfg(feature = "custom-protocol")]
@@ -79,6 +91,16 @@ fn validate_config(config: AppConfig) -> ValidationResult {
 #[tauri::command]
 fn detect_hardware() -> HardwareStatus {
     gpu::detect()
+}
+
+#[tauri::command]
+fn get_hardware_info(state: State<AppState>) -> config::HardwareInfo {
+    state.config.lock().unwrap().get_hardware_info()
+}
+
+#[tauri::command]
+fn get_recommended_settings() -> config::HardwareInfo {
+    config::HardwareInfo::default()
 }
 
 #[derive(Serialize, Clone)]
@@ -1643,6 +1665,8 @@ pub fn run() {
             save_config,
             validate_config,
             detect_hardware,
+            get_hardware_info,
+            get_recommended_settings,
             get_system_monitor,
             get_processing_stats,
             init_project,
@@ -1764,13 +1788,18 @@ async fn extract_batch(
     use extractors::{Deconstructor, ExtractorConfig};
     use rayon::prelude::*;
     
-    let workers = cpu_workers.unwrap_or(6) as usize;
+    let workers = {
+        if let Some(w) = cpu_workers {
+            w as usize
+        } else {
+            state.config.lock().unwrap().get_effective_workers() as usize
+        }
+    };
+    
     info!("Extracting batch of {} files with {} workers", fingerprints.len(), workers);
     
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(workers)
-        .build_global()
-        .map_err(|e| e.to_string())?;
+    let _pool = get_or_create_thread_pool(workers);
+    info!("Using thread pool with {} workers", workers);
     
     let total = fingerprints.len();
     

@@ -317,6 +317,30 @@ The following issues were fixed during implementation:
 - Fixed parallel extraction (using rayon for CPU parallel processing with configurable workers)
 - Fixed PDF extraction panic handling (added try/catch for problematic PDFs)
 - Fixed scan completion with state reset + timeout fallback
+- Fixed thread pool reuse (global pool instead of per-batch creation)
+- Added hardware auto-detection and auto-scaling
+
+#### Hardware Auto-Scaling
+
+The system automatically detects hardware and scales processing accordingly:
+
+- **Auto-detect CPU cores** - Uses `sysinfo` to detect available CPU threads
+- **Smart worker count** - Defaults to `CPU cores - 2` (leaves cores for UI)
+- **Memory-aware batching** - Batch size based on available RAM:
+  - 16GB+: batch size 10
+  - 8-16GB: batch size 6
+  - <8GB: batch size 4
+- **Thread pool reuse** - Global pool instead of creating new pool per batch
+
+#### New Commands
+
+- `get_hardware_info` - Returns detected hardware with recommended settings
+- `get_recommended_settings` - Standalone hardware detection
+
+#### Config Options
+
+- `auto_scale_workers` - Enable auto-scaling workers (default: true)
+- `auto_scale_batch` - Enable auto-scaling batch size (default: true)
 
 #### Current Implementation Status
 

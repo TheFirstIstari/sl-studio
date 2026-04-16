@@ -8,7 +8,7 @@ The GPU module handles hardware detection and auto-scaling parameters for optima
 
 `gpu/detect.rs` (~200 lines)
 
-Detects system capabilities and calculates optimal processing parameters:
+Detects system capabilities and calculates optimal processing parameters using the `sysinfo` crate:
 
 ```rust
 fn detect_hardware() -> HardwareInfo {
@@ -16,6 +16,49 @@ fn detect_hardware() -> HardwareInfo {
     // Calculate auto-scaling parameters
 }
 ```
+
+### Auto-Scaling Features
+
+#### Hardware Auto-Detection (sysinfo)
+
+Uses the `sysinfo` crate for cross-platform hardware detection:
+
+- **CPU**: Core count, architecture, frequency
+- **Memory**: Total RAM, available memory
+- **System**: OS type, host name
+
+#### Smart Worker Count
+
+CPU workers are calculated as `num_cores - 2` to leave headroom for the main thread and OS:
+
+| CPU Cores | Worker Threads |
+| --------- | -------------- |
+| 4         | 2              |
+| 8         | 6              |
+| 16        | 14             |
+| 32        | 30             |
+
+#### Memory-Aware Batching
+
+Batch sizes scale dynamically based on available memory:
+
+```rust
+let available_memory = system.available_memory();
+let batch_size = match available_memory {
+    0..=8_GB => 4,
+    8_GB..=16_GB => 8,
+    16_GB..=32_GB => 16,
+    _ => 24,
+};
+```
+
+#### Thread Pool Reuse
+
+Rayon thread pools are initialized once and reused across processing operations:
+
+- Eliminates pool creation overhead
+- Maintains warm thread affinity
+- Configured per-worker memory allocation
 
 ### Detected Information
 

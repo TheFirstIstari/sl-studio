@@ -11,6 +11,7 @@ SL Studio processes evidence files (PDFs, images, audio/video) through a pipelin
 - **Two-Stage Pipeline**: Working
 - **Stage 1 (Text Extraction)**: Fully functional with rayon parallel processing
 - **Stage 2 (LLM Analysis)**: Implemented, pending full testing
+- **Hardware Auto-Scaling**: Implemented (sysinfo-based detection, smart worker count, memory-aware batching, thread pool reuse)
 
 ### Key Features
 
