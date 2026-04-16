@@ -92,7 +92,7 @@
 		loading = true;
 		error = '';
 		try {
-			facts = await invoke<Fact[]>('search_facts', { query: '*', limit: 500 });
+			facts = await invoke<Fact[]>('search_facts', { query: 'a', limit: 500 });
 		} catch (e) {
 			console.error('Error loading facts:', e);
 			error = `Failed to load facts: ${e}`;
