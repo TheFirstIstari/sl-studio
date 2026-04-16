@@ -172,14 +172,13 @@
 			registryProgress.phase = 'complete';
 			registryProgress.processed = processed;
 			scanning = false;
+			clearTimeout(scanTimeout);
 		};
 
-		setTimeout(() => {
+		const scanTimeout = setTimeout(() => {
 			if (scanning) {
-				console.warn('Scan timeout - forcing completion state');
-				registryProgress.phase = 'complete';
-				registryProgress.current_file = 'Scan completed (timeout)';
-				scanning = false;
+				console.warn('Scan timeout - backend still running');
+				registryProgress.current_file = 'Scan still running...';
 			}
 		}, 300000);
 

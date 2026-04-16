@@ -740,16 +740,22 @@ impl Database {
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)?;
 
-        // Simple hash using std's default hasher
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-        let mut hasher = DefaultHasher::new();
-        metadata.len().hash(&mut hasher);
-        metadata.modified()?.hash(&mut hasher);
-        buffer.hash(&mut hasher);
-        let hash = hasher.finish();
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(metadata.len().to_le_bytes());
+        if let Ok(mtime) = metadata.modified() {
+            hasher.update(
+                mtime
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs()
+                    .to_le_bytes(),
+            );
+        }
+        hasher.update(&buffer);
+        let hash = hasher.finalize();
 
-        Ok(format!("{:016x}-{}", hash, metadata.len()))
+        Ok(format!("{:x}-{}", hash, metadata.len()))
     }
 
     pub fn get_unprocessed_files(&self, limit: i64) -> Result<Vec<RegistryEntry>> {

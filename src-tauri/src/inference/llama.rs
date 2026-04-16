@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
-use tracing::{info, error};
+use tracing::{error, info};
 
 #[derive(Error, Debug)]
 pub enum LlamaError {
@@ -29,6 +29,7 @@ pub struct LlamaConfig {
     pub repeat_penalty: f32,
     pub use_kv_cache: bool,
     pub prompt_cache: Option<String>,
+    pub n_threads: u32,
 }
 
 impl Default for LlamaConfig {
@@ -42,6 +43,7 @@ impl Default for LlamaConfig {
             repeat_penalty: 1.1,
             use_kv_cache: true,
             prompt_cache: None,
+            n_threads: num_cpus::get() as u32,
         }
     }
 }
@@ -113,7 +115,7 @@ impl LlamaModel {
     /// Load model from GGUF file
     pub fn load(&mut self) -> Result<(), LlamaError> {
         let model_path = Path::new(&self.config.model_path);
-        
+
         if !model_path.exists() {
             return Err(LlamaError::LoadError(format!(
                 "Model file not found: {}",
@@ -122,16 +124,15 @@ impl LlamaModel {
         }
 
         info!("Loading GGUF model: {}", self.config.model_path);
-        
+
         let mut params = llama_cpp::LlamaParams::default();
         params.n_gpu_layers = self.config.gpu_layers as u32;
-        
-        let model = llama_cpp::LlamaModel::load_from_file(model_path, params)
-            .map_err(|e| {
-                error!("Failed to load model: {}", e);
-                LlamaError::LoadError(e.to_string())
-            })?;
-        
+
+        let model = llama_cpp::LlamaModel::load_from_file(model_path, params).map_err(|e| {
+            error!("Failed to load model: {}", e);
+            LlamaError::LoadError(e.to_string())
+        })?;
+
         self.model = Some(model);
         self.loaded = true;
         info!("Model loaded successfully");
@@ -149,37 +150,40 @@ impl LlamaModel {
         if !self.loaded {
             return Err(LlamaError::NotLoaded);
         }
-        
+
         let model = self.model.as_ref().ok_or(LlamaError::NotLoaded)?;
-        
+
         let start = std::time::Instant::now();
-        
+
         // Tokenize the prompt
         let prompt_bytes = prompt.as_bytes();
-        let tokens = model.tokenize_bytes(prompt_bytes, true, true).map_err(|e| {
-            LlamaError::InferenceError(format!("Failed to tokenize: {}", e))
-        })?;
+        let tokens = model
+            .tokenize_bytes(prompt_bytes, true, true)
+            .map_err(|e| LlamaError::InferenceError(format!("Failed to tokenize: {}", e)))?;
         let prompt_tokens = tokens.len() as u32;
-        
+
         // Create session params
         let mut session_params = llama_cpp::SessionParams::default();
         session_params.n_ctx = self.config.context_size;
-        session_params.n_threads = 4;
-        
-        let mut session = model.create_session(session_params)
+        session_params.n_threads = self.config.n_threads;
+
+        let mut session = model
+            .create_session(session_params)
             .map_err(|e| LlamaError::InferenceError(e.to_string()))?;
-        
+
         // Advance context with tokens
-        session.advance_context_with_tokens(&tokens)
+        session
+            .advance_context_with_tokens(&tokens)
             .map_err(|e| LlamaError::InferenceError(e.to_string()))?;
-        
+
         // Start completion - handle Result
-        let mut completion = session.start_completing()
+        let mut completion = session
+            .start_completing()
             .map_err(|e| LlamaError::InferenceError(e.to_string()))?;
-        
+
         let mut generated_tokens = Vec::new();
         let max_tokens = self.config.max_tokens as usize;
-        
+
         // Generate tokens
         for _ in 0..max_tokens {
             match completion.next_token() {
@@ -192,12 +196,12 @@ impl LlamaModel {
                 None => break,
             }
         }
-        
+
         // Convert to string using into_string() on CompletionHandle
         let text = completion.into_string();
-        
+
         let duration_ms = start.elapsed().as_millis() as u64;
-        
+
         Ok(GenerationResult {
             text,
             tokens_generated: generated_tokens.len() as u32,
@@ -214,9 +218,9 @@ impl LlamaModel {
         if !self.loaded {
             return None;
         }
-        
+
         let model = self.model.as_ref()?;
-        
+
         Some(ModelInfo {
             architecture: "llama".to_string(),
             context_length: self.config.context_size,
@@ -251,18 +255,21 @@ impl ModelManager {
     pub fn add_model(&mut self, name: String, config: LlamaConfig) -> Result<(), LlamaError> {
         let mut model = LlamaModel::new(config);
         model.load()?;
-        
-        self.models.insert(name.clone(), Arc::new(Mutex::new(model)));
-        
+
+        self.models
+            .insert(name.clone(), Arc::new(Mutex::new(model)));
+
         if self.active_model.is_none() {
             self.active_model = Some(name);
         }
-        
+
         Ok(())
     }
 
     pub fn get_active(&self) -> Option<Arc<Mutex<LlamaModel>>> {
-        self.active_model.as_ref().and_then(|name| self.models.get(name).cloned())
+        self.active_model
+            .as_ref()
+            .and_then(|name| self.models.get(name).cloned())
     }
 
     pub fn set_active(&mut self, name: &str) -> Result<(), LlamaError> {
@@ -270,7 +277,10 @@ impl ModelManager {
             self.active_model = Some(name.to_string());
             Ok(())
         } else {
-            Err(LlamaError::NotAvailable(format!("Model '{}' not found", name)))
+            Err(LlamaError::NotAvailable(format!(
+                "Model '{}' not found",
+                name
+            )))
         }
     }
 
