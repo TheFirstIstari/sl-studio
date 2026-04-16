@@ -70,7 +70,8 @@ pub struct Stats {
 // Commands
 #[tauri::command]
 fn load_config(state: State<AppState>) -> Result<AppConfig, String> {
-    let config = state.config.lock().unwrap().clone();
+    let guard = state.config.lock().map_err(|e| format!("Failed to lock config: {}", e))?;
+    let config = guard.clone();
     info!("Config loaded");
     Ok(config)
 }
@@ -78,7 +79,8 @@ fn load_config(state: State<AppState>) -> Result<AppConfig, String> {
 #[tauri::command]
 fn save_config(state: State<AppState>, config: AppConfig) -> Result<(), String> {
     config.save().map_err(|e| e.to_string())?;
-    *state.config.lock().unwrap() = config;
+    let mut guard = state.config.lock().map_err(|e| format!("Failed to lock config: {}", e))?;
+    *guard = config;
     info!("Config saved");
     Ok(())
 }
@@ -95,7 +97,7 @@ fn detect_hardware() -> HardwareStatus {
 
 #[tauri::command]
 fn get_hardware_info(state: State<AppState>) -> config::HardwareInfo {
-    state.config.lock().unwrap().get_hardware_info()
+    state.config.lock().map(|g| g.get_hardware_info()).unwrap_or_default()
 }
 
 #[tauri::command]
@@ -154,8 +156,8 @@ pub struct ProcessingStats {
 
 #[tauri::command]
 fn get_processing_stats(state: State<AppState>) -> Result<ProcessingStats, String> {
-    let db = state.db.lock().unwrap();
-    if let Some(db) = db.as_ref() {
+    let db_guard = state.db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+    if let Some(db) = db_guard.as_ref() {
         let stats = db.get_overall_statistics().map_err(|e| e.to_string())?;
 
         Ok(ProcessingStats {
@@ -184,7 +186,10 @@ async fn init_project(
     let db = Database::new(&config.project.registry_db, &config.project.intelligence_db)
         .map_err(|e| e.to_string())?;
 
-    *state.db.lock().unwrap() = Some(db);
+    {
+        let mut db_guard = state.db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+        *db_guard = Some(db);
+    }
 
     // Create registry worker
     let worker = RegistryWorker::new(
@@ -194,11 +199,17 @@ async fn init_project(
     )
     .map_err(|e| e.to_string())?;
 
-    *state.registry_worker.lock().unwrap() = Some(worker);
+    {
+        let mut worker_guard = state.registry_worker.lock().map_err(|e| format!("Failed to lock worker: {}", e))?;
+        *worker_guard = Some(worker);
+    }
 
     // Save config
     config.save().map_err(|e| e.to_string())?;
-    *state.config.lock().unwrap() = config;
+    {
+        let mut config_guard = state.config.lock().map_err(|e| format!("Failed to lock config: {}", e))?;
+        *config_guard = config;
+    }
 
     info!("Project initialized successfully");
     app.emit("project_initialized", true).ok();
@@ -209,11 +220,11 @@ async fn init_project(
 #[tauri::command]
 async fn start_registry(app: AppHandle, state: State<'_, AppState>) -> Result<usize, String> {
     let (evidence_root, registry_db, intelligence_db) = {
-        let config = state.config.lock().unwrap();
+        let config_guard = state.config.lock().map_err(|e| format!("Failed to lock config: {}", e))?;
         (
-            config.project.evidence_root.clone(),
-            config.project.registry_db.clone(),
-            config.project.intelligence_db.clone(),
+            config_guard.project.evidence_root.clone(),
+            config_guard.project.registry_db.clone(),
+            config_guard.project.intelligence_db.clone(),
         )
     };
 
@@ -242,8 +253,8 @@ async fn start_registry(app: AppHandle, state: State<'_, AppState>) -> Result<us
 
 #[tauri::command]
 fn get_stats(state: State<AppState>) -> Result<Stats, String> {
-    let db = state.db.lock().unwrap();
-    if let Some(db) = db.as_ref() {
+    let db_guard = state.db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+    if let Some(db) = db_guard.as_ref() {
         Ok(Stats {
             registry_count: db.get_registry_count().unwrap_or(0),
             intelligence_count: db.get_intelligence_count().unwrap_or(0),

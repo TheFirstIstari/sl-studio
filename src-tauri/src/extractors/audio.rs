@@ -31,50 +31,19 @@ pub struct AudioExtractor {
 }
 
 impl AudioExtractor {
-    pub fn new(model_path: &Path) -> Result<Self, AudioError> {
-        let model_path_str = model_path.to_string_lossy().to_string();
-
-        if !model_path.exists() {
-            return Err(AudioError::FileNotFound(format!(
-                "Model not found at: {}",
-                model_path_str
-            )));
-        }
-
-        info!("Audio extractor initialized with model: {}", model_path_str);
-
-        Ok(AudioExtractor {
-            model_path: Some(model_path_str),
-            model_loaded: true,
-        })
+    pub fn new(_model_path: &Path) -> Result<Self, AudioError> {
+        Err(AudioError::NotAvailable(
+            "Audio transcription is not implemented. This feature requires whisper-rs with cmake support, \
+             which is not available in the current build configuration.".to_string(),
+        ))
     }
 
     pub fn transcribe(&self, path: &Path) -> Result<String, AudioError> {
-        if !self.model_loaded {
-            return Err(AudioError::NotAvailable(
-                "Audio transcription requires whisper-rs to be compiled with cmake support"
-                    .to_string(),
-            ));
-        }
-
-        let path_str = path.to_string_lossy();
-        info!("Transcribing audio: {}", path_str);
-
-        let metadata = self.get_metadata(path)?;
-        info!(
-            "Audio metadata: duration={:?}s, format={}",
-            metadata.duration_seconds, metadata.format
-        );
-
-        Ok(format!(
-            "[Audio transcription placeholder]\n\
-            File: {}\n\
-            Duration: {:?} seconds\n\
-            Format: {}\n\
-            \n\
-            NOTE: Full transcription requires whisper-rs compiled with cmake support.\n\
-            Install cmake and rebuild to enable audio transcription.",
-            path_str, metadata.duration_seconds, metadata.format
+        Err(AudioError::NotAvailable(
+            "Audio transcription is not implemented. This feature requires whisper-rs with cmake support, \
+             which is not available in the current build configuration. \
+             To enable audio transcription, the project would need to add whisper-rs as a dependency \
+             and compile it with cmake support.".to_string(),
         ))
     }
 
