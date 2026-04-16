@@ -49,14 +49,8 @@ impl Deconstructor {
         let pdf = PdfExtractor::new();
         let ocr = OcrExtractor::new().map_err(|e| ExtractionError::OcrError(e.to_string()))?;
 
-        let audio = if let Some(model_path) = &config.whisper_model_path {
-            Some(
-                AudioExtractor::new(model_path)
-                    .map_err(|e| ExtractionError::AudioError(e.to_string()))?,
-            )
-        } else {
-            None
-        };
+        let audio =
+            AudioExtractor::new().map_err(|e| ExtractionError::AudioError(e.to_string()))?;
 
         info!("Deconstructor initialized");
 
@@ -125,7 +119,7 @@ impl Deconstructor {
                     (text, "audio".to_string())
                 } else {
                     return Err(ExtractionError::AudioError(
-                        "Audio extractor not initialized (no model path)".to_string(),
+                        "Audio transcription not available (whisper CLI not installed)".to_string(),
                     ));
                 }
             }

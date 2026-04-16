@@ -37,17 +37,15 @@ pub struct AudioExtractor {
 }
 
 impl AudioExtractor {
-    pub fn new(model_path: &Path) -> Result<Self, AudioError> {
-        let model_path_str = if model_path.exists() {
-            Some(model_path.to_string_lossy().to_string())
-        } else {
-            None
-        };
+    pub fn new() -> Result<Option<Self>, AudioError> {
+        if !Self::check_whisper_available() {
+            return Ok(None);
+        }
 
-        Ok(AudioExtractor {
-            model_path: model_path_str,
+        Ok(Some(AudioExtractor {
+            model_path: None,
             model_loaded: true,
-        })
+        }))
     }
 
     pub fn transcribe(&self, path: &Path) -> Result<String, AudioError> {
