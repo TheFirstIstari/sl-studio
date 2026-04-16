@@ -881,15 +881,17 @@ fn compare_projects(
     let (entities1, timeline1, project1_name) = {
         let db_guard = state.db.lock().unwrap();
         let db = db_guard.as_ref().ok_or("Database not initialized")?;
-        
-        let entities1 = db.get_entity_centrality(None, 0.0)
+
+        let entities1 = db
+            .get_entity_centrality(None, 0.0)
             .map_err(|e| e.to_string())?;
-        let timeline1 = db.get_timeline_events(None, None, 1000)
+        let timeline1 = db
+            .get_timeline_events(None, None, 1000)
             .map_err(|e| e.to_string())?;
-        
+
         let config = state.config.lock().unwrap();
         let project1_name = config.project.name.clone();
-        
+
         (entities1, timeline1, project1_name)
     };
 
@@ -908,12 +910,14 @@ fn compare_projects(
         let mut entity_overlap = Vec::new();
         let mut common_entities = Vec::new();
 
-        let mut entity_map1: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
+        let mut entity_map1: std::collections::HashMap<String, i32> =
+            std::collections::HashMap::new();
         for e in &entities1 {
             *entity_map1.entry(e.value.clone()).or_insert(0) += e.occurrence_count;
         }
 
-        let mut entity_map2: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
+        let mut entity_map2: std::collections::HashMap<String, i32> =
+            std::collections::HashMap::new();
         for e in &entities2 {
             *entity_map2.entry(e.value.clone()).or_insert(0) += e.occurrence_count;
         }
@@ -1132,7 +1136,10 @@ fn restore_backup(state: State<AppState>, backup_path: String) -> Result<(), Str
 
     let (registry_db, intelligence_db) = {
         let config = state.config.lock().unwrap();
-        (config.project.registry_db.clone(), config.project.intelligence_db.clone())
+        (
+            config.project.registry_db.clone(),
+            config.project.intelligence_db.clone(),
+        )
     };
 
     for i in 0..archive.len() {

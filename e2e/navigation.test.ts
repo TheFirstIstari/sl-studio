@@ -45,14 +45,14 @@ test.describe('Navigation', () => {
 		await page.goto('/');
 		await page.click('a[href="/maps"]');
 		await expect(page).toHaveURL('/maps');
-		await expect(page.locator('h1')).toContainText('Geographic');
+		await expect(page.locator('h1')).toContainText('Geographic Locations');
 	});
 
 	test('should navigate to anomalies page', async ({ page }) => {
 		await page.goto('/');
 		await page.click('a[href="/anomalies"]');
 		await expect(page).toHaveURL('/anomalies');
-		await expect(page.locator('h1')).toContainText('Anomaly');
+		await expect(page.locator('h1')).toContainText('Anomaly Detection');
 	});
 
 	test('should navigate to export page', async ({ page }) => {

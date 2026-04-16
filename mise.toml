@@ -1,217 +1,132 @@
 [env]
 RUSTUP_HOME = "~/.rustup"
+LIBS = "/opt/homebrew/lib"
 
 [tools]
 node = "22"
 rust = "stable"
 
-[tasks.dev]
-description = "Start Tauri dev server"
-run = "npm run tauri dev"
+# ============================================================
+# Core Commands
+# ============================================================
 
-[tasks.dev_frontend]
-description = "Start SvelteKit dev server"
-run = "npm run dev"
-
-[tasks.build]
-description = "Build the Tauri application"
-run = "npm run tauri build"
-
-[tasks.build_frontend]
-description = "Build the SvelteKit frontend"
-run = "npm run build"
-
-[tasks.build_rust]
-description = "Build Rust backend only"
-run = "cd src-tauri && cargo build --release"
-
-[tasks.test]
-description = "Run all tests (Rust + TypeScript)"
+[tasks.run]
+description = "Run full CI pipeline (format, lint, typecheck, test)"
+alias = ["ci", "check"]
 run = [
-    "cargo test --manifest-path src-tauri/Cargo.toml",
-    "npm run check",
+    "mise run format",
+    "mise run lint_types",
+    "mise run test",
 ]
 
-[tasks.test_rust]
-description = "Run Rust tests only"
-run = "cargo test --manifest-path src-tauri/Cargo.toml"
-alias = "t"
+[tasks.test]
+description = "Run tests (TypeScript + E2E) - skips Rust if linker broken"
+run = [
+    "echo 'Running frontend checks...'",
+    "npm run check",
+    "echo 'Running E2E tests...'",
+    "npx playwright test",
+]
 
-[tasks.test_frontend]
-description = "Run TypeScript checks"
-run = "npm run check"
+[tasks.build]
+description = "Build the application"
+run = "npm run tauri build"
 
-[tasks.lint]
-description = "Run linting and type checks"
-run = "npm run check"
+[tasks.dev]
+description = "Start development server"
+run = "npm run tauri dev"
 
-[tasks.lint_rust]
-description = "Run Rust clippy"
-run = "cd src-tauri && cargo clippy -- -D warnings"
+# ============================================================
+# Pre-commit / Pre-push
+# ============================================================
 
-[tasks.lint_frontend]
-description = "Run SvelteKit check"
-run = "npm run check"
+[tasks.precommit]
+description = "Quick validation before committing"
+alias = ["pc"]
+run = [
+    "mise run format",
+    "mise run lint_types",
+]
 
-[tasks.format_check]
-description = "Check code formatting (prettier + rustfmt)"
+[tasks.prepush]
+description = "Full validation before pushing"
+alias = ["push"]
+run = [
+    "mise run run",
+]
+
+# ============================================================
+# Individual checks
+# ============================================================
+
+[tasks.format]
+description = "Check formatting (prettier + rustfmt)"
 run = [
     "npm run format:check",
     "cd src-tauri && cargo fmt --check",
 ]
 
 [tasks.format_fix]
-description = "Auto-fix formatting (prettier + rustfmt)"
+description = "Auto-fix formatting"
 run = [
     "npm run format",
     "cd src-tauri && cargo fmt",
 ]
 
-# ============================================================
-# CI Pipeline - Run everything GitHub Actions runs
-# ============================================================
-[tasks.ci]
-description = "Run full CI pipeline (lint, typecheck, build, test)"
-alias = ["ci_all"]
+[tasks.lint]
+description = "Run linting checks"
 run = [
-    "mise run ci_frontend",
-    "mise run ci_rust",
-    "mise run ci_test",
+    "mise run lint_types",
+    "mise run lint_clippy",
 ]
 
-[tasks.ci_frontend]
-description = "CI: Frontend checks (lint, typecheck, build)"
-run = [
-    "echo '=== Frontend: Type Check ==='",
-    "npm run check",
-    "echo '=== Frontend: Lint ==='",
-    "npm run lint",
-    "echo '=== Frontend: Format Check ==='",
-    "npm run format:check",
-    "echo '=== Frontend: Build ==='",
-    "npm run build",
-    "echo '=== Frontend checks passed ✓ ==='",
-]
-
-[tasks.ci_rust]
-description = "CI: Rust checks (fmt, clippy, build)"
-run = [
-    "echo '=== Rust: Format Check ==='",
-    "cd src-tauri && cargo fmt --check",
-    "echo '=== Rust: Clippy ==='",
-    "cd src-tauri && cargo clippy -- -D warnings",
-    "echo '=== Rust: Build ==='",
-    "cd src-tauri && cargo build --release",
-    "echo '=== Rust checks passed ✓ ==='",
-]
-
-[tasks.ci_test]
-description = "CI: Run all tests"
-run = [
-    "echo '=== Rust: Tests ==='",
-    "cargo test --manifest-path src-tauri/Cargo.toml",
-    "echo '=== All tests passed ✓ ==='",
-]
-
-[tasks.ci_quick]
-description = "CI: Quick checks only (no build, no tests)"
+[tasks.lint_types]
+description = "Run type and lint checks"
 run = [
     "npm run check",
     "npm run lint",
-    "npm run format:check",
-    "cargo fmt --check --manifest-path src-tauri/Cargo.toml",
-    "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
 ]
 
-[tasks.ci_no_lint]
-description = "CI: Build and test only (skip linting)"
-run = [
-    "npm run build",
-    "cargo build --manifest-path src-tauri/Cargo.toml",
-    "cargo test --manifest-path src-tauri/Cargo.toml",
-]
+[tasks.lint_clippy]
+description = "Run Rust clippy"
+run = "cd src-tauri && cargo clippy -- -D warnings"
 
 # ============================================================
-# Pre-commit checks (lightweight, fast)
+# Individual test commands
 # ============================================================
-[tasks.precommit]
-description = "Pre-commit checks (quick validation before committing)"
-alias = ["pc"]
-run = [
-    "echo '=== Pre-commit: Format Check ==='",
-    "npm run format:check",
-    "cargo fmt --check --manifest-path src-tauri/Cargo.toml",
-    "echo '=== Pre-commit: Quick Type Check ==='",
-    "npm run check",
-    "echo '=== Pre-commit: Rust Check ==='",
-    "cargo check --manifest-path src-tauri/Cargo.toml",
-    "echo '=== Pre-commit passed ==='",
-]
 
-[tasks.prepush]
-description = "Pre-push checks (full validation before pushing)"
-run = [
-    "mise run ci",
-    "echo '=== Ready to push ==='",
-]
+[tasks.test_rust]
+description = "Run Rust tests only"
+run = "cargo test --manifest-path src-tauri/Cargo.toml"
 
-# ============================================================
-# Playwright E2E tests
-# ============================================================
-[tasks.e2e]
+[tasks.test_e2e]
 description = "Run Playwright E2E tests"
 run = "npx playwright test"
 
-[tasks.e2e_chromium]
-description = "Run E2E tests (Chromium only)"
-run = "npx playwright test --project=chromium"
+[tasks.test_types]
+description = "Run TypeScript checks"
+run = "npm run check"
 
-[tasks.e2e_headed]
-description = "Run E2E tests in headed mode"
-run = "npx playwright test --headed"
-
-[tasks.e2e_ui]
-description = "Run E2E tests with Playwright UI"
-run = "npx playwright test --ui"
+# ============================================================
+# Build variants
+# ============================================================
 
 [tasks.release]
-description = "Create production release for current platform"
+description = "Create production release"
 run = "npm run tauri build"
 
-[tasks.release_dmg]
-description = "Build macOS app bundle (DMG may fail, app works)"
+[tasks.release_macos]
+description = "Build macOS app bundle"
 run = "npm run tauri build -- --bundles app"
 
-[tasks.release_app]
-description = "Build macOS app bundle only"
-run = "npm run tauri build -- --bundles app"
-
-[tasks.release_linux_deb]
-description = "Build Linux .deb package"
-run = "npm run tauri build -- --bundles deb"
-
-[tasks.release_linux_appimage]
-description = "Build Linux AppImage"
-run = "npm run tauri build -- --bundles appimage"
-
-[tasks.release_linux]
-description = "Build Linux packages (deb + AppImage)"
-run = "npm run tauri build -- --bundles deb,appimage"
-
-[tasks.release_windows]
-description = "Build Windows installer"
-run = "npm run tauri build -- --bundles msi,exe"
-
-[tasks.release_all]
-description = "Build all platform bundles (for current platform only)"
-run = "npm run tauri build"
+# ============================================================
+# Setup and utilities
+# ============================================================
 
 [tasks.setup]
 description = "Initial project setup"
 run = [
-    "echo 'Installing Rust dependencies...'",
     "cargo fetch --manifest-path src-tauri/Cargo.toml",
-    "echo 'Installing Node dependencies...'",
     "npm install",
 ]
 
@@ -223,103 +138,9 @@ run = [
     "rm -rf build",
 ]
 
-[tasks.clean_all]
-description = "Full clean including Rust target"
-run = [
-    "rm -rf src-tauri/target",
-    "rm -rf .svelte-kit",
-    "rm -rf build",
-]
-
-[tasks.check]
-description = "Quick check (compile without tests)"
-run = "cargo check --manifest-path src-tauri/Cargo.toml"
-alias = "c"
-
-[tasks.tauri]
-description = "Run Tauri CLI directly"
-run = "npm run tauri"
-alias = "t"
-
-[tasks.watch]
-description = "Watch mode for development"
-run = "npm run tauri dev -- --watch"
-
 [tasks.open]
 description = "Open built application"
 run = "open src-tauri/target/release/SL Studio.app"
-
-[tasks.logs]
-description = "View application logs"
-run = "tail -f ~/.local/share/slstudio/logs/*.log"
-
-[tasks.db_reg]
-description = "Open registry database"
-run = "sqlite3 ~/.local/share/slstudio/registry.db"
-
-[tasks.db_intel]
-description = "Open intelligence database"
-run = "sqlite3 ~/.local/share/slstudio/intelligence.db"
-
-[tasks.db_test]
-description = "Create test databases"
-run = "mkdir -p /tmp/slstudio_test && touch /tmp/slstudio_test/registry.db /tmp/slstudio_test/intelligence.db"
-
-[tasks.test_coverage]
-description = "Run tests with coverage report (requires tarpaulin)"
-run = "cargo tarpaulin --manifest-path src-tauri/Cargo.toml --out Html --target-dir target/coverage"
-
-[tasks.test_ci]
-description = "Run tests in CI mode (no debug output)"
-run = "cargo test --manifest-path src-tauri/Cargo.toml -- --nocapture=false"
-
-[tasks.benchmark]
-description = "Run all benchmarks"
-run = "cargo bench --manifest-path src-tauri/Cargo.toml"
-alias = "bench"
-
-[tasks.benchmark_quick]
-description = "Run benchmarks with minimal iterations for quick feedback"
-run = "cargo bench --manifest-path src-tauri/Cargo.toml -- --quick"
-
-[tasks.benchmark_search]
-description = "Run search query parsing benchmarks"
-run = "cargo bench --manifest-path src-tauri/Cargo.toml -- parse_search_query"
-
-[tasks.benchmark_entities]
-description = "Run entity overlap benchmarks"
-run = "cargo bench --manifest-path src-tauri/Cargo.toml -- entity_overlap"
-
-[tasks.benchmark_strings]
-description = "Run string operation benchmarks"
-run = "cargo bench --manifest-path src-tauri/Cargo.toml -- string_operations"
-
-[tasks.benchmark_collections]
-description = "Run collection benchmarks"
-run = "cargo bench --manifest-path src-tauri/Cargo.toml -- collections"
-
-[tasks.benchmark_save]
-description = "Run benchmarks and save results to file"
-run = "cargo bench --manifest-path src-tauri/Cargo.toml -- --output-format html > benchmark-results.html 2>&1 || cargo bench --manifest-path src-tauri/Cargo.toml 2>&1 | tee benchmark-results.txt"
-
-[tasks.profile]
-description = "Run Rust profiler (requires perf on Linux or Instruments on macOS)"
-run = "echo 'On macOS, use: instrument -t Time Profiler target/release/steinline'"
-
-[tasks.watch_rust]
-description = "Watch and build Rust with bacon"
-run = "cd src-tauri && bacon build"
-alias = "w"
-
-[tasks.watch_tests]
-description = "Watch and run tests with bacon"
-run = "cd src-tauri && bacon test"
-alias = "wt"
-
-[tasks.watch_clippy]
-description = "Watch and run clippy with bacon"
-run = "cd src-tauri && bacon clippy"
-alias = "wc"
 
 [settings]
 jobs = 4

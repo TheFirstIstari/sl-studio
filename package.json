@@ -1,7 +1,7 @@
 {
 	"name": "steinline",
-	"version": "0.1.0",
-	"description": "",
+	"version": "0.2.0",
+	"description": "SL Studio - Forensic Document Analysis Platform",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",

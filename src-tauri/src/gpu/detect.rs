@@ -131,7 +131,7 @@ fn detect_gpu_internal() -> Vec<GpuInfo> {
 
 #[cfg(target_os = "macos")]
 fn get_metal_name() -> Option<String> {
-    let output = std::process::Command::new("sysctl")
+    let output = std::process::Command::new("/usr/sbin/sysctl")
         .args(["-n", "machdep.cpu.brand_string"])
         .output()
         .ok()?;
@@ -147,7 +147,7 @@ fn get_metal_name() -> Option<String> {
 
 #[cfg(target_os = "macos")]
 fn get_apple_silicon_memory() -> u64 {
-    let output = std::process::Command::new("sysctl")
+    let output = std::process::Command::new("/usr/sbin/sysctl")
         .args(["-n", "hw.memsize"])
         .output()
         .ok();

@@ -46,6 +46,7 @@ export default [
 	{
 		rules: {
 			'svelte/no-at-html-tags': 'error',
+			'svelte/prefer-svelte-reactivity': 'off',
 			'svelte/no-navigation-without-resolve': 'off',
 			'svelte/require-each-key': 'off'
 		}

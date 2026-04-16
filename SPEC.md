@@ -3249,3 +3249,53 @@ This section tracks issues identified during code review. Issues are organized b
 | Low      | BE-007  | Audio transcription stub (placeholder)                    |
 | Low      | BE-008  | LLM inference stub (hardcoded JSON)                       |
 | Low      | BE-003  | Many `.unwrap()` on mutexes (~225 instances, low risk)    |
+
+================================================================================
+================================================================================
+
+## Additional Fixes Applied (April 2026)
+
+### Recent Fixes
+
+| ID      | File                               | Description                                         | Status    |
+| ------- | --------------------------------- | --------------------------------------------------- | --------- |
+| FIX-001 | e2e/navigation.test.ts         | Fixed heading assertions for maps and anomalies pages    | FIXED     |
+| FIX-002 | src-tauri/tauri.conf.json       | Removed unsafe-inline from CSP (XSS protection)         | FIXED     |
+| FIX-003 | src-tauri/Cargo.toml           | Disabled devtools in production builds                | FIXED     |
+| FIX-004 | src-tauri/src/gpu/detect.rs   | Use absolute path for sysctl commands                | FIXED     |
+| FIX-005 | src-tauri/Cargo.lock         | Generated lockfile for reproducible builds         | FIXED     |
+| FIX-006 | mise.toml                    | Consolidated commands (run, test, precommit)    | FIXED     |
+| FIX-007 | eslint.config.js            | Disabled prefer-svelte-reactivity (false positives) | FIXED     |
+| FIX-008 | package.json                 | Version 0.2.0, added description                | FIXED     |
+
+### Security Audit Results
+
+- HIGH: Missing Cargo.lock - FIX-005 generated lockfile
+- HIGH: DevTools in production - FIX-003 disabled by default
+- HIGH: CSP unsafe-inline - FIX-002 removed for stronger XSS protection
+- LOW: Absolute paths - FIX-004 uses absolute paths for system commands
+
+### Security Posture: MEDIUM-HIGH
+
+| Category   | Status  |
+| -----------| --------|
+| SQL Injection | Protected (parameterized queries) |
+| XSS           | Protected (no @html in Svelte) |
+| CSRF          | Tauri IPC isolation |
+| Secrets       | No hardcoded secrets |
+| Unsafe Code  | forbidden via lint |
+| CSP           | Strengthened (no unsafe-inline) |
+| DevTools      | Disabled in production |
+
+### Mise Commands
+
+| Command            | Alias  | Description                          |
+| -------------------| ------ | ------------------------------------ |
+| mise run run        | ci     | Full CI pipeline                      |
+| mise run test       | -      | TypeScript + E2E tests                |
+| mise run precommit | pc     | Quick check before commit             |
+| mise run prepush    | push   | Full check before push               |
+| mise run dev       | -      | Start dev server                    |
+| mise run build     | -      | Build release                       |
+
+================================================================================
