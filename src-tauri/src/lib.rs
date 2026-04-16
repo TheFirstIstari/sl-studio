@@ -133,7 +133,7 @@ fn get_system_monitor() -> SystemMonitor {
     };
 
     let gpu_status = gpu::detect();
-    let gpu_usage = gpu_status.gpu_info.first().map(|_| 0.0f32);
+    let gpu_usage = None;
     let gpu_memory = gpu_status.gpu_info.first().map(|g| g.vram_mb);
 
     SystemMonitor {
@@ -1809,16 +1809,17 @@ async fn extract_batch(
     
     info!("Extracting batch of {} files with {} workers", fingerprints.len(), workers);
     
-    let _pool = get_or_create_thread_pool(workers);
+    let pool = get_or_create_thread_pool(workers);
     info!("Using thread pool with {} workers", workers);
     
     let total = fingerprints.len();
     
+    // Phase 1: Pre-fetch ALL paths from DB BEFORE parallel (outside parallel)
     let db_guard = state.db.lock().unwrap();
     let db = db_guard.as_ref().ok_or("Database not initialized")?;
     
     let file_data: Vec<(String, String)> = fingerprints
-        .par_iter()
+        .iter()
         .filter_map(|fingerprint| {
             match db.get_registry_entry(fingerprint) {
                 Ok(entry) => Some((fingerprint.clone(), entry.path)),
@@ -1827,99 +1828,64 @@ async fn extract_batch(
         })
         .collect();
     
-    let valid_fingerprints: Vec<String> = file_data.iter().map(|(fp, _)| fp.clone()).collect();
-    
     drop(db_guard);
     
-    let results: Vec<ExtractionResult> = valid_fingerprints
-        .par_iter()
-        .filter_map(|fingerprint| {
-            let config = ExtractorConfig::default();
-            let deconstructor = match Deconstructor::new(config) {
-                Ok(d) => d,
-                Err(e) => {
+    // Phase 2: Run parallel extraction using thread pool (NO locks)
+    let deconstructor = {
+        let config = ExtractorConfig::default();
+        Deconstructor::new(config).map_err(|e| format!("Failed to create Deconstructor: {}", e))?
+    };
+    
+    let results: Vec<ExtractionResult> = pool.install(|| {
+        file_data
+            .par_iter()
+            .filter_map(|(fingerprint, path)| {
+                let file_path = std::path::Path::new(path);
+                if !file_path.exists() {
                     return Some(ExtractionResult {
-                        fingerprint: fingerprint.clone(),
-                        path: String::new(),
-                        success: false,
-                        char_count: 0,
-                        error: Some(format!("Deconstructor init failed: {}", e)),
-                        quality: None,
-                        extraction_text: None,
-                        is_partial: false,
-                    });
-                }
-            };
-            
-            let db_guard = state.db.lock().unwrap();
-            let db = match db_guard.as_ref() {
-                Some(d) => d,
-                None => return None,
-            };
-            
-            let path = match db.get_registry_entry(fingerprint) {
-                Ok(entry) => entry.path,
-                Err(e) => {
-                    return Some(ExtractionResult {
-                        fingerprint: fingerprint.clone(),
-                        path: String::new(),
-                        success: false,
-                        char_count: 0,
-                        error: Some(format!("Registry lookup failed: {}", e)),
-                        quality: None,
-                        extraction_text: None,
-                        is_partial: false,
-                    });
-                }
-            };
-            
-            drop(db_guard);
-            
-            let file_path = std::path::Path::new(&path);
-            if !file_path.exists() {
-                return Some(ExtractionResult {
-                    fingerprint: fingerprint.clone(),
-                    path,
-                    success: false,
-                    char_count: 0,
-                    error: Some("File not found".to_string()),
-                    quality: None,
-                    extraction_text: None,
-                    is_partial: false,
-                });
-            }
-            
-            let _start = std::time::Instant::now();
-            match deconstructor.extract(file_path) {
-                Ok(extraction) => {
-                    Some(ExtractionResult {
                         fingerprint: fingerprint.clone(),
                         path: path.clone(),
-                        success: true,
-                        char_count: extraction.char_count,
-                        error: None,
-                        quality: Some(extraction.is_partial as u8 as f64),
-                        extraction_text: Some(extraction.text),
-                        is_partial: extraction.is_partial,
-                    })
-                }
-                Err(e) => {
-                    error!("Extraction failed for {}: {}", path, e);
-                    Some(ExtractionResult {
-                        fingerprint: fingerprint.clone(),
-                        path,
                         success: false,
                         char_count: 0,
-                        error: Some(e.to_string()),
+                        error: Some("File not found".to_string()),
                         quality: None,
                         extraction_text: None,
                         is_partial: false,
-                    })
+                    });
                 }
-            }
-        })
-        .collect();
+                
+                match deconstructor.extract(file_path) {
+                    Ok(extraction) => {
+                        Some(ExtractionResult {
+                            fingerprint: fingerprint.clone(),
+                            path: path.clone(),
+                            success: true,
+                            char_count: extraction.char_count,
+                            error: None,
+                            quality: Some(extraction.is_partial as u8 as f64),
+                            extraction_text: Some(extraction.text),
+                            is_partial: extraction.is_partial,
+                        })
+                    }
+                    Err(e) => {
+                        error!("Extraction failed for {}: {}", path, e);
+                        Some(ExtractionResult {
+                            fingerprint: fingerprint.clone(),
+                            path: path.clone(),
+                            success: false,
+                            char_count: 0,
+                            error: Some(e.to_string()),
+                            quality: None,
+                            extraction_text: None,
+                            is_partial: false,
+                        })
+                    }
+                }
+            })
+            .collect()
+    });
     
+    // Phase 3: Write results to DB AFTER parallel completes
     let success_results: Vec<ExtractionResult> = results
         .iter()
         .filter(|r| r.success)
