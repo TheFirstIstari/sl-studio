@@ -3299,3 +3299,119 @@ This section tracks issues identified during code review. Issues are organized b
 | mise run build     | -      | Build release                       |
 
 ================================================================================
+
+================================================================================
+================================================================================
+
+# Appendix: Current Project State (April 2026)
+
+## Implementation Status
+
+### Core Components
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| **Tauri Backend** | ✅ Complete | Rust with Tauri 2 |
+| **SvelteKit Frontend** | ✅ Complete | 11 routes implemented |
+| **LLM Integration** | ✅ Complete | llama_cpp 0.3 with GGUF support |
+| **Database** | ✅ Complete | SQLite with FTS5 |
+| **Model Download** | ✅ Complete | HuggingFace integration |
+| **Release Build** | ✅ Complete | DMG and App bundle created |
+
+### Implemented Pages (Frontend)
+
+| Page | Route | Status |
+|------|-------|--------|
+| Dashboard | `/` | ✅ Complete |
+| Analysis | `/analysis` | ✅ Complete |
+| Results | `/results` | ✅ Complete |
+| Timeline | `/timeline` | ✅ Complete |
+| Network | `/network` | ✅ Complete |
+| Maps | `/maps` | ✅ Complete |
+| Anomalies | `/anomalies` | ✅ Complete |
+| Compare | `/compare` | ✅ Complete |
+| Stats | `/stats` | ✅ Complete |
+| Settings | `/settings` | ✅ Complete |
+| Backup/Export | `/backup` | ✅ Complete |
+
+### Backend Modules
+
+| Module | Location | Status |
+|--------|----------|--------|
+| **Extractors** | `src-tauri/src/extractors/` | ✅ PDF, OCR, document, audio |
+| **LLM Inference** | `src-tauri/src/inference/` | ✅ Reasoner, pipeline, llama.rs |
+| **GPU Detection** | `src-tauri/src/gpu/` | ✅ Hardware detection |
+| **Database** | `src-tauri/src/core/database.rs` | ✅ Full schema |
+| **Config** | `src-tauri/src/config/` | ✅ Project management |
+
+### Build Artifacts
+
+| Artifact | Path | Size |
+|----------|------|------|
+| **macOS App** | `src-tauri/target/release/bundle/macos/SL Studio.app` | ~17MB |
+| **DMG Installer** | `src-tauri/target/release/bundle/dmg/SL Studio_0.2.0_aarch64.dmg` | - |
+| **Executable** | `src-tauri/target/release/sl-studio` | ~17MB |
+
+### Storage Locations
+
+| Data Type | Location |
+|-----------|----------|
+| **Models** | `~/Library/Application Support/slstudio/models/` |
+| **Database** | `~/Library/Application Support/slstudio/intelligence.db` |
+| **Registry** | `~/Library/Application Support/slstudio/registry.db` |
+| **Config** | `~/Library/Application Support/slstudio/config.json` |
+| **Logs** | `~/Library/Application Support/slstudio/logs/` |
+
+### Known Issues
+
+| Issue | Severity | Status |
+|-------|----------|--------|
+| Download crash during model loading | Medium | Under investigation |
+| LLM inference returns fallback JSON | Low | API integration complete |
+
+### Technology Versions
+
+| Component | Version |
+|-----------|---------|
+| **Tauri** | 2.x |
+| **SvelteKit** | 2.x |
+| **llama_cpp** | 0.3.2 |
+| **rusqlite** | 0.32 |
+| **Rust** | stable |
+
+### Features Ready for Use
+
+1. ✅ File registration and tracking
+2. ✅ Text extraction (PDF, images, audio)
+3. ✅ Model download from HuggingFace
+4. ✅ Multi-pass LLM pipelines
+5. ✅ Database with FTS5 search
+6. ✅ Interactive UI with 11 pages
+7. ✅ Hardware detection (CPU/GPU)
+8. ✅ Project save/load
+9. ✅ Export functionality
+
+### What's Still Needed
+
+1. Model loading crash investigation
+2. Frontend error handling improvements
+3. Quality scoring integration
+4. More complete pipeline customization UI
+
+================================================================================
+================================================================================
+
+### UX Improvement: Registry Scanner Status Feedback
+
+When all files in the evidence folder are already fingerprinted and stored in the database, the registry scanner currently shows a perpetual "Searching..." or "Hashing files..." state without indicating completion.
+
+**Current Behavior:**
+- Shows "0/154" or similar indefinitely when all files already exist
+- No clear indication that scan is complete when no new files found
+
+**Desired Behavior:**
+- When all files already scanned: Display "All files scanned" or "154 files already registered"
+- Only show "Searching..." when genuinely looking for new files
+- Provide clear completion status with file counts
+
+**Priority:** Low - Future Enhancement

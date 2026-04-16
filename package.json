@@ -24,8 +24,10 @@
 	"license": "AGPL-3.0-only",
 	"dependencies": {
 		"@tauri-apps/api": "^2",
-		"@tauri-apps/plugin-dialog": "^2",
-		"@tauri-apps/plugin-opener": "^2",
+		"@tauri-apps/plugin-dialog": "^2.7.0",
+		"@tauri-apps/plugin-fs": "^2.5.0",
+		"@tauri-apps/plugin-opener": "^2.5.3",
+		"@tauri-apps/plugin-shell": "^2.3.5",
 		"chart.js": "^4.4.7",
 		"cytoscape": "^3.30.4",
 		"leaflet": "^1.9.4"

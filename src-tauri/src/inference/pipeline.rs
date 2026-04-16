@@ -164,6 +164,8 @@ impl PipelineRunner {
             temperature: 0.1,
             max_tokens: 4000,
             repeat_penalty: 1.1,
+            use_kv_cache: true,
+            prompt_cache: None,
         };
 
         PipelineRunner {
@@ -253,12 +255,12 @@ impl PipelineRunner {
             }
         };
 
-        let facts = Fact::from_json(&output).unwrap_or_default();
-        let entities_extracted = Self::count_entities_in_output(&output);
+        let facts = Fact::from_json(&output.text).unwrap_or_default();
+        let entities_extracted = Self::count_entities_in_output(&output.text);
 
         PipelineResult {
             pass_name: pass.name.clone(),
-            output,
+            output: output.text,
             facts_extracted: facts.len(),
             entities_extracted,
             processing_time_ms: start_time.elapsed().as_millis() as u64,

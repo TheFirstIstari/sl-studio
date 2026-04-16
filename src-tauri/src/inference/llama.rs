@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
-use tracing::{info, warn, error};
+use tracing::{info, error};
 
 #[derive(Error, Debug)]
 pub enum LlamaError {
@@ -21,21 +21,13 @@ pub enum LlamaError {
 /// Configuration for LLM inference
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LlamaConfig {
-    /// Path to GGUF model file
     pub model_path: String,
-    /// Context size (tokens)
     pub context_size: u32,
-    /// Number of GPU layers (0 = CPU only)
     pub gpu_layers: i32,
-    /// Temperature for generation (0.0 - 2.0)
     pub temperature: f32,
-    /// Maximum tokens to generate
     pub max_tokens: u32,
-    /// Repeat penalty
     pub repeat_penalty: f32,
-    /// Use KV cache
     pub use_kv_cache: bool,
-    /// Prompt cache (for continuity)
     pub prompt_cache: Option<String>,
 }
 
@@ -57,13 +49,9 @@ impl Default for LlamaConfig {
 /// GPU backend type
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum GpuBackend {
-    /// CPU only (no GPU acceleration)
     Cpu,
-    /// Apple Metal (macOS)
     Metal,
-    /// NVIDIA CUDA
     Cuda,
-    /// OpenCL
     OpenCL,
 }
 
@@ -89,12 +77,11 @@ pub struct ModelInfo {
     pub quantization: String,
 }
 
-/// Main LLM model wrapper
+/// Main LLM model wrapper using llama_cpp 0.3 API
 pub struct LlamaModel {
     config: LlamaConfig,
     loaded: bool,
-    #[cfg(feature = "llama-cpp")]
-    model: Option<llama_cpp::Llama>,
+    model: Option<llama_cpp::LlamaModel>,
 }
 
 /// Generation result
@@ -107,28 +94,23 @@ pub struct GenerationResult {
 }
 
 impl LlamaModel {
-    /// Create new model with config
     pub fn new(config: LlamaConfig) -> Self {
         LlamaModel {
             config,
             loaded: false,
-            #[cfg(feature = "llama-cpp")]
             model: None,
         }
     }
 
-    /// Check if model is loaded
     pub fn is_loaded(&self) -> bool {
         self.loaded
     }
 
-    /// Get model path
     pub fn model_path(&self) -> &str {
         &self.config.model_path
     }
 
     /// Load model from GGUF file
-    #[cfg(feature = "llama-cpp")]
     pub fn load(&mut self) -> Result<(), LlamaError> {
         let model_path = Path::new(&self.config.model_path);
         
@@ -141,58 +123,28 @@ impl LlamaModel {
 
         info!("Loading GGUF model: {}", self.config.model_path);
         
-        // Build llama.cpp parameters
-        let params = llama_cpp::LLama::Params::default()
-            .n_ctx(self.config.context_size as i32)
-            .n_gpu_layers(self.config.gpu_layers)
-            .use_kv_cache(self.config.use_kv_cache);
+        let mut params = llama_cpp::LlamaParams::default();
+        params.n_gpu_layers = self.config.gpu_layers as u32;
         
-        match llama_cpp::Llama::new(model_path, params) {
-            Ok(model) => {
-                self.model = Some(model);
-                self.loaded = true;
-                info!("Model loaded successfully");
-                Ok(())
-            }
-            Err(e) => {
+        let model = llama_cpp::LlamaModel::load_from_file(model_path, params)
+            .map_err(|e| {
                 error!("Failed to load model: {}", e);
-                Err(LlamaError::LoadError(e.to_string()))
-            }
-        }
-    }
-
-    /// Load without llama-cpp feature (stub)
-    #[cfg(not(feature = "llama-cpp"))]
-    pub fn load(&mut self) -> Result<(), LlamaError> {
-        let model_path = Path::new(&self.config.model_path);
+                LlamaError::LoadError(e.to_string())
+            })?;
         
-        if !model_path.exists() {
-            return Err(LlamaError::LoadError(format!(
-                "Model file not found: {}",
-                self.config.model_path
-            )));
-        }
-
-        info!("Loading GGUF model (fallback): {}", self.config.model_path);
-        // Fallback: just mark as loaded if file exists
-        // Real loading would need llama-cpp feature enabled
+        self.model = Some(model);
         self.loaded = true;
-        info!("Model loaded (fallback mode - enable llama-cpp feature for real inference)");
+        info!("Model loaded successfully");
         Ok(())
     }
 
-    /// Unload model and free memory
     pub fn unload(&mut self) {
         self.loaded = false;
-        #[cfg(feature = "llama-cpp")]
-        {
-            self.model = None;
-        }
+        self.model = None;
         info!("Model unloaded");
     }
 
-    /// Generate text completion
-    #[cfg(feature = "llama-cpp")]
+    /// Generate text completion using session-based API
     pub fn generate(&self, prompt: &str) -> Result<GenerationResult, LlamaError> {
         if !self.loaded {
             return Err(LlamaError::NotLoaded);
@@ -202,37 +154,48 @@ impl LlamaModel {
         
         let start = std::time::Instant::now();
         
-        let tokens = model.tokenize(prompt, true).map_err(|e| {
+        // Tokenize the prompt
+        let prompt_bytes = prompt.as_bytes();
+        let tokens = model.tokenize_bytes(prompt_bytes, true, true).map_err(|e| {
             LlamaError::InferenceError(format!("Failed to tokenize: {}", e))
         })?;
         let prompt_tokens = tokens.len() as u32;
         
-        // Create sampler with parameters
-        let mut sampler = model.sampler();
-        sampler
-            .temperature(self.config.temperature)
-            .repeat_penalty(self.config.repeat_penalty);
+        // Create session params
+        let mut session_params = llama_cpp::SessionParams::default();
+        session_params.n_ctx = self.config.context_size;
+        session_params.n_threads = 4;
         
-        // Generate
+        let mut session = model.create_session(session_params)
+            .map_err(|e| LlamaError::InferenceError(e.to_string()))?;
+        
+        // Advance context with tokens
+        session.advance_context_with_tokens(&tokens)
+            .map_err(|e| LlamaError::InferenceError(e.to_string()))?;
+        
+        // Start completion - handle Result
+        let mut completion = session.start_completing()
+            .map_err(|e| LlamaError::InferenceError(e.to_string()))?;
+        
         let mut generated_tokens = Vec::new();
         let max_tokens = self.config.max_tokens as usize;
         
+        // Generate tokens
         for _ in 0..max_tokens {
-            let token = model.sample_token(&sampler);
-            if token == model.token_eos() {
-                break;
-            }
-            generated_tokens.push(token);
-            
-            // Check for early stopping on specific tokens
-            if generated_tokens.len() > 4 {
-                // Simple early stop: break if we see multiple newlines at end
-                let _ = token; // Could add early stop logic here
+            match completion.next_token() {
+                Some(token) => {
+                    if token == model.eos() {
+                        break;
+                    }
+                    generated_tokens.push(token);
+                }
+                None => break,
             }
         }
         
-        // Decode generated tokens
-        let text = model.detokenize(&generated_tokens).unwrap_or_default();
+        // Convert to string using into_string() on CompletionHandle
+        let text = completion.into_string();
+        
         let duration_ms = start.elapsed().as_millis() as u64;
         
         Ok(GenerationResult {
@@ -243,49 +206,23 @@ impl LlamaModel {
         })
     }
 
-    /// Generate without llama-cpp feature
-    #[cfg(not(feature = "llama-cpp"))]
-    pub fn generate(&self, prompt: &str) -> Result<GenerationResult, LlamaError> {
-        if !self.loaded {
-            return Err(LlamaError::NotLoaded);
-        }
-        
-        // Fallback response when llama-cpp is not available
-        let text = format!(
-            "This is a fallback response. To enable real LLM inference, \
-            compile with --features llama-cpp and ensure llama.cpp is installed.\n\n\
-            Prompt: {}\n\n\
-            {{\"findings\": [{{\"source\": \"model\", \"date\": \"fallback\", \
-            \"summary\": \"LLM inference not available\", \"type\": \"System\", \
-            \"crime\": \"None\", \"severity\": 0}}]}}",
-            &prompt[..prompt.len().min(200)]
-        );
-        
-        Ok(GenerationResult {
-            text,
-            tokens_generated: 0,
-            prompt_tokens: prompt.len() as u32 / 4,
-            duration_ms: 1,
-        })
-    }
-
-    /// Generate with structured output (JSON schema)
     pub fn generate_structured(&self, prompt: &str) -> Result<GenerationResult, LlamaError> {
         self.generate(prompt)
     }
 
-    /// Get model information
     pub fn get_info(&self) -> Option<ModelInfo> {
         if !self.loaded {
             return None;
         }
         
+        let model = self.model.as_ref()?;
+        
         Some(ModelInfo {
             architecture: "llama".to_string(),
             context_length: self.config.context_size,
-            embedding_length: 4096, // Default for llama models
-            block_count: self.config.context_size / 2048,
-            parameter_count: 7.0, // 7B parameter model typical
+            embedding_length: model.embed_len() as u32,
+            block_count: model.layers() as u32,
+            parameter_count: 7.0,
             quantization: "Q4_K_M".to_string(),
         })
     }
@@ -297,7 +234,7 @@ impl Drop for LlamaModel {
     }
 }
 
-/// Create a model manager for handling multiple models
+/// Model manager
 pub struct ModelManager {
     models: std::collections::HashMap<String, Arc<Mutex<LlamaModel>>>,
     active_model: Option<String>,
@@ -311,7 +248,6 @@ impl ModelManager {
         }
     }
 
-    /// Add a model
     pub fn add_model(&mut self, name: String, config: LlamaConfig) -> Result<(), LlamaError> {
         let mut model = LlamaModel::new(config);
         model.load()?;
@@ -325,12 +261,10 @@ impl ModelManager {
         Ok(())
     }
 
-    /// Get active model
     pub fn get_active(&self) -> Option<Arc<Mutex<LlamaModel>>> {
         self.active_model.as_ref().and_then(|name| self.models.get(name).cloned())
     }
 
-    /// Set active model
     pub fn set_active(&mut self, name: &str) -> Result<(), LlamaError> {
         if self.models.contains_key(name) {
             self.active_model = Some(name.to_string());
@@ -340,7 +274,6 @@ impl ModelManager {
         }
     }
 
-    /// List available models
     pub fn list_models(&self) -> Vec<String> {
         self.models.keys().cloned().collect()
     }
@@ -352,7 +285,7 @@ impl Default for ModelManager {
     }
 }
 
-/// Simple inference without state (for stateless API calls)
+/// Simple inference
 pub struct SimpleInference {
     model: Arc<Mutex<LlamaModel>>,
 }

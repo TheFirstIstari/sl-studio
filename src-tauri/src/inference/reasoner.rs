@@ -85,6 +85,8 @@ impl Reasoner {
                 temperature: config.temperature,
                 max_tokens: config.max_tokens,
                 repeat_penalty: 1.1,
+                use_kv_cache: true,
+                prompt_cache: None,
             };
 
             let mut model = LlamaModel::new(llama_config);
@@ -122,6 +124,8 @@ impl Reasoner {
             temperature: self.config.temperature,
             max_tokens: self.config.max_tokens,
             repeat_penalty: 1.1,
+            use_kv_cache: true,
+            prompt_cache: None,
         };
 
         let mut model = LlamaModel::new(llama_config);
@@ -186,7 +190,7 @@ impl Reasoner {
             match model.generate_structured(&prompt) {
                 Ok(response) => {
                     raw_responses.push(response.clone());
-                    let facts = self.parse_facts(&response);
+                    let facts = self.parse_facts(&response.text);
                     all_facts.extend(facts);
                     info!(
                         "Processed chunk {}/{} for {}",
@@ -220,7 +224,7 @@ impl Reasoner {
         Ok(AnalysisResult {
             filename,
             facts: unique_facts,
-            raw_response: raw_responses.join("\n---\n"),
+            raw_response: raw_responses.iter().map(|r| r.text.as_str()).collect::<Vec<_>>().join("\n---\n"),
             tokens_used: 0,
         })
     }
