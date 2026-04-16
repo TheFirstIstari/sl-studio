@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+use std::process::Command;
+
 use thiserror::Error;
-use tracing::info;
+use tracing::{info, warn};
 
 #[derive(Error, Debug)]
 pub enum AudioError {
@@ -13,6 +15,10 @@ pub enum AudioError {
     FileNotFound(String),
     #[error("Unsupported format: {0}")]
     UnsupportedFormat(String),
+    #[error("Whisper CLI not installed: {0}")]
+    WhisperNotInstalled(String),
+    #[error("Transcription failed: {0}")]
+    TranscriptionFailed(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -31,30 +37,93 @@ pub struct AudioExtractor {
 }
 
 impl AudioExtractor {
-    pub fn new(_model_path: &Path) -> Result<Self, AudioError> {
-        Err(AudioError::NotAvailable(
-            "Audio transcription is not implemented. This feature requires whisper-rs with cmake support, \
-             which is not available in the current build configuration.".to_string(),
-        ))
+    pub fn new(model_path: &Path) -> Result<Self, AudioError> {
+        let model_path_str = if model_path.exists() {
+            Some(model_path.to_string_lossy().to_string())
+        } else {
+            None
+        };
+
+        Ok(AudioExtractor {
+            model_path: model_path_str,
+            model_loaded: true,
+        })
     }
 
     pub fn transcribe(&self, path: &Path) -> Result<String, AudioError> {
-        Err(AudioError::NotAvailable(
-            "Audio transcription is not implemented. This feature requires whisper-rs with cmake support, \
-             which is not available in the current build configuration. \
-             To enable audio transcription, the project would need to add whisper-rs as a dependency \
-             and compile it with cmake support.".to_string(),
-        ))
+        if !path.exists() {
+            return Err(AudioError::FileNotFound(path.to_string_lossy().to_string()));
+        }
+
+        if !Self::is_supported_format(path) {
+            return Err(AudioError::UnsupportedFormat(
+                path.extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("unknown")
+                    .to_string(),
+            ));
+        }
+
+        let whisper_available = Self::check_whisper_available();
+        if !whisper_available {
+            return Err(AudioError::WhisperNotInstalled(
+                "Whisper CLI is not installed on this system. \
+                 Please install whisper.cpp and ensure it's available in your PATH. \
+                 On macOS: brew install whisper.cpp"
+                    .to_string(),
+            ));
+        }
+
+        let model_path = self.model_path.clone().unwrap_or_else(|| {
+            let home = std::env::var("HOME").unwrap_or_default();
+            format!("{}/.whisper/models/ggml-base.en.bin", home)
+        });
+
+        let temp_dir = std::env::temp_dir();
+        let output_base = temp_dir.join(format!("steinline_transcribe_{}", std::process::id()));
+
+        let file_path = path.to_string_lossy().to_string();
+        let output_path = output_base.with_extension("txt");
+
+        info!("Transcribing audio with whisper: {}", path.display());
+
+        let output = Command::new("whisper")
+            .args([
+                "-m",
+                &model_path,
+                "-f",
+                &file_path,
+                "-o",
+                temp_dir.to_string_lossy().as_ref(),
+            ])
+            .output()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            warn!("Whisper transcription failed: {}", stderr);
+            return Err(AudioError::TranscriptionFailed(stderr.to_string()));
+        }
+
+        let transcription =
+            std::fs::read_to_string(&output_path).map_err(|e| AudioError::IoError(e))?;
+
+        let _ = std::fs::remove_file(&output_path);
+
+        Ok(transcription)
     }
 
     pub fn get_metadata(&self, path: &Path) -> Result<AudioMetadata, AudioError> {
+        if !path.exists() {
+            return Err(AudioError::FileNotFound(path.to_string_lossy().to_string()));
+        }
+
+        let file_size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+
         let ext = path
             .extension()
             .and_then(|e| e.to_str())
             .map(|e| e.to_lowercase())
             .unwrap_or_default();
-
-        let file_size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
 
         let format = match ext.as_str() {
             "mp3" => "MP3",
@@ -67,15 +136,37 @@ impl AudioExtractor {
         }
         .to_string();
 
-        let duration_seconds = estimate_duration(&ext, file_size);
+        let duration_seconds = Self::estimate_duration(path);
 
         Ok(AudioMetadata {
             duration_seconds,
-            sample_rate: Some(44100),
-            channels: Some(2),
+            sample_rate: None,
+            channels: None,
             format,
             file_size_bytes: file_size,
         })
+    }
+
+    fn estimate_duration(path: &Path) -> Option<f64> {
+        let file_size = std::fs::metadata(path).ok()?.len();
+        let ext = path.extension()?.to_str()?.to_lowercase();
+        let bitrate = match ext.as_str() {
+            "mp3" => 128_000,
+            "m4a" | "m4v" => 128_000,
+            "wav" => 1_411_000,
+            "flac" => 800_000,
+            "ogg" => 128_000,
+            _ => 128_000,
+        };
+        Some(file_size as f64 * 8.0 / bitrate as f64)
+    }
+
+    fn check_whisper_available() -> bool {
+        Command::new("whisper")
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
     }
 
     pub fn is_available(&self) -> bool {
@@ -94,19 +185,6 @@ impl AudioExtractor {
     }
 }
 
-fn estimate_duration(ext: &str, file_size: u64) -> Option<f64> {
-    let bitrate_kbps = match ext {
-        "mp3" => 128,
-        "m4a" | "aac" => 128,
-        "ogg" => 128,
-        "wav" => 1411,
-        "flac" => 800,
-        _ => 128,
-    };
-
-    Some((file_size * 8) as f64 / (bitrate_kbps * 1000) as f64)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -123,10 +201,8 @@ mod tests {
 
     #[test]
     fn test_metadata_estimate() {
-        let metadata = AudioExtractor::default()
-            .get_metadata(Path::new("test.mp3"))
-            .unwrap();
+        let extractor = AudioExtractor::default();
+        let metadata = extractor.get_metadata(Path::new("test.mp3")).unwrap();
         assert_eq!(metadata.format, "MP3");
-        assert!(metadata.sample_rate.is_some());
     }
 }
