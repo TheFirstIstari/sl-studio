@@ -79,11 +79,28 @@
 		}
 	}
 
-	onMount(() => {
-		(async () => {
-			await loadFacts();
-			saveToHistory();
-		})();
+	interface Config {
+		project: {
+			name: string;
+			evidence_root: string;
+			registry_db: string;
+			intelligence_db: string;
+		};
+	}
+
+	onMount(async () => {
+		try {
+			// Initialize project first to ensure database is ready
+			const config = await invoke<Config>('load_config');
+			if (config) {
+				await invoke('init_project', { config });
+			}
+		} catch (e) {
+			console.error('Failed to initialize project:', e);
+		}
+		
+		await loadFacts();
+		saveToHistory();
 		window.addEventListener('keydown', handleKeydown);
 		return () => window.removeEventListener('keydown', handleKeydown);
 	});
