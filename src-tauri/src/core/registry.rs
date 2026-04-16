@@ -67,6 +67,15 @@ impl RegistryWorker {
         let total_files = files.len();
         info!("Discovered {} files", total_files);
 
+        progress_tx
+            .send(RegistryProgress {
+                total: total_files,
+                processed: 0,
+                current_file: format!("Found {} files...", total_files),
+                phase: "discovery".to_string(),
+            })
+            .ok();
+
         // Phase 2: Load existing fingerprints into memory for fast skip
         progress_tx
             .send(RegistryProgress {
@@ -135,7 +144,8 @@ impl RegistryWorker {
             })
             .collect();
 
-        // Batch insert
+        // Batch insert with incremental progress
+        let mut processed = 0;
         for chunk in results.chunks(batch_size) {
             let entries: Vec<_> = chunk
                 .iter()
@@ -148,12 +158,12 @@ impl RegistryWorker {
                 }
             }
 
-            // Show total discovered (results.len()) not just new additions
+            processed += chunk.len();
             progress_tx
                 .send(RegistryProgress {
                     total: total_files,
-                    processed: results.len(),
-                    current_file: format!("Found {} files ({} new)...", results.len(), new_count),
+                    processed: processed,
+                    current_file: format!("Hashing {} / {}...", processed, total_files),
                     phase: "hashing".to_string(),
                 })
                 .ok();

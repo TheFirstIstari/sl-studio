@@ -67,6 +67,16 @@ pub struct Stats {
     pub intelligence_count: i64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExtractionStats {
+    pub total_files: i64,
+    pub total_characters: i64,
+    pub average_characters: f64,
+    pub average_quality: f64,
+    pub partial_count: i64,
+    pub files_by_type: std::collections::HashMap<String, i64>,
+}
+
 // Commands
 #[tauri::command]
 fn load_config(state: State<AppState>) -> Result<AppConfig, String> {
@@ -263,6 +273,31 @@ fn get_stats(state: State<AppState>) -> Result<Stats, String> {
         Ok(Stats {
             registry_count: 0,
             intelligence_count: 0,
+        })
+    }
+}
+
+#[tauri::command]
+fn get_extraction_statistics(state: State<AppState>) -> Result<ExtractionStats, String> {
+    let db_guard = state.db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+    if let Some(db) = db_guard.as_ref() {
+        let stats = db.get_extraction_statistics().map_err(|e| e.to_string())?;
+        Ok(ExtractionStats {
+            total_files: stats.total_files,
+            total_characters: stats.total_characters,
+            average_characters: stats.average_characters,
+            average_quality: stats.average_quality,
+            partial_count: stats.partial_count,
+            files_by_type: stats.files_by_type,
+        })
+    } else {
+        Ok(ExtractionStats {
+            total_files: 0,
+            total_characters: 0,
+            average_characters: 0.0,
+            average_quality: 0.0,
+            partial_count: 0,
+            files_by_type: std::collections::HashMap::new(),
         })
     }
 }
@@ -1683,6 +1718,7 @@ pub fn run() {
             init_project,
             start_registry,
             get_stats,
+            get_extraction_statistics,
             get_unprocessed_files,
             mark_processed,
             get_app_data_dir,

@@ -71,6 +71,16 @@ pub struct IntelligenceEntry {
     pub created_at: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExtractionStatistics {
+    pub total_files: i64,
+    pub total_characters: i64,
+    pub average_characters: f64,
+    pub average_quality: f64,
+    pub partial_count: i64,
+    pub files_by_type: std::collections::HashMap<String, i64>,
+}
+
 pub struct Database {
     registry_conn: Mutex<Connection>,
     intelligence_conn: Mutex<Connection>,
@@ -1036,6 +1046,60 @@ impl Database {
     pub fn get_text_cache_count(&self) -> Result<i64> {
         let conn = self.registry_conn.lock().unwrap();
         conn.query_row("SELECT COUNT(*) FROM text_cache", [], |row| row.get(0))
+    }
+
+    pub fn get_extraction_statistics(&self) -> Result<ExtractionStatistics> {
+        let conn = self.registry_conn.lock().unwrap();
+
+        let total_files: i64 =
+            conn.query_row("SELECT COUNT(*) FROM text_cache", [], |row| row.get(0))?;
+
+        let total_characters: i64 = conn.query_row(
+            "SELECT COALESCE(SUM(LENGTH(extracted_text)), 0) FROM text_cache",
+            [],
+            |row| row.get(0),
+        )?;
+
+        let average_characters = if total_files > 0 {
+            total_characters as f64 / total_files as f64
+        } else {
+            0.0
+        };
+
+        let average_quality: f64 = conn.query_row(
+            "SELECT COALESCE(AVG(quality_score), 0) FROM text_cache",
+            [],
+            |row| row.get(0),
+        )?;
+
+        let partial_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM text_cache WHERE quality_score < 0.7",
+            [],
+            |row| row.get(0),
+        )?;
+
+        let mut stmt = conn.prepare(
+            "SELECT r.file_type, COUNT(*) as count FROM text_cache t
+             JOIN registry r ON t.fingerprint = r.fingerprint
+             GROUP BY r.file_type",
+        )?;
+
+        let mut files_by_type = std::collections::HashMap::new();
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })?;
+        for row in rows.flatten() {
+            files_by_type.insert(row.0, row.1);
+        }
+
+        Ok(ExtractionStatistics {
+            total_files,
+            total_characters,
+            average_characters,
+            average_quality,
+            partial_count,
+            files_by_type,
+        })
     }
 
     // Metadata cache operations

@@ -45,6 +45,7 @@ pub struct ReasonerConfig {
     pub max_chars_per_chunk: usize,
     pub chunk_overlap: usize,
     pub batch_size: usize,
+    pub n_threads: u32,
 }
 
 impl Default for ReasonerConfig {
@@ -58,6 +59,7 @@ impl Default for ReasonerConfig {
             max_chars_per_chunk: 20000,
             chunk_overlap: 2000,
             batch_size: 24,
+            n_threads: num_cpus::get() as u32,
         }
     }
 }
@@ -87,6 +89,7 @@ impl Reasoner {
                 repeat_penalty: 1.1,
                 use_kv_cache: true,
                 prompt_cache: None,
+                n_threads: config.n_threads,
             };
 
             let mut model = LlamaModel::new(llama_config);
@@ -126,6 +129,7 @@ impl Reasoner {
             repeat_penalty: 1.1,
             use_kv_cache: true,
             prompt_cache: None,
+            n_threads: self.config.n_threads,
         };
 
         let mut model = LlamaModel::new(llama_config);

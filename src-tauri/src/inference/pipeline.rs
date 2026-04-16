@@ -166,6 +166,7 @@ impl PipelineRunner {
             repeat_penalty: 1.1,
             use_kv_cache: true,
             prompt_cache: None,
+            n_threads: num_cpus::get() as u32,
         };
 
         PipelineRunner {

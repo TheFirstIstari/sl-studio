@@ -66,7 +66,31 @@
 		error: string | null;
 	}
 
+	interface ExtractionStats {
+		total_files: number;
+		total_characters: number;
+		average_characters: number;
+		average_quality: number;
+		partial_count: number;
+		files_by_type: Record<string, number>;
+	}
+
+	function formatNumber(n: number): string {
+		if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+		if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+		return n.toFixed(0);
+	}
+
+	async function loadExtractionStats() {
+		try {
+			extractionStats = await invoke<ExtractionStats>('get_extraction_statistics');
+		} catch (e) {
+			console.error('Failed to load extraction stats:', e);
+		}
+	}
+
 	let config = $state<Config | null>(null);
+	let extractionStats = $state<ExtractionStats | null>(null);
 	let modelLoaded = $state(false);
 	let scanning = $state(false);
 	let extracting = $state(false);
@@ -241,6 +265,7 @@
 			extractionProgress.current_file = `Error: ${e}`;
 		} finally {
 			extracting = false;
+			loadExtractionStats();
 		}
 	}
 
@@ -418,6 +443,50 @@
 				disabled={scanning || extracting || analyzing}
 			>
 				{extracting ? 'Extracting...' : 'Extract All Files'}
+			</button>
+		</section>
+
+		<!-- Extraction Statistics Panel -->
+		<section class="panel stats-panel">
+			<h2>Extraction Statistics</h2>
+			{#if extractionStats}
+				<div class="stats-grid">
+					<div class="stat-item">
+						<span class="stat-value">{extractionStats.total_files}</span>
+						<span class="stat-label">Files Extracted</span>
+					</div>
+					<div class="stat-item">
+						<span class="stat-value">{extractionStats.average_quality.toFixed(1)}%</span>
+						<span class="stat-label">Avg Quality</span>
+					</div>
+					<div class="stat-item">
+						<span class="stat-value">{formatNumber(extractionStats.average_characters)}</span>
+						<span class="stat-label">Avg Chars</span>
+					</div>
+					<div class="stat-item">
+						<span class="stat-value">{formatNumber(extractionStats.total_characters)}</span>
+						<span class="stat-label">Total Characters</span>
+					</div>
+					<div class="stat-item" class:warning={extractionStats.partial_count > 0}>
+						<span class="stat-value">{extractionStats.partial_count}</span>
+						<span class="stat-label">Partial (Warnings)</span>
+					</div>
+				</div>
+				{#if extractionStats.files_by_type && Object.keys(extractionStats.files_by_type).length > 0}
+					<div class="file-type-dist">
+						<span class="dist-label">By File Type:</span>
+						<div class="dist-items">
+							{#each Object.entries(extractionStats.files_by_type) as [type, count]}
+								<span class="dist-item">{type}: {count}</span>
+							{/each}
+						</div>
+					</div>
+				{/if}
+			{:else}
+				<div class="idle-text">Run extraction to see statistics</div>
+			{/if}
+			<button class="action-btn secondary" onclick={loadExtractionStats} disabled={extracting}>
+				Refresh Stats
 			</button>
 		</section>
 
@@ -645,5 +714,69 @@
 	.action-btn:disabled {
 		opacity: 0.6;
 		cursor: not-allowed;
+	}
+
+	.stats-panel {
+		grid-column: 1 / -1;
+	}
+
+	.stats-grid {
+		display: grid;
+		grid-template-columns: repeat(5, 1fr);
+		gap: 1rem;
+		margin-bottom: 1rem;
+	}
+
+	.stat-item {
+		text-align: center;
+		padding: 0.75rem;
+		background-color: #1a1a2e;
+		border-radius: 6px;
+	}
+
+	.stat-item.warning {
+		border: 1px solid #f59e0b;
+	}
+
+	.stat-value {
+		display: block;
+		font-size: 1.25rem;
+		font-weight: 600;
+		color: #eaeaea;
+	}
+
+	.stat-label {
+		display: block;
+		font-size: 0.75rem;
+		color: #9ca3af;
+		margin-top: 0.25rem;
+	}
+
+	.file-type-dist {
+		margin-bottom: 1rem;
+		padding: 0.75rem;
+		background-color: #1a1a2e;
+		border-radius: 6px;
+	}
+
+	.dist-label {
+		font-size: 0.875rem;
+		color: #9ca3af;
+		display: block;
+		margin-bottom: 0.5rem;
+	}
+
+	.dist-items {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.dist-item {
+		font-size: 0.75rem;
+		padding: 0.25rem 0.5rem;
+		background-color: #0f3460;
+		border-radius: 4px;
+		color: #eaeaea;
 	}
 </style>
