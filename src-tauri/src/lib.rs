@@ -77,6 +77,17 @@ pub struct ExtractionStats {
     pub files_by_type: std::collections::HashMap<String, i64>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowState {
+    pub files_scanned: i64,
+    pub files_extracted: i64,
+    pub files_analyzed: i64,
+    pub last_scan_time: Option<String>,
+    pub last_extraction_time: Option<String>,
+    pub last_analysis_time: Option<String>,
+    pub current_stage: String,
+}
+
 // Commands
 #[tauri::command]
 fn load_config(state: State<AppState>) -> Result<AppConfig, String> {
@@ -274,6 +285,16 @@ fn get_stats(state: State<AppState>) -> Result<Stats, String> {
             registry_count: 0,
             intelligence_count: 0,
         })
+    }
+}
+
+#[tauri::command]
+fn get_workflow_state(state: State<AppState>) -> Result<WorkflowState, String> {
+    let db_guard = state.db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+    if let Some(db) = db_guard.as_ref() {
+        db.get_workflow_state().map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
     }
 }
 
@@ -1718,6 +1739,7 @@ pub fn run() {
             init_project,
             start_registry,
             get_stats,
+            get_workflow_state,
             get_extraction_statistics,
             get_unprocessed_files,
             mark_processed,

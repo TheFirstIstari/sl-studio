@@ -75,6 +75,16 @@
 		files_by_type: Record<string, number>;
 	}
 
+	interface WorkflowState {
+		files_scanned: number;
+		files_extracted: number;
+		files_analyzed: number;
+		last_scan_time: string | null;
+		last_extraction_time: string | null;
+		last_analysis_time: string | null;
+		current_stage: string;
+	}
+
 	function formatNumber(n: number): string {
 		if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
 		if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
@@ -91,6 +101,7 @@
 
 	let config = $state<Config | null>(null);
 	let extractionStats = $state<ExtractionStats | null>(null);
+	let workflowState = $state<WorkflowState | null>(null);
 	let modelLoaded = $state(false);
 	let scanning = $state(false);
 	let extracting = $state(false);
@@ -132,6 +143,25 @@
 			// Initialize the project with config to set up database
 			if (config) {
 				await invoke('init_project', { config });
+			}
+
+			// Load workflow state from database to restore progress
+			try {
+				workflowState = await invoke<WorkflowState>('get_workflow_state');
+
+				// Restore progress states based on DB state
+				if (workflowState) {
+					if (workflowState.files_scanned > 0) {
+						registryProgress.phase = 'complete';
+						registryProgress.processed = workflowState.files_scanned;
+					}
+					if (workflowState.files_extracted > 0) {
+						extractionProgress.phase = 'complete';
+						extractionProgress.success_count = workflowState.files_extracted;
+					}
+				}
+			} catch (e) {
+				console.error('Failed to load workflow state:', e);
 			}
 		} catch (e) {
 			console.error('Failed to load config:', e);
@@ -400,6 +430,41 @@
 				{scanning ? 'Scanning...' : 'Start Fingerprinting'}
 			</button>
 		</section>
+
+		<!-- Quick Status Header -->
+		{#if workflowState}
+			<div class="workflow-header">
+				<div
+					class="workflow-step"
+					class:active={workflowState.files_scanned > 0}
+					class:complete={workflowState.files_scanned > 0}
+				>
+					<span class="step-icon">1</span>
+					<span class="step-label">Scanned</span>
+					<span class="step-count">{workflowState.files_scanned}</span>
+				</div>
+				<div class="workflow-arrow">→</div>
+				<div
+					class="workflow-step"
+					class:active={workflowState.files_extracted > 0}
+					class:complete={workflowState.files_extracted > 0}
+				>
+					<span class="step-icon">2</span>
+					<span class="step-label">Extracted</span>
+					<span class="step-count">{workflowState.files_extracted}</span>
+				</div>
+				<div class="workflow-arrow">→</div>
+				<div
+					class="workflow-step"
+					class:active={workflowState.files_analyzed > 0}
+					class:complete={workflowState.files_analyzed > 0}
+				>
+					<span class="step-icon">3</span>
+					<span class="step-label">Analyzed</span>
+					<span class="step-count">{workflowState.files_analyzed}</span>
+				</div>
+			</div>
+		{/if}
 
 		<!-- NEW: Stage 1: Extraction Panel -->
 		<section class="panel">
@@ -778,5 +843,64 @@
 		background-color: #0f3460;
 		border-radius: 4px;
 		color: #eaeaea;
+	}
+
+	.workflow-header {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.75rem;
+		background: #1e1e1e;
+		border-radius: 8px;
+		margin-bottom: 1rem;
+	}
+
+	.workflow-step {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 1rem;
+		border-radius: 6px;
+		background: #2a2a2a;
+		opacity: 0.5;
+	}
+
+	.workflow-step.active {
+		opacity: 1;
+		background: #3a3a3a;
+	}
+
+	.workflow-step.complete {
+		background: #1a3a1a;
+	}
+
+	.step-icon {
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		background: #444;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 0.75rem;
+	}
+
+	.workflow-step.complete .step-icon {
+		background: #2a7a2a;
+	}
+
+	.workflow-arrow {
+		color: #666;
+	}
+
+	.step-label {
+		font-size: 0.875rem;
+		color: #9ca3af;
+	}
+
+	.step-count {
+		font-size: 0.875rem;
+		color: #eaeaea;
+		font-weight: 600;
 	}
 </style>

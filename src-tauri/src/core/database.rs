@@ -6,6 +6,8 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tracing::info;
 
+use crate::WorkflowState;
+
 struct CacheEntry<T: Clone> {
     data: T,
     expires_at: Instant,
@@ -1046,6 +1048,62 @@ impl Database {
     pub fn get_text_cache_count(&self) -> Result<i64> {
         let conn = self.registry_conn.lock().unwrap();
         conn.query_row("SELECT COUNT(*) FROM text_cache", [], |row| row.get(0))
+    }
+
+    pub fn get_workflow_state(&self) -> Result<WorkflowState> {
+        let conn = self.registry_conn.lock().unwrap();
+
+        let total: i64 = conn.query_row("SELECT COUNT(*) FROM registry", [], |r| r.get(0))?;
+        let extracted: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM registry WHERE has_extracted_text = 1",
+            [],
+            |r| r.get(0),
+        )?;
+        let analyzed: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM registry WHERE processed = 1",
+            [],
+            |r| r.get(0),
+        )?;
+
+        let last_scan_time: Option<String> = conn
+            .query_row("SELECT MAX(created_at) FROM registry", [], |r| r.get(0))
+            .ok();
+
+        let last_extraction_time: Option<String> = conn
+            .query_row(
+                "SELECT MAX(extracted_at) FROM registry WHERE has_extracted_text = 1",
+                [],
+                |r| r.get(0),
+            )
+            .ok();
+
+        let last_analysis_time: Option<String> = conn
+            .query_row(
+                "SELECT MAX(processed_at) FROM registry WHERE processed = 1",
+                [],
+                |r| r.get(0),
+            )
+            .ok();
+
+        let current_stage = if analyzed > 0 {
+            "analyzed"
+        } else if extracted > 0 {
+            "extracted"
+        } else if total > 0 {
+            "scanned"
+        } else {
+            "none"
+        };
+
+        Ok(WorkflowState {
+            files_scanned: total,
+            files_extracted: extracted,
+            files_analyzed: analyzed,
+            last_scan_time,
+            last_extraction_time,
+            last_analysis_time,
+            current_stage: current_stage.to_string(),
+        })
     }
 
     pub fn get_extraction_statistics(&self) -> Result<ExtractionStatistics> {
