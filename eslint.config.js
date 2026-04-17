@@ -39,7 +39,16 @@ const tsConfig = {
 export default [
 	...svelteConfig,
 	{
-		ignores: ['node_modules', 'src-tauri/target', '.svelte-kit', 'build', '~', 'src-tauri/~']
+		ignores: [
+			'node_modules',
+			'src-tauri/target',
+			'.svelte-kit',
+			'build',
+			'~',
+			'src-tauri/~',
+			'src-tauri/src/inference/~',
+			'src-tauri/src/inference/~'
+		]
 	},
 	svelteTsConfig,
 	tsConfig,

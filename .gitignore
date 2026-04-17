@@ -14,3 +14,5 @@ specguide.txt
 rfc2119.txt
 src-tauri/~/.rustup
 ~/.rustup
+
+src-tauri/src/inference/~

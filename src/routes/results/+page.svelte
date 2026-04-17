@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/core';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 
 	interface Fact {
 		id: number;
@@ -88,7 +88,8 @@
 		};
 	}
 
-	onMount(async () => {
+	// Async initialization function
+	async function initialize() {
 		try {
 			// Initialize project first to ensure database is ready
 			const config = await invoke<Config>('load_config');
@@ -98,11 +99,18 @@
 		} catch (e) {
 			console.error('Failed to initialize project:', e);
 		}
-		
+
 		await loadFacts();
 		saveToHistory();
+	}
+
+	onMount(() => {
+		initialize();
 		window.addEventListener('keydown', handleKeydown);
-		return () => window.removeEventListener('keydown', handleKeydown);
+	});
+
+	onDestroy(() => {
+		window.removeEventListener('keydown', handleKeydown);
 	});
 
 	async function loadFacts() {

@@ -58,7 +58,7 @@ pub enum GpuBackend {
 }
 
 impl GpuBackend {
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_string(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "metal" => GpuBackend::Metal,
             "cuda" => GpuBackend::Cuda,
@@ -125,8 +125,10 @@ impl LlamaModel {
 
         info!("Loading GGUF model: {}", self.config.model_path);
 
-        let mut params = llama_cpp::LlamaParams::default();
-        params.n_gpu_layers = self.config.gpu_layers as u32;
+        let params = llama_cpp::LlamaParams {
+            n_gpu_layers: self.config.gpu_layers as u32,
+            ..Default::default()
+        };
 
         let model = llama_cpp::LlamaModel::load_from_file(model_path, params).map_err(|e| {
             error!("Failed to load model: {}", e);
@@ -163,9 +165,11 @@ impl LlamaModel {
         let prompt_tokens = tokens.len() as u32;
 
         // Create session params
-        let mut session_params = llama_cpp::SessionParams::default();
-        session_params.n_ctx = self.config.context_size;
-        session_params.n_threads = self.config.n_threads;
+        let session_params = llama_cpp::SessionParams {
+            n_ctx: self.config.context_size,
+            n_threads: self.config.n_threads,
+            ..Default::default()
+        };
 
         let mut session = model
             .create_session(session_params)
@@ -326,8 +330,8 @@ mod tests {
 
     #[test]
     fn test_gpu_backend_from_str() {
-        assert_eq!(GpuBackend::from_str("cpu"), GpuBackend::Cpu);
-        assert_eq!(GpuBackend::from_str("metal"), GpuBackend::Metal);
-        assert_eq!(GpuBackend::from_str("cuda"), GpuBackend::Cuda);
+        assert_eq!(GpuBackend::from_string("cpu"), GpuBackend::Cpu);
+        assert_eq!(GpuBackend::from_string("metal"), GpuBackend::Metal);
+        assert_eq!(GpuBackend::from_string("cuda"), GpuBackend::Cuda);
     }
 }

@@ -45,7 +45,7 @@ pub struct Deconstructor {
 }
 
 impl Deconstructor {
-    pub fn new(config: ExtractorConfig) -> Result<Self, ExtractionError> {
+    pub fn new(_config: ExtractorConfig) -> Result<Self, ExtractionError> {
         let pdf = PdfExtractor::new();
         let ocr = OcrExtractor::new().map_err(|e| ExtractionError::OcrError(e.to_string()))?;
 

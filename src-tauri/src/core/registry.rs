@@ -162,7 +162,7 @@ impl RegistryWorker {
             progress_tx
                 .send(RegistryProgress {
                     total: total_files,
-                    processed: processed,
+                    processed,
                     current_file: format!("Hashing {} / {}...", processed, total_files),
                     phase: "hashing".to_string(),
                 })

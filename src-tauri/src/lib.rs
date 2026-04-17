@@ -13,8 +13,8 @@ use inference::{Reasoner, ReasonerConfig};
 pub use models::{ModelManager, Quantization};
 
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
 use std::sync::OnceLock;
+use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, State};
 
 static GLOBAL_THREAD_POOL: OnceLock<rayon::ThreadPool> = OnceLock::new();
@@ -91,7 +91,10 @@ pub struct WorkflowState {
 // Commands
 #[tauri::command]
 fn load_config(state: State<AppState>) -> Result<AppConfig, String> {
-    let guard = state.config.lock().map_err(|e| format!("Failed to lock config: {}", e))?;
+    let guard = state
+        .config
+        .lock()
+        .map_err(|e| format!("Failed to lock config: {}", e))?;
     let config = guard.clone();
     info!("Config loaded");
     Ok(config)
@@ -100,7 +103,10 @@ fn load_config(state: State<AppState>) -> Result<AppConfig, String> {
 #[tauri::command]
 fn save_config(state: State<AppState>, config: AppConfig) -> Result<(), String> {
     config.save().map_err(|e| e.to_string())?;
-    let mut guard = state.config.lock().map_err(|e| format!("Failed to lock config: {}", e))?;
+    let mut guard = state
+        .config
+        .lock()
+        .map_err(|e| format!("Failed to lock config: {}", e))?;
     *guard = config;
     info!("Config saved");
     Ok(())
@@ -118,7 +124,11 @@ fn detect_hardware() -> HardwareStatus {
 
 #[tauri::command]
 fn get_hardware_info(state: State<AppState>) -> config::HardwareInfo {
-    state.config.lock().map(|g| g.get_hardware_info()).unwrap_or_default()
+    state
+        .config
+        .lock()
+        .map(|g| g.get_hardware_info())
+        .unwrap_or_default()
 }
 
 #[tauri::command]
@@ -177,7 +187,10 @@ pub struct ProcessingStats {
 
 #[tauri::command]
 fn get_processing_stats(state: State<AppState>) -> Result<ProcessingStats, String> {
-    let db_guard = state.db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+    let db_guard = state
+        .db
+        .lock()
+        .map_err(|e| format!("Failed to lock database: {}", e))?;
     if let Some(db) = db_guard.as_ref() {
         let stats = db.get_overall_statistics().map_err(|e| e.to_string())?;
 
@@ -208,7 +221,10 @@ async fn init_project(
         .map_err(|e| e.to_string())?;
 
     {
-        let mut db_guard = state.db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+        let mut db_guard = state
+            .db
+            .lock()
+            .map_err(|e| format!("Failed to lock database: {}", e))?;
         *db_guard = Some(db);
     }
 
@@ -221,14 +237,20 @@ async fn init_project(
     .map_err(|e| e.to_string())?;
 
     {
-        let mut worker_guard = state.registry_worker.lock().map_err(|e| format!("Failed to lock worker: {}", e))?;
+        let mut worker_guard = state
+            .registry_worker
+            .lock()
+            .map_err(|e| format!("Failed to lock worker: {}", e))?;
         *worker_guard = Some(worker);
     }
 
     // Save config
     config.save().map_err(|e| e.to_string())?;
     {
-        let mut config_guard = state.config.lock().map_err(|e| format!("Failed to lock config: {}", e))?;
+        let mut config_guard = state
+            .config
+            .lock()
+            .map_err(|e| format!("Failed to lock config: {}", e))?;
         *config_guard = config;
     }
 
@@ -241,7 +263,10 @@ async fn init_project(
 #[tauri::command]
 async fn start_registry(app: AppHandle, state: State<'_, AppState>) -> Result<usize, String> {
     let (evidence_root, registry_db, intelligence_db) = {
-        let config_guard = state.config.lock().map_err(|e| format!("Failed to lock config: {}", e))?;
+        let config_guard = state
+            .config
+            .lock()
+            .map_err(|e| format!("Failed to lock config: {}", e))?;
         (
             config_guard.project.evidence_root.clone(),
             config_guard.project.registry_db.clone(),
@@ -274,7 +299,10 @@ async fn start_registry(app: AppHandle, state: State<'_, AppState>) -> Result<us
 
 #[tauri::command]
 fn get_stats(state: State<AppState>) -> Result<Stats, String> {
-    let db_guard = state.db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+    let db_guard = state
+        .db
+        .lock()
+        .map_err(|e| format!("Failed to lock database: {}", e))?;
     if let Some(db) = db_guard.as_ref() {
         Ok(Stats {
             registry_count: db.get_registry_count().unwrap_or(0),
@@ -290,7 +318,10 @@ fn get_stats(state: State<AppState>) -> Result<Stats, String> {
 
 #[tauri::command]
 fn get_workflow_state(state: State<AppState>) -> Result<WorkflowState, String> {
-    let db_guard = state.db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+    let db_guard = state
+        .db
+        .lock()
+        .map_err(|e| format!("Failed to lock database: {}", e))?;
     if let Some(db) = db_guard.as_ref() {
         db.get_workflow_state().map_err(|e| e.to_string())
     } else {
@@ -300,7 +331,10 @@ fn get_workflow_state(state: State<AppState>) -> Result<WorkflowState, String> {
 
 #[tauri::command]
 fn get_extraction_statistics(state: State<AppState>) -> Result<ExtractionStats, String> {
-    let db_guard = state.db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+    let db_guard = state
+        .db
+        .lock()
+        .map_err(|e| format!("Failed to lock database: {}", e))?;
     if let Some(db) = db_guard.as_ref() {
         let stats = db.get_extraction_statistics().map_err(|e| e.to_string())?;
         Ok(ExtractionStats {
@@ -1081,7 +1115,7 @@ fn compare_projects(
             }
         };
 
-        return Ok(ProjectComparison {
+        Ok(ProjectComparison {
             project1_name,
             project2_name: std::path::Path::new(&project2_path)
                 .file_name()
@@ -1091,7 +1125,7 @@ fn compare_projects(
             common_entities,
             timeline_correlation,
             fact_similarity,
-        });
+        })
     }
 }
 
@@ -1647,7 +1681,8 @@ fn init_reasoner(
     gpu_layers: Option<i32>,
 ) -> Result<bool, String> {
     // Default to 32 GPU layers for Apple Silicon, 0 for CPU only
-    let actual_gpu_layers = gpu_layers.unwrap_or_else(|| {
+    #[allow(clippy::unnecessary_lazy_evaluations)]
+    let actual_gpu_layers = gpu_layers.unwrap_or({
         // Check if we have Apple Silicon for GPU acceleration
         #[cfg(target_os = "macos")]
         {
@@ -1659,9 +1694,12 @@ fn init_reasoner(
             0
         }
     });
-    
-    info!("Initializing reasoner with GPU layers: {}", actual_gpu_layers);
-    
+
+    info!(
+        "Initializing reasoner with GPU layers: {}",
+        actual_gpu_layers
+    );
+
     let config = ReasonerConfig {
         model_path,
         context_size,
@@ -1856,7 +1894,7 @@ async fn extract_batch(
 ) -> Result<Vec<ExtractionResult>, String> {
     use extractors::{Deconstructor, ExtractorConfig};
     use rayon::prelude::*;
-    
+
     let workers = {
         if let Some(w) = cpu_workers {
             w as usize
@@ -1864,36 +1902,38 @@ async fn extract_batch(
             state.config.lock().unwrap().get_effective_workers() as usize
         }
     };
-    
-    info!("Extracting batch of {} files with {} workers", fingerprints.len(), workers);
-    
+
+    info!(
+        "Extracting batch of {} files with {} workers",
+        fingerprints.len(),
+        workers
+    );
+
     let pool = get_or_create_thread_pool(workers);
     info!("Using thread pool with {} workers", workers);
-    
+
     let total = fingerprints.len();
-    
+
     // Phase 1: Pre-fetch ALL paths from DB BEFORE parallel (outside parallel)
     let db_guard = state.db.lock().unwrap();
     let db = db_guard.as_ref().ok_or("Database not initialized")?;
-    
+
     let file_data: Vec<(String, String)> = fingerprints
         .iter()
-        .filter_map(|fingerprint| {
-            match db.get_registry_entry(fingerprint) {
-                Ok(entry) => Some((fingerprint.clone(), entry.path)),
-                Err(_) => None,
-            }
+        .filter_map(|fingerprint| match db.get_registry_entry(fingerprint) {
+            Ok(entry) => Some((fingerprint.clone(), entry.path)),
+            Err(_) => None,
         })
         .collect();
-    
+
     drop(db_guard);
-    
+
     // Phase 2: Run parallel extraction using thread pool (NO locks)
     let deconstructor = {
         let config = ExtractorConfig::default();
         Deconstructor::new(config).map_err(|e| format!("Failed to create Deconstructor: {}", e))?
     };
-    
+
     let results: Vec<ExtractionResult> = pool.install(|| {
         file_data
             .par_iter()
@@ -1911,20 +1951,18 @@ async fn extract_batch(
                         is_partial: false,
                     });
                 }
-                
+
                 match deconstructor.extract(file_path) {
-                    Ok(extraction) => {
-                        Some(ExtractionResult {
-                            fingerprint: fingerprint.clone(),
-                            path: path.clone(),
-                            success: true,
-                            char_count: extraction.char_count,
-                            error: None,
-                            quality: Some(extraction.is_partial as u8 as f64),
-                            extraction_text: Some(extraction.text),
-                            is_partial: extraction.is_partial,
-                        })
-                    }
+                    Ok(extraction) => Some(ExtractionResult {
+                        fingerprint: fingerprint.clone(),
+                        path: path.clone(),
+                        success: true,
+                        char_count: extraction.char_count,
+                        error: None,
+                        quality: Some(extraction.is_partial as u8 as f64),
+                        extraction_text: Some(extraction.text),
+                        is_partial: extraction.is_partial,
+                    }),
                     Err(e) => {
                         error!("Extraction failed for {}: {}", path, e);
                         Some(ExtractionResult {
@@ -1942,17 +1980,14 @@ async fn extract_batch(
             })
             .collect()
     });
-    
+
     // Phase 3: Write results to DB AFTER parallel completes
-    let success_results: Vec<ExtractionResult> = results
-        .iter()
-        .filter(|r| r.success)
-        .cloned()
-        .collect();
-    
+    let success_results: Vec<ExtractionResult> =
+        results.iter().filter(|r| r.success).cloned().collect();
+
     let db_guard = state.db.lock().unwrap();
     let db = db_guard.as_ref().ok_or("Database not initialized")?;
-    
+
     for result in &success_results {
         if let Some(ref text) = result.extraction_text {
             let _ = db.save_text_cache(
@@ -1966,13 +2001,13 @@ async fn extract_batch(
             let _ = db.mark_extracted(&result.fingerprint, result.is_partial);
         }
     }
-    
+
     drop(db_guard);
-    
+
     let mut success_count = 0;
     let mut error_count = 0;
     let processed = results.len();
-    
+
     for result in &results {
         if result.success {
             success_count += 1;
@@ -1980,7 +2015,7 @@ async fn extract_batch(
             error_count += 1;
         }
     }
-    
+
     let progress = ExtractionProgress {
         total,
         processed,
@@ -1990,9 +2025,13 @@ async fn extract_batch(
         error_count,
     };
     app.emit("extraction_progress", progress).ok();
-    
-    info!("Extraction complete: {}/{} successful", success_count, results.len());
-    
+
+    info!(
+        "Extraction complete: {}/{} successful",
+        success_count,
+        results.len()
+    );
+
     Ok(results)
 }
 
@@ -2005,13 +2044,13 @@ async fn analyze_batch(
         let cached = state.reasoner.lock().unwrap();
         cached.clone()
     };
-    
+
     let reasoner = reasoner_arc.ok_or("Reasoner not initialized. Call init_reasoner first.")?;
-    
+
     let db_guard = state.db.lock().unwrap();
     let db = db_guard.as_ref().ok_or("Database not initialized")?;
     let mut results = Vec::new();
-    
+
     for fingerprint in fingerprints {
         // Get registry entry to find file path
         let entry = match db.get_registry_entry(&fingerprint) {
@@ -2021,9 +2060,9 @@ async fn analyze_batch(
                 continue;
             }
         };
-        
-        let file_path = std::path::Path::new(&entry.path);
-        
+
+        let _file_path = std::path::Path::new(&entry.path);
+
         // Get extracted text from cache
         let text = match db.get_extracted_text(&fingerprint) {
             Ok(Some(t)) => t,
@@ -2036,7 +2075,7 @@ async fn analyze_batch(
                 continue;
             }
         };
-        
+
         // Run analysis on the already-extracted text
         match reasoner.analyze_text(&fingerprint, &entry.file_name, &text) {
             Ok(result) => {
@@ -2049,20 +2088,26 @@ async fn analyze_batch(
             }
         }
     }
-    
+
     info!("Analysis complete: {} files processed", results.len());
     Ok(results)
 }
 
 #[tauri::command]
-fn get_extraction_queue(state: State<AppState>, limit: i64) -> Result<Vec<core::RegistryEntry>, String> {
+fn get_extraction_queue(
+    state: State<AppState>,
+    limit: i64,
+) -> Result<Vec<core::RegistryEntry>, String> {
     let db_guard = state.db.lock().unwrap();
     let db = db_guard.as_ref().ok_or("Database not initialized")?;
     db.get_extraction_queue(limit).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn get_analysis_queue(state: State<AppState>, limit: i64) -> Result<Vec<core::RegistryEntry>, String> {
+fn get_analysis_queue(
+    state: State<AppState>,
+    limit: i64,
+) -> Result<Vec<core::RegistryEntry>, String> {
     let db_guard = state.db.lock().unwrap();
     let db = db_guard.as_ref().ok_or("Database not initialized")?;
     db.get_analysis_queue(limit).map_err(|e| e.to_string())

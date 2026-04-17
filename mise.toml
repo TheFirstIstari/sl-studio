@@ -10,21 +10,38 @@ rust = "stable"
 # Core Commands
 # ============================================================
 
+
+[tasks.ci_rust]
+description = "Run Rust CI (fmt, build - clippy warnings allowed)"
+run = [
+    "cd src-tauri && cargo fmt --check",
+    "cd src-tauri && cargo build --release 2>&1 | tail -5",
+]
+
+[tasks.ci_test]
+description = "Run Rust tests" 
+run = "cd src-tauri && cargo test"
+
 [tasks.run]
-description = "Run full CI pipeline (format, lint, typecheck, test)"
+description = "Run full CI pipeline - matches .github/workflows/ci.yml"
 alias = ["ci", "check"]
 run = [
+    # Frontend checks (from CI workflow frontend job)
     "mise run format",
-    "mise run lint_types",
-    "mise run test",
+    "mise run lint_types", 
+    "npm run build",
+    # Rust checks (from CI workflow rust-* jobs)
+    "mise run ci_rust", 
+    # Tests (from CI workflow tests-* jobs)
+    "mise run ci_test",
 ]
 
 [tasks.test]
-description = "Run tests (TypeScript + E2E) - skips Rust if linker broken"
+description = "Run TypeScript + E2E tests (requires tauri dev running for E2E)"
 run = [
-    "echo 'Running frontend checks...'",
+    "echo 'Running frontend type checks...'",
     "npm run check",
-    "echo 'Running E2E tests...'",
+    "echo 'Running E2E tests (requires: npm run tauri dev in separate terminal)...'",
     "npx playwright test",
 ]
 
@@ -97,11 +114,11 @@ run = "cd src-tauri && cargo clippy -- -D warnings"
 
 [tasks.test_rust]
 description = "Run Rust tests only"
-run = "cargo test --manifest-path src-tauri/Cargo.toml"
+run = "cd src-tauri && cargo test"
 
 [tasks.test_e2e]
 description = "Run Playwright E2E tests"
-run = "npx playwright test"
+run = "npx playwright test --project=chromium --project=firefox --project=webkit"
 
 [tasks.test_types]
 description = "Run TypeScript checks"
