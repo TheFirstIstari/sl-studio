@@ -1,0 +1,121 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - img [ref=e6]
+        - generic [ref=e10]: SL Studio
+      - generic [ref=e13]: Ready
+    - generic [ref=e14]:
+      - navigation [ref=e15]:
+        - list [ref=e16]:
+          - listitem [ref=e17]:
+            - link "Dashboard" [ref=e18]:
+              - /url: /
+              - img [ref=e19]
+              - generic [ref=e24]: Dashboard
+          - listitem [ref=e25]:
+            - link "Analysis" [ref=e26]:
+              - /url: /analysis
+              - img [ref=e27]
+              - generic [ref=e30]: Analysis
+          - listitem [ref=e31]:
+            - link "Results" [ref=e32]:
+              - /url: /results
+              - img [ref=e33]
+              - generic [ref=e37]: Results
+          - listitem [ref=e38]:
+            - link "Timeline" [ref=e39]:
+              - /url: /timeline
+              - img [ref=e40]
+              - generic [ref=e43]: Timeline
+          - listitem [ref=e44]:
+            - link "Statistics" [ref=e45]:
+              - /url: /stats
+              - img [ref=e46]
+              - generic [ref=e47]: Statistics
+          - listitem [ref=e48]:
+            - link "Network" [ref=e49]:
+              - /url: /network
+              - img [ref=e50]
+              - generic [ref=e56]: Network
+          - listitem [ref=e57]:
+            - link "Maps" [ref=e58]:
+              - /url: /maps
+              - img [ref=e59]
+              - generic [ref=e62]: Maps
+          - listitem [ref=e63]:
+            - link "Anomalies" [ref=e64]:
+              - /url: /anomalies
+              - img [ref=e65]
+              - generic [ref=e67]: Anomalies
+          - listitem [ref=e68]:
+            - link "Export" [ref=e69]:
+              - /url: /export
+              - img [ref=e70]
+              - generic [ref=e71]: Export
+          - listitem [ref=e72]:
+            - link "Compare" [ref=e73]:
+              - /url: /compare
+              - img [ref=e74]
+              - generic [ref=e75]: Compare
+          - listitem [ref=e76]:
+            - link "Backup" [ref=e77]:
+              - /url: /backup
+              - img [ref=e78]
+              - generic [ref=e79]: Backup
+          - listitem [ref=e80]:
+            - link "Settings" [ref=e81]:
+              - /url: /settings
+              - img [ref=e82]
+              - generic [ref=e85]: Settings
+      - main [ref=e86]:
+        - generic [ref=e87]:
+          - heading "Dashboard" [level=1] [ref=e88]
+          - alert [ref=e89]:
+            - generic [ref=e90]: "Failed to load data: TypeError: undefined is not an object (evaluating 'window.__TAURI_INTERNALS__.invoke')"
+            - button "Dismiss error" [ref=e91] [cursor=pointer]: ×
+          - generic [ref=e92]:
+            - generic [ref=e93]:
+              - img [ref=e94]
+              - generic [ref=e96]:
+                - generic [ref=e97]: "0"
+                - generic [ref=e98]: Files Registered
+            - generic [ref=e99]:
+              - img [ref=e100]
+              - generic [ref=e103]:
+                - generic [ref=e104]: "0"
+                - generic [ref=e105]: Facts Extracted
+            - generic [ref=e106]:
+              - img [ref=e107]
+              - generic [ref=e110]:
+                - generic [ref=e111]: ...
+                - generic [ref=e112]: CPU Workers
+          - generic [ref=e113]:
+            - heading "Model Status" [level=2] [ref=e114]
+            - generic [ref=e115]:
+              - generic [ref=e116]: "Model:"
+              - generic [ref=e117]: No model
+          - generic [ref=e118]:
+            - heading "Quick Actions" [level=2] [ref=e119]
+            - generic [ref=e120]:
+              - link "Start Analysis" [ref=e121]:
+                - /url: /analysis
+                - img [ref=e122]
+                - generic [ref=e125]: Start Analysis
+              - link "View Results" [ref=e126]:
+                - /url: /results
+                - img [ref=e127]
+                - generic [ref=e131]: View Results
+              - link "Settings" [ref=e132]:
+                - /url: /settings
+                - img [ref=e133]
+                - generic [ref=e136]: Settings
+    - contentinfo [ref=e137]:
+      - generic [ref=e138]:
+        - generic [ref=e139]: $
+        - generic [ref=e140]: SL Studio v0.1.0
+  - generic [ref=e141]: Press ? for shortcuts
+```

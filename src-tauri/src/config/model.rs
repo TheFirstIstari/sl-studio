@@ -40,15 +40,30 @@ pub enum ModelSource {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HardwareConfig {
+    #[serde(default = "default_gpu_backend")]
     pub gpu_backend: GpuBackend,
+    #[serde(default = "default_gpu_memory_fraction")]
     pub gpu_memory_fraction: f32,
+    #[serde(default = "default_cpu_workers")]
     pub cpu_workers: u32,
+    #[serde(default)]
     pub auto_scale_workers: bool,
+    #[serde(default = "default_batch_size")]
     pub batch_size: u32,
+    #[serde(default)]
     pub auto_scale_batch: bool,
+    #[serde(default = "default_ocr_provider")]
     pub ocr_provider: String,
+    #[serde(default = "default_whisper_size")]
     pub whisper_size: String,
 }
+
+fn default_gpu_backend() -> GpuBackend { GpuBackend::Metal }
+fn default_gpu_memory_fraction() -> f32 { 0.8 }
+fn default_cpu_workers() -> u32 { 4 }
+fn default_batch_size() -> u32 { 6 }
+fn default_ocr_provider() -> String { "onnx".to_string() }
+fn default_whisper_size() -> String { "base".to_string() }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HardwareInfo {
