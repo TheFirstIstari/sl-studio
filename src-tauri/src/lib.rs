@@ -1386,10 +1386,10 @@ pub struct HuggingFaceFile {
 }
 
 #[allow(dead_code)]
-fn get_huggingface_tree(repo_id: &str) -> Result<String, String> {
+async fn get_huggingface_tree(repo_id: &str) -> Result<String, String> {
     let url = format!("https://huggingface.co/api/models/{}", repo_id);
 
-    let client = reqwest::blocking::Client::builder()
+    let client = reqwest::Client::builder()
         .user_agent("SL-Studio/0.2.0")
         .build()
         .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
@@ -1398,6 +1398,7 @@ fn get_huggingface_tree(repo_id: &str) -> Result<String, String> {
         .get(&url)
         .header("Accept", "application/json")
         .send()
+        .await
         .map_err(|e| format!("Failed to fetch model info: {}", e))?;
 
     if !response.status().is_success() {
@@ -1406,6 +1407,7 @@ fn get_huggingface_tree(repo_id: &str) -> Result<String, String> {
 
     let text = response
         .text()
+        .await
         .map_err(|e| format!("Failed to read response: {}", e))?;
 
     #[derive(Deserialize)]
@@ -1426,9 +1428,9 @@ fn get_huggingface_tree(repo_id: &str) -> Result<String, String> {
     Ok(sha)
 }
 
-fn get_huggingface_files_with_size(repo_id: &str) -> Result<Vec<HuggingFaceFile>, String> {
+async fn get_huggingface_files_with_size(repo_id: &str) -> Result<Vec<HuggingFaceFile>, String> {
     // Use the regular API first
-    let files = get_huggingface_files(repo_id)?;
+    let files = get_huggingface_files(repo_id).await?;
 
     // Filter for GGUF files
     let gguf_files: Vec<HuggingFaceFile> = files
@@ -1439,10 +1441,10 @@ fn get_huggingface_files_with_size(repo_id: &str) -> Result<Vec<HuggingFaceFile>
     Ok(gguf_files)
 }
 
-fn get_huggingface_files(repo_id: &str) -> Result<Vec<HuggingFaceFile>, String> {
+async fn get_huggingface_files(repo_id: &str) -> Result<Vec<HuggingFaceFile>, String> {
     let url = format!("https://huggingface.co/api/models/{}", repo_id);
 
-    let client = reqwest::blocking::Client::builder()
+    let client = reqwest::Client::builder()
         .user_agent("SL-Studio/0.2.0")
         .build()
         .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
@@ -1451,6 +1453,7 @@ fn get_huggingface_files(repo_id: &str) -> Result<Vec<HuggingFaceFile>, String> 
         .get(&url)
         .header("Accept", "application/json")
         .send()
+        .await
         .map_err(|e| format!("Failed to fetch model info: {}", e))?;
 
     if !response.status().is_success() {
@@ -1459,6 +1462,7 @@ fn get_huggingface_files(repo_id: &str) -> Result<Vec<HuggingFaceFile>, String> 
 
     let text = response
         .text()
+        .await
         .map_err(|e| format!("Failed to read response: {}", e))?;
 
     #[derive(Deserialize)]
@@ -1491,7 +1495,7 @@ fn find_gguf_file(files: &[HuggingFaceFile]) -> Option<(String, u64)> {
 
 #[tauri::command]
 async fn get_huggingface_models(repo_id: String) -> Result<Vec<String>, String> {
-    let files = get_huggingface_files_with_size(&repo_id)?;
+    let files = get_huggingface_files_with_size(&repo_id).await?;
     let gguf_files: Vec<String> = files
         .into_iter()
         .filter(|f| f.path.to_lowercase().ends_with(".gguf"))
@@ -1506,7 +1510,7 @@ async fn download_model(
     repo_id: String,
     filename: String,
 ) -> Result<ModelInfo, String> {
-    let files = get_huggingface_files_with_size(&repo_id)?;
+    let files = get_huggingface_files_with_size(&repo_id).await?;
 
     let file = if filename.contains(".gguf") {
         files
