@@ -536,28 +536,28 @@
 					<h2>Hardware Stats</h2>
 					<div class="hardware-cards">
 						<div class="hardware-card">
-							<div class="hardware-icon">🖥️</div>
+							<div class="hardware-icon">[CPU]</div>
 							<div class="hardware-data">
 								<span class="hardware-value">{hardwareInfo.cpu_threads}</span>
 								<span class="hardware-label">CPU Cores</span>
 							</div>
 						</div>
 						<div class="hardware-card">
-							<div class="hardware-icon">💾</div>
+							<div class="hardware-icon">[RAM]</div>
 							<div class="hardware-data">
 								<span class="hardware-value">{hardwareInfo.total_memory_gb.toFixed(1)} GB</span>
 								<span class="hardware-label">Total RAM</span>
 							</div>
 						</div>
 						<div class="hardware-card">
-							<div class="hardware-icon">⚡</div>
+							<div class="hardware-icon">[Workers]</div>
 							<div class="hardware-data">
 								<span class="hardware-value">{hardwareInfo.recommended_workers}</span>
 								<span class="hardware-label">Recommended Workers</span>
 							</div>
 						</div>
 						<div class="hardware-card">
-							<div class="hardware-icon">📦</div>
+							<div class="hardware-icon">[Batch]</div>
 							<div class="hardware-data">
 								<span class="hardware-value">{hardwareInfo.recommended_batch_size}</span>
 								<span class="hardware-label">Recommended Batch Size</span>
