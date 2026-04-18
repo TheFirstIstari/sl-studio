@@ -51,16 +51,18 @@ pub struct ReasonerConfig {
 
 impl Default for ReasonerConfig {
     fn default() -> Self {
+        // Context MUST be 4096 - model's native context size
         ReasonerConfig {
             model_path: String::new(),
-            context_size: 8192,  // Smaller to avoid splitting issues
-            gpu_layers: 32,       // Use GPU
-            temperature: 0.2,    // Add some randomness
-            max_tokens: 1024,    // Limit output length
-            max_chars_per_chunk: 15000,  // Smaller chunks to fit in context
-            chunk_overlap: 1500,
-            batch_size: 24,
-            n_threads: 4,         // 4 threads optimal for Apple Silicon
+            context_size: 4096,
+            gpu_layers: 32,
+            temperature: 0.7,    // Recommended by model author
+            max_tokens: 256,       // Keep output short to avoid quality issues
+            // Max chars = ~700 tokens (4096 - 2000 for prompt - 1000 for output buffer)
+            max_chars_per_chunk: 2000,  
+            chunk_overlap: 150,
+            batch_size: 4,
+            n_threads: 4,
             n_threads_batch: Some(8),
         }
     }
@@ -353,14 +355,14 @@ impl Reasoner {
     }
 
     fn default_system_prompt() -> String {
-        // Use proper Llama 2 chat format
+        // EXACT format from Llama 2 chat model documentation
         r#"[INST] <<SYS>>
-Extract key facts from the document as a JSON array.
-Output only valid JSON starting with [ and ending with ].
-Example: [{"source":"file.pdf","summary":"important fact","type":"legal","severity":5}]
+You are a helpful forensic document analyst. Extract key facts from documents.
+Output ONLY valid JSON array. Example: [{"source":"filename.pdf","summary":"key fact","type":"legal","severity":5}]
+Do NOT include any text before or after the JSON.
 <</SYS>>
 
-Extract facts from this document: [/INST] ["#.to_string()
+Extract facts from this document. Output JSON only: [/INST]"#.to_string()
     }
 
     fn extract_json_objects(text: &str) -> Vec<String> {

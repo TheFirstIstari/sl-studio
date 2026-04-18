@@ -39,9 +39,9 @@ impl Default for LlamaConfig {
         let n_threads = (num_cpus::get() / 2).max(4) as u32;
         LlamaConfig {
             model_path: String::new(),
-            context_size: 4096,  // Smaller context for better throughput
+            context_size: 4096,  // Must match model's native context
             gpu_layers: 0,
-            temperature: 0.1,
+            temperature: 0.7,  // Higher for more diverse output
             max_tokens: 1024,
             repeat_penalty: 1.1,
             use_kv_cache: true,
