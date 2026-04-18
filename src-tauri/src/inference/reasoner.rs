@@ -367,10 +367,11 @@ impl Reasoner {
     fn build_prompt(&self, filename: &str, text: &str) -> String {
         match self.model_family {
             ModelFamily::Gemma3 => {
-                // Gemma 3 uses <start_of_turn>user...<end_of_turn> format
+                // Gemma 3 uses <start_of_turn> format - simplified prompt
+                let example = r#"[{"source":"doc","source_quote":"text","date":"2024-01-15","location":"NYC","people":["A"],"summary":"fact","category":"legal","identified_crime":null,"severity":2,"confidence":0.9}]"#;
                 format!(
-                    "<start_of_turn>user\n{}Extract key facts from FILE: {}\n\nDOCUMENT DATA:\n{}\n\nOutput a JSON array of facts with fields: source, date, summary, type, crime, severity.\n<end_of_turn>\n<start_of_turn>model\n",
-                    self.system_prompt, filename, text
+                    "<start_of_turn>user\nExtract facts from this document.\n\nFilename: {}\n\nText:\n{}\n\nOutput ONLY valid JSON array. No text before or after. Example: {}\n<end_of_turn>\n<start_of_turn>model\n",
+                    filename, text, example
                 )
             },
             ModelFamily::Llama2 | ModelFamily::Mistral => {
@@ -472,21 +473,8 @@ impl Reasoner {
     fn system_prompt_for_family(family: ModelFamily) -> String {
         match family {
             ModelFamily::Gemma3 => {
-                r#"You are a forensic document analyst for law enforcement. Extract structured facts from documents.
-For each fact, extract these EXACT fields:
-- source: filename
-- source_quote: EXACT text from document that supports this fact (REQUIRED per forensic standards)
-- date: date/time mentioned (YYYY-MM-DD format, or null if not found)
-- location: location mentioned (city, address, or null)
-- people: array of names mentioned in context of this fact
-- summary: brief description of the fact
-- category: one of [legal, financial, temporal, relationship, communication, activity, other]
-- identified_crime: crime type if applicable (fraud, theft, assault, corruption, etc.) or null
-- severity: 1-5 (1=minor, 2=low, 3=medium, 4=high, 5=critical)
-- confidence: 0.0-1.0 based on how well the source quote supports the fact
-
-Output ONLY valid JSON array. No text before or after JSON.
-Example: [{"source":"doc.pdf","source_quote":"signed on Jan 15 2024","date":"2024-01-15","location":null,"people":["John Smith"],"summary":"Contract signed","category":"legal","identified_crime":null,"severity":2,"confidence":0.9}]"#.to_string()
+                // Keep system minimal - main instructions are in the prompt
+                "You extract facts from documents. Output JSON only.".to_string()
             },
             ModelFamily::Llama2 | ModelFamily::Mistral => {
                 r#"You are a forensic document analyst for law enforcement. Extract structured facts from documents.

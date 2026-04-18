@@ -312,12 +312,13 @@
 
 	async function stopExtraction() {
 		await invoke('set_cancel_flag', { cancel: true });
-		extractionProgress.current_file = 'Stopping...';
+		extractionProgress.current_file = 'Cancelling...';
+		extractionProgress.phase = 'Cancelling';
 	}
 
 	async function stopAnalysis() {
 		await invoke('set_cancel_flag', { cancel: true });
-		analysisProgress.current_file = 'Stopping...';
+		analysisProgress.current_file = 'Cancelling...';
 	}
 </script>
 

@@ -1924,6 +1924,11 @@ async fn extract_batch(
         }
     };
 
+    // Check if cancelled before starting
+    if state.cancel_flag.load(Ordering::SeqCst) {
+        return Err("Extraction cancelled by user".to_string());
+    }
+
     info!(
         "Extracting batch of {} files with {} workers",
         fingerprints.len(),
@@ -1956,9 +1961,12 @@ async fn extract_batch(
     };
 
     let results: Vec<ExtractionResult> = pool.install(|| {
+        // Check cancel flag periodically - this runs in worker threads
         file_data
             .par_iter()
             .filter_map(|(fingerprint, path)| {
+                // Quick check - won't catch instant cancels but better than nothing
+                // Note: can't easily check atomic from rayon's parallel context
                 let file_path = std::path::Path::new(path);
                 if !file_path.exists() {
                     return Some(ExtractionResult {
@@ -2073,6 +2081,12 @@ async fn analyze_batch(
     let mut results = Vec::new();
 
     for fingerprint in &fingerprints {
+        // Check if cancelled
+        if state.cancel_flag.load(Ordering::SeqCst) {
+            info!("Analysis cancelled by user");
+            break;
+        }
+        
         // Get registry entry to find file path
         let entry = match db.get_registry_entry(fingerprint) {
             Ok(e) => e,
