@@ -367,11 +367,25 @@ impl Reasoner {
     fn build_prompt(&self, filename: &str, text: &str) -> String {
         match self.model_family {
             ModelFamily::Gemma3 => {
-                // Gemma 3 uses <start_of_turn> format - simplified prompt
-                let example = r#"[{"source":"doc","source_quote":"text","date":"2024-01-15","location":"NYC","people":["A"],"summary":"fact","category":"legal","identified_crime":null,"severity":2,"confidence":0.9}]"#;
+                // Gemma 3: System instructions go IN the user message (no separate system role)
+                // IMPORTANT: Constraints at the END of the prompt (per Google best practices)
+                let example = r#"[{"source":"doc.pdf","source_quote":"signed on Jan 15 2024","date":"2024-01-15","location":null,"people":["John Smith"],"summary":"Contract signed","category":"legal","identified_crime":null,"severity":2,"confidence":0.9}]"#;
+                let json_fields = r#"Extract facts from this document. For each fact, output a JSON object with these exact fields:
+- source: filename
+- source_quote: EXACT text from document that supports this fact
+- date: date mentioned (YYYY-MM-DD or null)
+- location: location mentioned (or null)
+- people: array of people names mentioned (can be empty)
+- summary: brief description of the fact
+- category: one of [legal, financial, temporal, relationship, communication, activity, other]
+- identified_crime: crime type if applicable (or null)
+- severity: 1-5 (1=minor, 5=critical)
+- confidence: 0.0-1.0 based on source quote quality
+
+Output ONLY valid JSON array. No explanation, no text before or after the JSON."#;
                 format!(
-                    "<start_of_turn>user\nExtract facts from this document.\n\nFilename: {}\n\nText:\n{}\n\nOutput ONLY valid JSON array. No text before or after. Example: {}\n<end_of_turn>\n<start_of_turn>model\n",
-                    filename, text, example
+                    "<start_of_turn>user\nFilename: {}\n\nText:\n{}\n\n{}\nExample output: {}\n<end_of_turn>\n<start_of_turn>model\n",
+                    filename, text, json_fields, example
                 )
             },
             ModelFamily::Llama2 | ModelFamily::Mistral => {
@@ -466,6 +480,7 @@ impl Reasoner {
         facts
     }
 
+    #[allow(dead_code)]
     fn get_system_prompt(&self) -> String {
         Self::system_prompt_for_family(self.model_family)
     }
@@ -513,6 +528,7 @@ Example: [{"source":"doc.pdf","source_quote":"signed on Jan 15 2024","date":"202
         }
     }
 
+    #[allow(dead_code)]
     fn default_system_prompt() -> String {
         // Legacy Llama 2 format (not used anymore)
         r#"[INST] <<SYS>>
@@ -559,13 +575,13 @@ Extract facts from this document. Output JSON only: [/INST]"#.to_string()
         // Fall back to extracting individual objects using depth tracking
         let mut depth = 0;
         let mut start = None;
-        let mut in_array = false;
+        let mut _in_array = false;
 
         for (i, c) in text.char_indices() {
             match c {
                 '[' => {
                     if depth == 0 {
-                        in_array = true;
+                        _in_array = true;
                     }
                     depth += 1;
                 }
@@ -578,7 +594,7 @@ Extract facts from this document. Output JSON only: [/INST]"#.to_string()
                 ']' => {
                     depth -= 1;
                     if depth == 0 {
-                        in_array = false;
+                        _in_array = false;
                     }
                 }
                 '}' => {

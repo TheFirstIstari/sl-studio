@@ -42,6 +42,7 @@ pub struct AppState {
     registry_worker: Mutex<Option<RegistryWorker>>,
     reasoner: Mutex<Option<Arc<Reasoner>>>,
     cancel_flag: AtomicBool,
+    processing: Mutex<ProcessingState>,
 }
 
 impl Default for AppState {
@@ -59,6 +60,7 @@ impl Default for AppState {
             registry_worker: Mutex::new(None),
             reasoner: Mutex::new(None),
             cancel_flag: AtomicBool::new(false),
+            processing: Mutex::new(ProcessingState::default()),
         }
     }
 }
@@ -89,6 +91,30 @@ pub struct WorkflowState {
     pub last_extraction_time: Option<String>,
     pub last_analysis_time: Option<String>,
     pub current_stage: String,
+    pub is_scanning: bool,
+    pub is_extracting: bool,
+    pub is_analyzing: bool,
+    pub scan_progress: f32,
+    pub extract_progress: f32,
+    pub analyze_progress: f32,
+    pub current_file: String,
+    pub processed_count: i64,
+    pub total_count: i64,
+}
+
+
+// Processing state for tracking active operations
+#[derive(Debug, Clone, Default)]
+pub struct ProcessingState {
+    pub is_scanning: bool,
+    pub is_extracting: bool,
+    pub is_analyzing: bool,
+    pub scan_progress: f32,
+    pub extract_progress: f32,
+    pub analyze_progress: f32,
+    pub current_file: String,
+    pub processed_count: i64,
+    pub total_count: i64,
 }
 
 // Commands
@@ -320,16 +346,65 @@ fn get_stats(state: State<AppState>) -> Result<Stats, String> {
 }
 
 #[tauri::command]
-fn get_workflow_state(state: State<AppState>) -> Result<WorkflowState, String> {
-    let db_guard = state
-        .db
-        .lock()
-        .map_err(|e| format!("Failed to lock database: {}", e))?;
-    if let Some(db) = db_guard.as_ref() {
-        db.get_workflow_state().map_err(|e| e.to_string())
-    } else {
-        Err("Database not initialized".to_string())
+#[tauri::command]
+fn update_processing_state(
+    state: State<AppState>,
+    is_scanning: Option<bool>,
+    is_extracting: Option<bool>,
+    is_analyzing: Option<bool>,
+    progress: Option<f32>,
+    current_file: Option<String>,
+    processed: Option<i64>,
+    total: Option<i64>,
+) -> Result<(), String> {
+    let mut proc = state.processing.lock().map_err(|e| e.to_string())?;
+    if let Some(v) = is_scanning { proc.is_scanning = v; }
+    if let Some(v) = is_extracting { proc.is_extracting = v; }
+    if let Some(v) = is_analyzing { proc.is_analyzing = v; }
+    if let Some(v) = progress {
+        if proc.is_scanning { proc.scan_progress = v; }
+        if proc.is_extracting { proc.extract_progress = v; }
+        if proc.is_analyzing { proc.analyze_progress = v; }
     }
+    if let Some(v) = current_file { proc.current_file = v; }
+    if let Some(v) = processed { proc.processed_count = v; }
+    if let Some(v) = total { proc.total_count = v; }
+    Ok(())
+}
+
+fn get_workflow_state(state: State<AppState>) -> Result<WorkflowState, String> {
+    // Get database state
+    let (db_state, processing) = {
+        let db_guard = state.db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+        let proc_guard = state.processing.lock().map_err(|e| format!("Failed to lock processing: {}", e))?;
+        (db_guard.as_ref().map(|db| db.get_workflow_state()), proc_guard.clone())
+    };
+    
+    let mut workflow = match db_state {
+        Ok(w) => w,
+        Err(_) => WorkflowState {
+            files_scanned: 0,
+            files_extracted: 0,
+            files_analyzed: 0,
+            last_scan_time: None,
+            last_extraction_time: None,
+            last_analysis_time: None,
+            current_stage: "none".to_string(),
+        }
+    };
+    
+    // Merge in-memory processing state
+    workflow.is_scanning = processing.is_scanning;
+    workflow.is_extracting = processing.is_extracting;
+    workflow.is_analyzing = processing.is_analyzing;
+    workflow.scan_progress = processing.scan_progress;
+    workflow.extract_progress = processing.extract_progress;
+    workflow.analyze_progress = processing.analyze_progress;
+    workflow.current_file = processing.current_file;
+    workflow.processed_count = processing.processed_count;
+    workflow.total_count = processing.total_count;
+    
+    Ok(workflow)
 }
 
 #[tauri::command]

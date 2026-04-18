@@ -450,8 +450,8 @@
 				<h2>Hardware</h2>
 
 				<div class="form-group">
-					<label>GPU Backend</label>
-					<div class="display-value">{recommendedBackend}</div>
+					<label for="gpu-backend">GPU Backend</label>
+					<div class="display-value" id="gpu-backend">{recommendedBackend}</div>
 					<p class="hint">Automatically detected</p>
 				</div>
 

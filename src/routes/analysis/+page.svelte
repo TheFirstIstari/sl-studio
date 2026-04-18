@@ -204,6 +204,8 @@
 			registryProgress.current_file = 'Please configure evidence folder first';
 			return;
 		}
+		// Update processing state
+		await invoke('update_processing_state', { isScanning: true, isExtracting: false, isAnalyzing: false, currentFile: 'Starting scan...' });
 		scanning = true;
 		registryProgress = {
 			phase: 'Initializing...',
@@ -220,6 +222,8 @@
 			registryProgress.phase = 'complete';
 			registryProgress.processed = result;
 			scanning = false;
+			// Clear processing state
+			await invoke('update_processing_state', { isScanning: false, processed: result, total: result });
 			clearTimeout(scanTimeout);
 		} catch (e) {
 			registryProgress.phase = 'error';
@@ -229,6 +233,8 @@
 	}
 
 	async function extractAllFiles() {
+		// Update processing state
+		await invoke('update_processing_state', { isScanning: false, isExtracting: true, isAnalyzing: false, currentFile: 'Starting extraction...' });
 		extracting = true;
 		extractionProgress = {
 			phase: 'Loading...',
@@ -273,12 +279,14 @@
 			analysisProgress.current_file = 'No model configured. Please download a model in Settings.';
 			return;
 		}
+		// Update processing state
+		await invoke('update_processing_state', { isScanning: false, isExtracting: false, isAnalyzing: true, currentFile: 'Loading model...' });
 		analyzing = true;
 		analysisProgress = { phase: 'Loading model...', current_file: '', processed: 0, total: 0 };
 		try {
 			if (!modelLoaded) {
 				const models = await invoke<Array<{ path: string }>>('list_downloaded_models');
-				const modelPath = models.length > 0 ? models[0].path : null;
+				const modelPath = config.model.local_path || (models.length > 0 ? models[0].path : null);
 				if (!modelPath)
 					throw new Error('No model file found. Please download a model in Settings.');
 				await invoke('init_reasoner', {
@@ -302,6 +310,8 @@
 			analysisProgress.processed = queue.length;
 			analysisProgress.phase = 'complete';
 			analysisProgress.current_file = `Analyzed ${queue.length} files`;
+			// Clear processing state
+			await invoke('update_processing_state', { isAnalyzing: false, processed: queue.length, total: queue.length });
 		} catch (e) {
 			analysisProgress.phase = 'error';
 			analysisProgress.current_file = `Error: ${e}`;

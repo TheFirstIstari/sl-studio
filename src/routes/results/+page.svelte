@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/core';
 	import { onMount, onDestroy } from 'svelte';
+	import { listen } from '@tauri-apps/api/event';
 
 	interface Fact {
 		id: number;
@@ -12,6 +13,22 @@
 		severity_score: number;
 		confidence: number | null;
 		created_at: string;
+	}
+
+	interface WorkflowState {
+		files_scanned: number;
+		files_extracted: number;
+		files_analyzed: number;
+		current_stage: string;
+		is_scanning: boolean;
+		is_extracting: boolean;
+		is_analyzing: boolean;
+		scan_progress: number;
+		extract_progress: number;
+		analyze_progress: number;
+		current_file: string;
+		processed_count: number;
+		total_count: number;
 	}
 
 	interface HistoryState {
@@ -33,6 +50,16 @@
 	let historyIndex = $state(-1);
 	let canUndo = $derived(historyIndex > 0);
 	let canRedo = $derived(historyIndex < history.length - 1);
+	
+	// Workflow state for progress tracking
+	let workflowState = $state<WorkflowState | null>(null);
+	let isProcessing = $derived(workflowState?.is_scanning || workflowState?.is_extracting || workflowState?.is_analyzing || false);
+	let processingLabel = $derived(() => {
+		if (workflowState?.is_scanning) return 'Scanning';
+		if (workflowState?.is_extracting) return 'Extracting';
+		if (workflowState?.is_analyzing) return 'Analyzing';
+		return '';
+	});
 
 	function saveToHistory() {
 		const state: HistoryState = {
@@ -104,13 +131,35 @@
 		saveToHistory();
 	}
 
-	onMount(() => {
+	async function loadWorkflowState() {
+		try {
+			workflowState = await invoke<WorkflowState>('get_workflow_state');
+		} catch (e) {
+			console.error('Error loading workflow state:', e);
+		}
+	}
+	
+	let pollInterval: ReturnType<typeof setInterval>;
+	let unlistenAnalysis: (() => void) | null = null;
+	
+	onMount(async () => {
 		initialize();
 		window.addEventListener('keydown', handleKeydown);
+		
+		// Load workflow state and start polling
+		await loadWorkflowState();
+		pollInterval = setInterval(loadWorkflowState, 2000);
+		
+		// Listen for analysis progress updates
+		unlistenAnalysis = await listen('analysis_progress', () => {
+			loadWorkflowState();
+		});
 	});
 
 	onDestroy(() => {
 		window.removeEventListener('keydown', handleKeydown);
+		if (pollInterval) clearInterval(pollInterval);
+		if (unlistenAnalysis) unlistenAnalysis();
 	});
 
 	async function loadFacts() {
