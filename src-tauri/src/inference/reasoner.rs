@@ -53,15 +53,15 @@ impl Default for ReasonerConfig {
     fn default() -> Self {
         ReasonerConfig {
             model_path: String::new(),
-            context_size: 16384,
-            gpu_layers: 0,
-            temperature: 0.0,
-            max_tokens: 2000,
-            max_chars_per_chunk: 20000,
-            chunk_overlap: 2000,
+            context_size: 8192,  // Smaller to avoid splitting issues
+            gpu_layers: 32,       // Use GPU
+            temperature: 0.2,    // Add some randomness
+            max_tokens: 1024,    // Limit output length
+            max_chars_per_chunk: 15000,  // Smaller chunks to fit in context
+            chunk_overlap: 1500,
             batch_size: 24,
-            n_threads: num_cpus::get() as u32,
-            n_threads_batch: None,
+            n_threads: 4,         // 4 threads optimal for Apple Silicon
+            n_threads_batch: Some(8),
         }
     }
 }
@@ -353,12 +353,14 @@ impl Reasoner {
     }
 
     fn default_system_prompt() -> String {
-        r#"<|im_start|>system
-You are a forensic document analyst. Extract facts from documents.
-Output a JSON array like: [{"source":"filename","summary":"key fact","type":"financial","severity":5}]
-Do not write any text before or after the JSON. Start with [ and end with ].
-<|im_end|>
-"#.to_string()
+        // Use proper Llama 2 chat format
+        r#"[INST] <<SYS>>
+Extract key facts from the document as a JSON array.
+Output only valid JSON starting with [ and ending with ].
+Example: [{"source":"file.pdf","summary":"important fact","type":"legal","severity":5}]
+<</SYS>>
+
+Extract facts from this document: [/INST] ["#.to_string()
     }
 
     fn extract_json_objects(text: &str) -> Vec<String> {
