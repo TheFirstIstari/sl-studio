@@ -1,10 +1,11 @@
 [env]
 RUSTUP_HOME = "~/.rustup"
+RUSTUP_TOOLCHAIN = "stable-aarch64-apple-darwin"
 LIBS = "/opt/homebrew/lib"
 
 [tools]
 node = "22"
-rust = "stable"
+rust = "stable-aarch64-apple-darwin"
 
 # ============================================================
 # Core Commands
