@@ -57,6 +57,8 @@ pub struct IntelligenceEntry {
     pub evidence_full: Option<String>,
     pub evidence_hash: Option<String>,
     pub associated_date: Option<String>,
+    pub location: Option<String>,
+    pub people: Option<String>,
     pub fact_summary: String,
     pub category: Option<String>,
     pub identified_crime: Option<String>,
@@ -178,6 +180,8 @@ impl Database {
                 evidence_full TEXT,
                 evidence_hash TEXT,
                 associated_date TEXT,
+                location TEXT,
+                people TEXT,
                 fact_summary TEXT NOT NULL,
                 category TEXT,
                 identified_crime TEXT,
@@ -818,10 +822,10 @@ impl Database {
         conn.execute(
             "INSERT OR REPLACE INTO intelligence
              (registry_id, fingerprint, filename, source_quote, page_number, evidence_full, evidence_hash,
-              associated_date, fact_summary, category, identified_crime, severity_score,
+              associated_date, location, people, fact_summary, category, identified_crime, severity_score,
               confidence, quality_score, source_language, translated_quote, pipeline_id, pass_name,
               is_deleted, deleted_at, processing_time_ms, created_at)
-              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
+              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
             params![
                 entry.registry_id,
                 entry.fingerprint,
@@ -831,6 +835,8 @@ impl Database {
                 entry.evidence_full,
                 entry.evidence_hash,
                 entry.associated_date,
+                entry.location,
+                entry.people,
                 entry.fact_summary,
                 entry.category,
                 entry.identified_crime,
@@ -858,8 +864,9 @@ impl Database {
         let conn = self.intelligence_conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT id, registry_id, fingerprint, filename, source_quote, page_number, evidence_full, evidence_hash,
-                    associated_date, fact_summary, category, identified_crime, severity_score, confidence, quality_score,
-                    source_language, translated_quote, pipeline_id, pass_name, is_deleted, deleted_at, processing_time_ms, created_at
+                    associated_date, location, people, fact_summary, category, identified_crime, severity_score, 
+                    confidence, quality_score, source_language, translated_quote, pipeline_id, pass_name, 
+                    is_deleted, deleted_at, processing_time_ms, created_at
              FROM intelligence
              WHERE is_deleted = FALSE
              ORDER BY severity_score DESC, created_at DESC
@@ -877,20 +884,22 @@ impl Database {
                 evidence_full: row.get(6)?,
                 evidence_hash: row.get(7)?,
                 associated_date: row.get(8)?,
-                fact_summary: row.get(9)?,
-                category: row.get(10)?,
-                identified_crime: row.get(11)?,
-                severity_score: row.get(12)?,
-                confidence: row.get(13)?,
-                quality_score: row.get(14)?,
-                source_language: row.get(15)?,
-                translated_quote: row.get(16)?,
-                pipeline_id: row.get(17)?,
-                pass_name: row.get(18)?,
-                is_deleted: row.get(19)?,
-                deleted_at: row.get(20)?,
-                processing_time_ms: row.get(21)?,
-                created_at: row.get(22)?,
+                location: row.get(9)?,
+                people: row.get(10)?,
+                fact_summary: row.get(11)?,
+                category: row.get(12)?,
+                identified_crime: row.get(13)?,
+                severity_score: row.get(14)?,
+                confidence: row.get(15)?,
+                quality_score: row.get(16)?,
+                source_language: row.get(17)?,
+                translated_quote: row.get(18)?,
+                pipeline_id: row.get(19)?,
+                pass_name: row.get(20)?,
+                is_deleted: row.get(21)?,
+                deleted_at: row.get(22)?,
+                processing_time_ms: row.get(23)?,
+                created_at: row.get(24)?,
             })
         })?;
 

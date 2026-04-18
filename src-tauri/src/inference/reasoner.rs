@@ -5,6 +5,37 @@ use std::path::Path;
 use thiserror::Error;
 use tracing::{error, info, warn};
 
+/// Model family for prompt format selection
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum ModelFamily {
+    /// Llama 2 style: [INST] <<SYS>>...<[/SYS>>...[/INST]
+    #[default]
+    Llama2,
+    /// Gemma 3 style: <start_of_turn>user...<end_of_turn>
+    Gemma3,
+    /// Mistral style (same as Llama 2)
+    Mistral,
+    /// Generic chatml style: <|im_start|>user...<|im_end|>
+    ChatML,
+}
+
+impl ModelFamily {
+    /// Detect model family from model filename
+    pub fn from_filename(filename: &str) -> Self {
+        let lower = filename.to_lowercase();
+        if lower.contains("gemma-3") || lower.contains("gemma3") {
+            ModelFamily::Gemma3
+        } else if lower.contains("mistral") {
+            ModelFamily::Mistral
+        } else if lower.contains("llama-2") || lower.contains("llama2") {
+            ModelFamily::Llama2
+        } else {
+            // Default to ChatML for unknown models
+            ModelFamily::ChatML
+        }
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum ReasonerError {
     #[error("Extraction error: {0}")]
@@ -17,22 +48,33 @@ pub enum ReasonerError {
     ModelNotConfigured,
 }
 
+/// Extracted fact from document analysis
+/// Matches SPEC.md intelligence table schema
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Fact {
-    pub source: String,
-    pub date: Option<String>,
-    pub summary: String,
-    pub fact_type: String,
-    pub crime: Option<String>,
-    pub severity: i32,
+    pub source: String,              // Source filename (required)
+    pub source_quote: String,       // Exact supporting quote from document (required per FR-EVD-001)
+    pub date: Option<String>,        // Associated date/time (optional)
+    pub location: Option<String>,    // Location mentioned in fact (optional)
+    pub people: Vec<String>,         // Related people/entities (optional)
+    pub summary: String,             // Fact summary (required)
+    pub category: String,            // Category: legal, financial, temporal, relationship, etc.
+    pub identified_crime: Option<String>,  // Potential crime type if applicable
+    pub severity: i32,               // Severity 1-5 (1=low, 5=critical)
+    pub confidence: f32,             // Extraction confidence 0.0-1.0 (per FR-QUAL-001)
 }
 
+/// Result from LLM analysis
+/// Includes quality metrics per FR-QUAL-001
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalysisResult {
     pub filename: String,
     pub facts: Vec<Fact>,
     pub raw_response: String,
     pub tokens_used: i32,
+    pub quality_score: f32,          // Overall extraction quality 0.0-1.0
+    pub entity_count: i32,           // Number of entities detected
+    pub quote_coverage: f32,        // Percentage of facts with source quotes
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,6 +89,7 @@ pub struct ReasonerConfig {
     pub batch_size: usize,
     pub n_threads: u32,
     pub n_threads_batch: Option<u32>,  // For batch processing parallelism
+    pub model_family: ModelFamily,      // For prompt format selection
 }
 
 impl Default for ReasonerConfig {
@@ -64,6 +107,7 @@ impl Default for ReasonerConfig {
             batch_size: 4,
             n_threads: 4,
             n_threads_batch: Some(8),
+            model_family: ModelFamily::default(),
         }
     }
 }
@@ -73,6 +117,7 @@ pub struct Reasoner {
     model: Option<LlamaModel>,
     config: ReasonerConfig,
     system_prompt: String,
+    model_family: ModelFamily,
 }
 
 impl Reasoner {
@@ -81,7 +126,9 @@ impl Reasoner {
         let deconstructor = Deconstructor::new(extractor_config)
             .map_err(|e| ReasonerError::ExtractionError(e.to_string()))?;
 
-        let system_prompt = Self::default_system_prompt();
+        // Detect model family from config
+        let model_family = ModelFamily::from_filename(&config.model_path);
+        let system_prompt = Self::system_prompt_for_family(model_family);
 
         let model = if !config.model_path.is_empty() {
             let llama_config = LlamaConfig {
@@ -112,11 +159,14 @@ impl Reasoner {
             !config.model_path.is_empty()
         );
 
+        let model_family = ModelFamily::from_filename(&config.model_path);
+        
         Ok(Reasoner {
             deconstructor,
             model,
             config,
             system_prompt,
+            model_family,
         })
     }
 
@@ -184,6 +234,9 @@ impl Reasoner {
                 facts: vec![],
                 raw_response: "No text content found".to_string(),
                 tokens_used: 0,
+                quality_score: 0.0,
+                entity_count: 0,
+                quote_coverage: 0.0,
             });
         }
 
@@ -237,6 +290,19 @@ impl Reasoner {
 
         info!("Analysis complete for {}", filename);
 
+        // Calculate quality metrics
+        let quality_score = if unique_facts.is_empty() {
+            0.0
+        } else {
+            unique_facts.iter().map(|f| f.confidence).sum::<f32>() / unique_facts.len() as f32
+        };
+        let entity_count: i32 = unique_facts.iter().map(|f| f.people.len() as i32).sum();
+        let quote_coverage = if unique_facts.is_empty() {
+            0.0
+        } else {
+            unique_facts.iter().filter(|f| !f.source_quote.is_empty()).count() as f32 / unique_facts.len() as f32
+        };
+
         Ok(AnalysisResult {
             filename,
             facts: unique_facts,
@@ -246,6 +312,9 @@ impl Reasoner {
                 .collect::<Vec<_>>()
                 .join("\n---\n"),
             tokens_used: 0,
+            quality_score,
+            entity_count,
+            quote_coverage,
         })
     }
 
@@ -296,10 +365,29 @@ impl Reasoner {
     }
 
     fn build_prompt(&self, filename: &str, text: &str) -> String {
-        format!(
-            "{}<|im_start|>user\nFILE: {}\nDATA: {}<|im_end|>\n<|im_start|>assistant\n",
-            self.system_prompt, filename, text
-        )
+        match self.model_family {
+            ModelFamily::Gemma3 => {
+                // Gemma 3 uses <start_of_turn>user...<end_of_turn> format
+                format!(
+                    "<start_of_turn>user\n{}Extract key facts from FILE: {}\n\nDOCUMENT DATA:\n{}\n\nOutput a JSON array of facts with fields: source, date, summary, type, crime, severity.\n<end_of_turn>\n<start_of_turn>model\n",
+                    self.system_prompt, filename, text
+                )
+            },
+            ModelFamily::Llama2 | ModelFamily::Mistral => {
+                // Llama 2 / Mistral use [INST] <<SYS>>...<[/SYS>> format
+                format!(
+                    "[INST] <<SYS>>\n{}<</SYS>>\n\nFILE: {}\nDATA: {}\n\nOutput JSON only: [/INST]",
+                    self.system_prompt, filename, text
+                )
+            },
+            ModelFamily::ChatML => {
+                // Default ChatML format
+                format!(
+                    "{}<|im_start|>user\nFILE: {}\nDATA: {}<|im_end|>\n<|im_start|>assistant\n",
+                    self.system_prompt, filename, text
+                )
+            }
+        }
     }
 
     fn parse_facts(&self, response: &str) -> Vec<Fact> {
@@ -309,31 +397,54 @@ impl Reasoner {
 
         for item in items {
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&item) {
+                // Parse people array
+                let people: Vec<String> = json
+                    .get("people")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|p| p.as_str())
+                            .map(|s| s.to_string())
+                            .collect()
+                    })
+                    .unwrap_or_default();
+
                 let fact = Fact {
                     source: json
                         .get("source")
                         .and_then(|v| v.as_str())
                         .unwrap_or("unknown")
                         .to_string(),
+                    source_quote: json
+                        .get("source_quote")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
                     date: json
                         .get("date")
                         .and_then(|v| v.as_str())
                         .map(|s| s.to_string()),
+                    location: json
+                        .get("location")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string()),
+                    people,
                     summary: json
                         .get("summary")
                         .and_then(|v| v.as_str())
                         .unwrap_or("No summary")
                         .to_string(),
-                    fact_type: json
-                        .get("type")
+                    category: json
+                        .get("category")
                         .and_then(|v| v.as_str())
-                        .unwrap_or("General")
+                        .unwrap_or("other")
                         .to_string(),
-                    crime: json
-                        .get("crime")
+                    identified_crime: json
+                        .get("identified_crime")
                         .and_then(|v| v.as_str())
                         .map(|s| s.to_string()),
                     severity: json.get("severity").and_then(|v| v.as_i64()).unwrap_or(1) as i32,
+                    confidence: json.get("confidence").and_then(|v| v.as_f64()).unwrap_or(0.5) as f32,
                 };
                 facts.push(fact);
             }
@@ -354,8 +465,68 @@ impl Reasoner {
         facts
     }
 
+    fn get_system_prompt(&self) -> String {
+        Self::system_prompt_for_family(self.model_family)
+    }
+
+    fn system_prompt_for_family(family: ModelFamily) -> String {
+        match family {
+            ModelFamily::Gemma3 => {
+                r#"You are a forensic document analyst for law enforcement. Extract structured facts from documents.
+For each fact, extract these EXACT fields:
+- source: filename
+- source_quote: EXACT text from document that supports this fact (REQUIRED per forensic standards)
+- date: date/time mentioned (YYYY-MM-DD format, or null if not found)
+- location: location mentioned (city, address, or null)
+- people: array of names mentioned in context of this fact
+- summary: brief description of the fact
+- category: one of [legal, financial, temporal, relationship, communication, activity, other]
+- identified_crime: crime type if applicable (fraud, theft, assault, corruption, etc.) or null
+- severity: 1-5 (1=minor, 2=low, 3=medium, 4=high, 5=critical)
+- confidence: 0.0-1.0 based on how well the source quote supports the fact
+
+Output ONLY valid JSON array. No text before or after JSON.
+Example: [{"source":"doc.pdf","source_quote":"signed on Jan 15 2024","date":"2024-01-15","location":null,"people":["John Smith"],"summary":"Contract signed","category":"legal","identified_crime":null,"severity":2,"confidence":0.9}]"#.to_string()
+            },
+            ModelFamily::Llama2 | ModelFamily::Mistral => {
+                r#"You are a forensic document analyst for law enforcement. Extract structured facts from documents.
+For each fact, extract these EXACT fields:
+- source: filename
+- source_quote: EXACT text from document that supports this fact (REQUIRED per forensic standards)
+- date: date/time mentioned (YYYY-MM-DD format, or null if not found)
+- location: location mentioned (city, address, or null)
+- people: array of names mentioned in context of this fact
+- summary: brief description of the fact
+- category: one of [legal, financial, temporal, relationship, communication, activity, other]
+- identified_crime: crime type if applicable (fraud, theft, assault, corruption, etc.) or null
+- severity: 1-5 (1=minor, 2=low, 3=medium, 4=high, 5=critical)
+- confidence: 0.0-1.0 based on how well the source quote supports the fact
+
+Output ONLY valid JSON array. No text before or after JSON.
+Example: [{"source":"doc.pdf","source_quote":"signed on Jan 15 2024","date":"2024-01-15","location":null,"people":["John Smith"],"summary":"Contract signed","category":"legal","identified_crime":null,"severity":2,"confidence":0.9}]"#.to_string()
+            },
+            ModelFamily::ChatML => {
+                r#"You are a forensic document analyst for law enforcement. Extract structured facts from documents.
+For each fact, extract these EXACT fields:
+- source: filename
+- source_quote: EXACT text from document that supports this fact (REQUIRED per forensic standards)
+- date: date/time mentioned (YYYY-MM-DD format, or null if not found)
+- location: location mentioned (city, address, or null)
+- people: array of names mentioned in context of this fact
+- summary: brief description of the fact
+- category: one of [legal, financial, temporal, relationship, communication, activity, other]
+- identified_crime: crime type if applicable (fraud, theft, assault, corruption, etc.) or null
+- severity: 1-5 (1=minor, 2=low, 3=medium, 4=high, 5=critical)
+- confidence: 0.0-1.0 based on how well the source quote supports the fact
+
+Output ONLY valid JSON array. No text before or after JSON.
+Example: [{"source":"doc.pdf","source_quote":"signed on Jan 15 2024","date":"2024-01-15","location":null,"people":["John Smith"],"summary":"Contract signed","category":"legal","identified_crime":null,"severity":2,"confidence":0.9}]"#.to_string()
+            }
+        }
+    }
+
     fn default_system_prompt() -> String {
-        // EXACT format from Llama 2 chat model documentation
+        // Legacy Llama 2 format (not used anymore)
         r#"[INST] <<SYS>>
 You are a helpful forensic document analyst. Extract key facts from documents.
 Output ONLY valid JSON array. Example: [{"source":"filename.pdf","summary":"key fact","type":"legal","severity":5}]
@@ -459,6 +630,9 @@ Extract facts from this document. Output JSON only: [/INST]"#.to_string()
                 facts: vec![],
                 raw_response: "No text content provided".to_string(),
                 tokens_used: 0,
+                quality_score: 0.0,
+                entity_count: 0,
+                quote_coverage: 0.0,
             });
         }
 
@@ -506,6 +680,19 @@ Extract facts from this document. Output JSON only: [/INST]"#.to_string()
             filename
         );
 
+        // Calculate quality metrics
+        let quality_score = if unique_facts.is_empty() {
+            0.0
+        } else {
+            unique_facts.iter().map(|f| f.confidence).sum::<f32>() / unique_facts.len() as f32
+        };
+        let entity_count: i32 = unique_facts.iter().map(|f| f.people.len() as i32).sum();
+        let quote_coverage = if unique_facts.is_empty() {
+            0.0
+        } else {
+            unique_facts.iter().filter(|f| !f.source_quote.is_empty()).count() as f32 / unique_facts.len() as f32
+        };
+
         Ok(AnalysisResult {
             filename: filename.to_string(),
             facts: unique_facts,
@@ -515,6 +702,9 @@ Extract facts from this document. Output JSON only: [/INST]"#.to_string()
                 .collect::<Vec<_>>()
                 .join("\n---\n"),
             tokens_used: 0,
+            quality_score,
+            entity_count,
+            quote_coverage,
         })
     }
 }

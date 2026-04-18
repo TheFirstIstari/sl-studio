@@ -2096,22 +2096,32 @@ async fn analyze_batch(
             Ok(result) => {
                 // Save each fact to the intelligence database
                 for fact in &result.facts {
+                    // Store location and people as comma-separated strings
+                    let location_str = fact.location.clone();
+                    let people_str = if fact.people.is_empty() {
+                        None
+                    } else {
+                        Some(fact.people.join(", "))
+                    };
+
                     let intel_entry = IntelligenceEntry {
                         id: 0,
                         registry_id: entry.id,
                         fingerprint: fingerprint.clone(),
                         filename: entry.file_name.clone(),
-                        source_quote: fact.summary.clone(),
+                        source_quote: fact.source_quote.clone(),
                         page_number: None,
                         evidence_full: None,
                         evidence_hash: None,
                         associated_date: fact.date.clone(),
+                        location: location_str,
+                        people: people_str,
                         fact_summary: fact.summary.clone(),
-                        category: Some(fact.fact_type.clone()),
-                        identified_crime: fact.crime.clone(),
+                        category: Some(fact.category.clone()),
+                        identified_crime: fact.identified_crime.clone(),
                         severity_score: fact.severity,
-                        confidence: None,
-                        quality_score: None,
+                        confidence: Some(fact.confidence as f64),
+                        quality_score: Some(result.quality_score as f64),
                         source_language: None,
                         translated_quote: None,
                         pipeline_id: None,

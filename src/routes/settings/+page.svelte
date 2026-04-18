@@ -30,6 +30,13 @@
 
 	const RECOMMENDED_MODELS = [
 		{
+			id: 'ggml-org/gemma-3-4b-it-GGUF',
+			name: 'Gemma 3 4B Instruct',
+			size: '~2.5GB',
+			quantization: 'Q4_K_M',
+			note: 'Recommended for 16GB Macs - 131K context, QAT quantization'
+		},
+		{
 			id: 'TheBloke/Mistral-7B-Instruct-v0.2-GGUF',
 			name: 'Mistral 7B Instruct',
 			size: '~4.1GB',
