@@ -444,8 +444,7 @@
 						</div>
 					</div>
 				{/if}
-
-				<div class="form-group">
+			</section>
 
 			<section class="settings-section">
 				<h2>Hardware</h2>
