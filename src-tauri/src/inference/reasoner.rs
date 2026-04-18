@@ -46,6 +46,7 @@ pub struct ReasonerConfig {
     pub chunk_overlap: usize,
     pub batch_size: usize,
     pub n_threads: u32,
+    pub n_threads_batch: Option<u32>,  // For batch processing parallelism
 }
 
 impl Default for ReasonerConfig {
@@ -60,6 +61,7 @@ impl Default for ReasonerConfig {
             chunk_overlap: 2000,
             batch_size: 24,
             n_threads: num_cpus::get() as u32,
+            n_threads_batch: None,
         }
     }
 }
@@ -90,6 +92,7 @@ impl Reasoner {
                 use_kv_cache: true,
                 prompt_cache: None,
                 n_threads: config.n_threads,
+                n_threads_batch: config.n_threads_batch.unwrap_or(config.n_threads * 2),
             };
 
             let mut model = LlamaModel::new(llama_config);
@@ -130,6 +133,7 @@ impl Reasoner {
             use_kv_cache: true,
             prompt_cache: None,
             n_threads: self.config.n_threads,
+            n_threads_batch: self.config.n_threads_batch.unwrap_or(self.config.n_threads * 2),
         };
 
         let mut model = LlamaModel::new(llama_config);
@@ -350,31 +354,69 @@ impl Reasoner {
 
     fn default_system_prompt() -> String {
         r#"<|im_start|>system
-You are a forensic analyst. Extract facts from the provided text into JSON objects with the following keys:
-- source: The document or file name
-- date: Any dates mentioned (YYYY-MM-DD or description)
-- summary: A brief summary of the fact
-- type: Category (e.g., "Financial", "Legal", "Physical", "Digital", "Verbal")
-- crime: Any crime type mentioned
-- severity: 1-10 severity score
-
-Output ONLY valid JSON array objects like: {"source": "...", "date": "...", "summary": "...", "type": "...", "crime": "...", "severity": 5}
-Do not include any explanations or text before/after the JSON.<|im_end|>
+You are a forensic document analyst. Extract facts from documents.
+Output a JSON array like: [{"source":"filename","summary":"key fact","type":"financial","severity":5}]
+Do not write any text before or after the JSON. Start with [ and end with ].
+<|im_end|>
 "#.to_string()
     }
 
     fn extract_json_objects(text: &str) -> Vec<String> {
+        let text = text.trim();
         let mut results = Vec::new();
+        
+        // First, try to parse as a JSON array
+        if let Ok(arr) = serde_json::from_str::<serde_json::Value>(text) {
+            if let Some(items) = arr.as_array() {
+                for item in items {
+                    if let Some(obj_str) = item.as_object() {
+                        if let Ok(obj_json) = serde_json::to_string(obj_str) {
+                            results.push(obj_json);
+                        }
+                    } else if let Some(obj_str) = item.as_str() {
+                        // Try parsing string as JSON
+                        if let Ok(v) = serde_json::from_str::<serde_json::Value>(obj_str) {
+                            if let Some(obj) = v.as_object() {
+                                if let Ok(obj_json) = serde_json::to_string(obj) {
+                                    results.push(obj_json);
+                                }
+                            }
+                        } else {
+                            // It's a plain string, wrap it
+                            results.push(obj_str.to_string());
+                        }
+                    }
+                }
+                if !results.is_empty() {
+                    return results;
+                }
+            }
+        }
+        
+        // Fall back to extracting individual objects using depth tracking
         let mut depth = 0;
         let mut start = None;
+        let mut in_array = false;
 
         for (i, c) in text.char_indices() {
             match c {
+                '[' => {
+                    if depth == 0 {
+                        in_array = true;
+                    }
+                    depth += 1;
+                }
                 '{' => {
                     if depth == 0 {
                         start = Some(i);
                     }
                     depth += 1;
+                }
+                ']' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        in_array = false;
+                    }
                 }
                 '}' => {
                     depth -= 1;
@@ -427,6 +469,9 @@ Do not include any explanations or text before/after the JSON.<|im_end|>
             match model.generate_structured(&prompt) {
                 Ok(response) => {
                     raw_responses.push(response.clone());
+                    // Debug: show full response
+                    let response_preview = &response.text[..response.text.len().min(1000)];
+                    info!("LLM response (first 1000 chars): {:?}", response_preview);
                     let facts = self.parse_facts(&response.text);
                     info!("Parsed {} facts from response", facts.len());
                     all_facts.extend(facts);

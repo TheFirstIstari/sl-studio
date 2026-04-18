@@ -157,6 +157,7 @@ pub struct PipelineRunner {
 
 impl PipelineRunner {
     pub fn new(model_path: Option<String>) -> Self {
+        let n_threads = num_cpus::get() as u32;
         let model_config = LlamaConfig {
             model_path: model_path.unwrap_or_default(),
             context_size: 16384,
@@ -166,7 +167,8 @@ impl PipelineRunner {
             repeat_penalty: 1.1,
             use_kv_cache: true,
             prompt_cache: None,
-            n_threads: num_cpus::get() as u32,
+            n_threads,
+            n_threads_batch: n_threads * 2,
         };
 
         PipelineRunner {

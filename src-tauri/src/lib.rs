@@ -7,7 +7,7 @@ pub mod models;
 pub mod utils;
 
 use config::{AppConfig, ProjectFile, ValidationResult};
-use core::{Database, RegistryProgress, RegistryWorker};
+use core::{Database, IntelligenceEntry, RegistryProgress, RegistryWorker};
 use gpu::HardwareStatus;
 use inference::{Reasoner, ReasonerConfig};
 pub use models::{ModelManager, Quantization};
@@ -15,6 +15,7 @@ pub use models::{ModelManager, Quantization};
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Emitter, State};
 
 static GLOBAL_THREAD_POOL: OnceLock<rayon::ThreadPool> = OnceLock::new();
@@ -40,6 +41,7 @@ pub struct AppState {
     db: Mutex<Option<Database>>,
     registry_worker: Mutex<Option<RegistryWorker>>,
     reasoner: Mutex<Option<Arc<Reasoner>>>,
+    cancel_flag: AtomicBool,
 }
 
 impl Default for AppState {
@@ -56,6 +58,7 @@ impl Default for AppState {
             db: Mutex::new(None),
             registry_worker: Mutex::new(None),
             reasoner: Mutex::new(None),
+            cancel_flag: AtomicBool::new(false),
         }
     }
 }
@@ -1745,6 +1748,18 @@ fn get_reasoner_config(state: State<AppState>) -> Option<ReasonerConfig> {
     cached.as_ref().map(|r| r.get_config())
 }
 
+#[tauri::command]
+fn set_cancel_flag(state: State<AppState>, cancel: bool) -> bool {
+    state.cancel_flag.store(cancel, Ordering::SeqCst);
+    info!("Cancel flag set to: {}", cancel);
+    cancel
+}
+
+#[tauri::command]
+fn get_cancel_flag(state: State<AppState>) -> bool {
+    state.cancel_flag.load(Ordering::SeqCst)
+}
+
 // Global logging guard - kept alive for app lifetime
 static LOG_GUARD: std::sync::OnceLock<tracing_appender::non_blocking::WorkerGuard> =
     std::sync::OnceLock::new();
@@ -1800,6 +1815,8 @@ pub fn run() {
             analyze_file,
             is_model_loaded,
             get_reasoner_config,
+            set_cancel_flag,
+            get_cancel_flag,
             search_facts,
             search_entities,
             search_combined,
@@ -2051,9 +2068,9 @@ async fn analyze_batch(
     let db = db_guard.as_ref().ok_or("Database not initialized")?;
     let mut results = Vec::new();
 
-    for fingerprint in fingerprints {
+    for fingerprint in &fingerprints {
         // Get registry entry to find file path
-        let entry = match db.get_registry_entry(&fingerprint) {
+        let entry = match db.get_registry_entry(fingerprint) {
             Ok(e) => e,
             Err(e) => {
                 error!("Registry lookup failed for {}: {}", fingerprint, e);
@@ -2061,10 +2078,8 @@ async fn analyze_batch(
             }
         };
 
-        let _file_path = std::path::Path::new(&entry.path);
-
         // Get extracted text from cache
-        let text = match db.get_extracted_text(&fingerprint) {
+        let text = match db.get_extracted_text(fingerprint) {
             Ok(Some(t)) => t,
             Ok(None) => {
                 error!("No extracted text found for {}", fingerprint);
@@ -2077,10 +2092,44 @@ async fn analyze_batch(
         };
 
         // Run analysis on the already-extracted text
-        match reasoner.analyze_text(&fingerprint, &entry.file_name, &text) {
+        match reasoner.analyze_text(fingerprint, &entry.file_name, &text) {
             Ok(result) => {
+                // Save each fact to the intelligence database
+                for fact in &result.facts {
+                    let intel_entry = IntelligenceEntry {
+                        id: 0,
+                        registry_id: entry.id,
+                        fingerprint: fingerprint.clone(),
+                        filename: entry.file_name.clone(),
+                        source_quote: fact.summary.clone(),
+                        page_number: None,
+                        evidence_full: None,
+                        evidence_hash: None,
+                        associated_date: fact.date.clone(),
+                        fact_summary: fact.summary.clone(),
+                        category: Some(fact.fact_type.clone()),
+                        identified_crime: fact.crime.clone(),
+                        severity_score: fact.severity,
+                        confidence: None,
+                        quality_score: None,
+                        source_language: None,
+                        translated_quote: None,
+                        pipeline_id: None,
+                        pass_name: None,
+                        is_deleted: false,
+                        deleted_at: None,
+                        processing_time_ms: None,
+                        created_at: None,
+                    };
+                    
+                    if let Err(e) = db.insert_intelligence(&intel_entry) {
+                        error!("Failed to save fact for {}: {}", fingerprint, e);
+                    }
+                }
+
                 // Mark as processed
-                let _ = db.mark_processed(&fingerprint);
+                let _ = db.mark_processed(fingerprint);
+                info!("Saved {} facts from {}", result.facts.len(), entry.file_name);
                 results.push(result);
             }
             Err(e) => {

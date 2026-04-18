@@ -4,18 +4,10 @@
 	import { listen } from '@tauri-apps/api/event';
 	import { onMount, onDestroy } from 'svelte';
 
+	// Types
 	interface Config {
-		project: {
-			name: string;
-			evidence_root: string;
-			registry_db: string;
-			intelligence_db: string;
-		};
-		model: {
-			id: string;
-			local_path: string;
-			context_length: number;
-		};
+		project: { name: string; evidence_root: string; registry_db: string; intelligence_db: string };
+		model: { id: string; local_path: string; context_length: number };
 		hardware: {
 			gpu_backend: string;
 			gpu_memory_fraction: number;
@@ -23,10 +15,7 @@
 			ocr_provider: string;
 			whisper_size: string;
 		};
-		processing: {
-			batch_size: number;
-			max_image_resolution: number;
-		};
+		processing: { batch_size: number; max_image_resolution: number };
 	}
 
 	interface RegistryFile {
@@ -85,20 +74,24 @@
 		current_stage: string;
 	}
 
+	// Utility functions
 	function formatNumber(n: number): string {
 		if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
 		if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
 		return n.toFixed(0);
 	}
 
-	async function loadExtractionStats() {
-		try {
-			extractionStats = await invoke<ExtractionStats>('get_extraction_statistics');
-		} catch (e) {
-			console.error('Failed to load extraction stats:', e);
-		}
+	function formatPercent(n: number): string {
+		return (n * 100).toFixed(1) + '%';
 	}
 
+	function getQualityColor(quality: number): string {
+		if (quality >= 0.8) return 'var(--color-success)';
+		if (quality >= 0.5) return 'var(--color-warning)';
+		return 'var(--color-error)';
+	}
+
+	// State
 	let config = $state<Config | null>(null);
 	let extractionStats = $state<ExtractionStats | null>(null);
 	let workflowState = $state<WorkflowState | null>(null);
@@ -114,7 +107,6 @@
 		current_file: '',
 		phase: ''
 	});
-
 	let extractionProgress = $state<ExtractionProgress>({
 		phase: '',
 		current_file: '',
@@ -123,7 +115,6 @@
 		success_count: 0,
 		error_count: 0
 	});
-
 	let analysisProgress = $state<AnalysisProgress>({
 		phase: '',
 		current_file: '',
@@ -135,30 +126,32 @@
 	let unlistenComplete: (() => void) | null = null;
 	let unlistenExtraction: (() => void) | null = null;
 
+	// Load stats
+	async function loadExtractionStats() {
+		try {
+			extractionStats = await invoke<ExtractionStats>('get_extraction_statistics');
+		} catch (e) {
+			console.error('Failed to load extraction stats:', e);
+		}
+	}
+
+	// Initialize
 	onMount(async () => {
 		try {
 			config = await invoke<Config>('load_config');
 			modelLoaded = await invoke<boolean>('is_model_loaded');
+			if (config) await invoke('init_project', { config });
 
-			// Initialize the project with config to set up database
-			if (config) {
-				await invoke('init_project', { config });
-			}
-
-			// Load workflow state from database to restore progress
+			// Load workflow state
 			try {
 				workflowState = await invoke<WorkflowState>('get_workflow_state');
-
-				// Restore progress states based on DB state
-				if (workflowState) {
-					if (workflowState.files_scanned > 0) {
-						registryProgress.phase = 'complete';
-						registryProgress.processed = workflowState.files_scanned;
-					}
-					if (workflowState.files_extracted > 0) {
-						extractionProgress.phase = 'complete';
-						extractionProgress.success_count = workflowState.files_extracted;
-					}
+				if (workflowState?.files_scanned > 0) {
+					registryProgress.phase = 'complete';
+					registryProgress.processed = workflowState.files_scanned;
+				}
+				if (workflowState?.files_extracted > 0) {
+					extractionProgress.phase = 'complete';
+					extractionProgress.success_count = workflowState.files_extracted;
 				}
 			} catch (e) {
 				console.error('Failed to load workflow state:', e);
@@ -167,18 +160,17 @@
 			console.error('Failed to load config:', e);
 		}
 
-		unlistenProgress = await listen<RegistryProgress>('registry_progress', (event) => {
-			registryProgress = event.payload;
+		// Event listeners
+		unlistenProgress = await listen<RegistryProgress>('registry_progress', (e) => {
+			registryProgress = e.payload;
 		});
-
-		unlistenComplete = await listen<number>('registry_complete', (event) => {
+		unlistenComplete = await listen<number>('registry_complete', (e) => {
 			registryProgress.phase = 'complete';
-			registryProgress.processed = event.payload;
+			registryProgress.processed = e.payload;
 			scanning = false;
 		});
-
-		unlistenExtraction = await listen<ExtractionProgress>('extraction_progress', (event) => {
-			extractionProgress = event.payload;
+		unlistenExtraction = await listen<ExtractionProgress>('extraction_progress', (e) => {
+			extractionProgress = e.payload;
 		});
 	});
 
@@ -188,6 +180,7 @@
 		if (unlistenExtraction) unlistenExtraction();
 	});
 
+	// Actions
 	async function configureFolders() {
 		try {
 			const selected = await open({
@@ -195,7 +188,6 @@
 				multiple: false,
 				title: 'Select Evidence Folder'
 			});
-
 			if (selected && config) {
 				config.project.evidence_root = selected as string;
 				await invoke('save_config', { config });
@@ -212,7 +204,6 @@
 			registryProgress.current_file = 'Please configure evidence folder first';
 			return;
 		}
-
 		scanning = true;
 		registryProgress = {
 			phase: 'Initializing...',
@@ -221,33 +212,22 @@
 			total: 0,
 			current_file: ''
 		};
-
-		const scanComplete = (processed: number) => {
-			registryProgress.phase = 'complete';
-			registryProgress.processed = processed;
-			scanning = false;
-			clearTimeout(scanTimeout);
-		};
-
 		const scanTimeout = setTimeout(() => {
-			if (scanning) {
-				console.warn('Scan timeout - backend still running');
-				registryProgress.current_file = 'Scan still running...';
-			}
+			if (scanning) registryProgress.current_file = 'Scan still running...';
 		}, 300000);
-
 		try {
 			const result = await invoke<number>('start_registry');
-			scanComplete(result);
+			registryProgress.phase = 'complete';
+			registryProgress.processed = result;
+			scanning = false;
+			clearTimeout(scanTimeout);
 		} catch (e) {
-			console.error('Scan error:', e);
 			registryProgress.phase = 'error';
 			registryProgress.current_file = `Error: ${e}`;
 			scanning = false;
 		}
 	}
 
-	// NEW: Separate extraction function
 	async function extractAllFiles() {
 		extracting = true;
 		extractionProgress = {
@@ -258,39 +238,27 @@
 			success_count: 0,
 			error_count: 0
 		};
-
 		try {
-			// Get files that need extraction
-			const extractionQueue = await invoke<RegistryFile[]>('get_extraction_queue', {
-				limit: 10000
-			});
-
-			if (extractionQueue.length === 0) {
+			const queue = await invoke<RegistryFile[]>('get_extraction_queue', { limit: 10000 });
+			if (queue.length === 0) {
 				extractionProgress.phase = 'complete';
 				extractionProgress.current_file = 'No files need extraction';
 				extracting = false;
 				return;
 			}
-
-			extractionProgress.total = extractionQueue.length;
+			extractionProgress.total = queue.length;
 			extractionProgress.phase = 'Extracting text...';
-
-			const fingerprints = extractionQueue.map((f) => f.fingerprint);
-
-			// Call the batch extraction
+			const fingerprints = queue.map((f) => f.fingerprint);
 			const results = await invoke<ExtractionResult[]>('extract_batch', {
-				fingerprints: fingerprints,
+				fingerprints,
 				cpuWorkers: config?.hardware?.cpu_workers || 6
 			});
-
-			// Update progress
 			extractionProgress.success_count = results.filter((r) => r.success).length;
 			extractionProgress.error_count = results.filter((r) => !r.success).length;
 			extractionProgress.processed = results.length;
 			extractionProgress.phase = 'complete';
 			extractionProgress.current_file = `Extracted ${extractionProgress.success_count}/${results.length} files`;
 		} catch (e) {
-			console.error('Extraction error:', e);
 			extractionProgress.phase = 'error';
 			extractionProgress.current_file = `Error: ${e}`;
 		} finally {
@@ -299,106 +267,124 @@
 		}
 	}
 
-	// NEW: Separate analysis function that uses pre-extracted text
 	async function analyzeExtractedFiles() {
 		if (!config?.model.local_path) {
 			analysisProgress.phase = 'error';
 			analysisProgress.current_file = 'No model configured. Please download a model in Settings.';
 			return;
 		}
-
 		analyzing = true;
 		analysisProgress = { phase: 'Loading model...', current_file: '', processed: 0, total: 0 };
-
 		try {
 			if (!modelLoaded) {
 				const models = await invoke<Array<{ path: string }>>('list_downloaded_models');
 				const modelPath = models.length > 0 ? models[0].path : null;
-
-				if (!modelPath) {
+				if (!modelPath)
 					throw new Error('No model file found. Please download a model in Settings.');
-				}
-
 				await invoke('init_reasoner', {
-					modelPath: modelPath,
+					modelPath,
 					contextSize: config.model.context_length || 8192,
-					gpuLayers: 32 // Full GPU acceleration on M4
+					gpuLayers: 32
 				});
 				modelLoaded = true;
 			}
-
-			analysisProgress.phase = 'Getting analysis queue...';
-
-			// Get files that have extracted text but haven't been analyzed
-			const analysisQueue = await invoke<RegistryFile[]>('get_analysis_queue', { limit: 10 });
-
-			if (analysisQueue.length === 0) {
+			const queue = await invoke<RegistryFile[]>('get_analysis_queue', { limit: 10 });
+			if (queue.length === 0) {
 				analysisProgress.phase = 'complete';
 				analysisProgress.current_file = 'No files need analysis';
 				analyzing = false;
 				return;
 			}
-
-			analysisProgress.total = analysisQueue.length;
+			analysisProgress.total = queue.length;
 			analysisProgress.phase = 'Analyzing files...';
-
-			const fingerprints = analysisQueue.map((f) => f.fingerprint);
-
-			// Call batch analysis
+			const fingerprints = queue.map((f) => f.fingerprint);
 			await invoke('analyze_batch', { fingerprints });
-
-			analysisProgress.processed = analysisQueue.length;
+			analysisProgress.processed = queue.length;
 			analysisProgress.phase = 'complete';
-			analysisProgress.current_file = `Analyzed ${analysisQueue.length} files`;
+			analysisProgress.current_file = `Analyzed ${queue.length} files`;
 		} catch (e) {
-			console.error('Analysis error:', e);
 			analysisProgress.phase = 'error';
 			analysisProgress.current_file = `Error: ${e}`;
 		} finally {
 			analyzing = false;
 		}
 	}
+
+	async function stopExtraction() {
+		await invoke('set_cancel_flag', { cancel: true });
+		extractionProgress.current_file = 'Stopping...';
+	}
+
+	async function stopAnalysis() {
+		await invoke('set_cancel_flag', { cancel: true });
+		analysisProgress.current_file = 'Stopping...';
+	}
 </script>
 
-<div class="analysis">
-	<h1>Analysis</h1>
+<div class="analysis-container">
+	<!-- Header -->
+	<header class="page-header">
+		<h1>Analysis Pipeline</h1>
+		<p class="subtitle">Process evidence files through extraction and LLM analysis stages</p>
+	</header>
 
-	<div class="analysis-grid">
-		<section class="panel">
-			<h2>Project Setup</h2>
-
-			<div class="setup-info">
-				<div class="info-row">
-					<span class="info-label">Evidence Root:</span>
-					<span class="info-value">{config?.project.evidence_root || 'Not configured'}</span>
-				</div>
-				<div class="info-row">
-					<span class="info-label">Registry DB:</span>
-					<span class="info-value"
-						>{config?.project.registry_db ? 'Configured' : 'Not configured'}</span
-					>
-				</div>
-				<div class="info-row">
-					<span class="info-label">Intelligence DB:</span>
-					<span class="info-value"
-						>{config?.project.intelligence_db ? 'Configured' : 'Not configured'}</span
-					>
+	<!-- Workflow Status Bar -->
+	{#if workflowState}
+		<div class="workflow-bar">
+			<div class="workflow-stage" class:done={workflowState.files_scanned > 0}>
+				<div class="stage-indicator">{workflowState.files_scanned > 0 ? '✓' : '1'}</div>
+				<div class="stage-info">
+					<span class="stage-label">Scanned</span>
+					<span class="stage-count">{workflowState.files_scanned} files</span>
 				</div>
 			</div>
+			<div class="workflow-connector"></div>
+			<div class="workflow-stage" class:done={workflowState.files_extracted > 0}>
+				<div class="stage-indicator">{workflowState.files_extracted > 0 ? '✓' : '2'}</div>
+				<div class="stage-info">
+					<span class="stage-label">Extracted</span>
+					<span class="stage-count">{workflowState.files_extracted} files</span>
+				</div>
+			</div>
+			<div class="workflow-connector"></div>
+			<div class="workflow-stage" class:done={workflowState.files_analyzed > 0}>
+				<div class="stage-indicator">{workflowState.files_analyzed > 0 ? '✓' : '3'}</div>
+				<div class="stage-info">
+					<span class="stage-label">Analyzed</span>
+					<span class="stage-count">{workflowState.files_analyzed} facts</span>
+				</div>
+			</div>
+			<div class="workflow-spacer"></div>
+			{#if extractionStats}
+				<div class="quick-stats">
+					<span class="quick-stat">
+						<span class="qs-value">{extractionStats.total_files}</span>
+						<span class="qs-label">extracted</span>
+					</span>
+					<span class="quick-stat">
+						<span class="qs-value">{formatNumber(extractionStats.total_characters)}</span>
+						<span class="qs-label">chars</span>
+					</span>
+				</div>
+			{/if}
+		</div>
+	{/if}
 
-			<button class="action-btn secondary" onclick={configureFolders}> Configure Folders </button>
-		</section>
-
-		<section class="panel">
-			<h2>Registry Scanner</h2>
-			<p class="description">
-				Scan the evidence folder and create fingerprints of all files using SHA-256 hashing.
-				Duplicate files are automatically skipped.
+	<!-- Main Grid -->
+	<div class="analysis-grid">
+		<!-- Stage 1: Scanner -->
+		<section class="panel scanner-panel">
+			<div class="panel-header">
+				<span class="panel-number">01</span>
+				<h2>Registry Scanner</h2>
+			</div>
+			<p class="panel-description">
+				Scan evidence folder and create SHA-256 fingerprints. Duplicates are auto-skipped.
 			</p>
 
-			<div class="progress-section">
+			<div class="progress-display">
 				{#if scanning}
-					<div class="progress-bar">
+					<div class="progress-track">
 						<div
 							class="progress-fill"
 							style="width: {registryProgress.total > 0
@@ -406,300 +392,382 @@
 								: 50}%"
 						></div>
 					</div>
-					<div class="progress-text">
-						{registryProgress.phase} - {registryProgress.processed}/{registryProgress.total ||
-							'...'}
+					<div class="progress-label">{registryProgress.phase}</div>
+					<div class="progress-detail">
+						{registryProgress.processed}/{registryProgress.total || '...'} files
 					</div>
-					{#if registryProgress.current_file}
-						<div class="current-file">{registryProgress.current_file}</div>
-					{/if}
 				{:else if registryProgress.phase === 'complete'}
-					<div class="idle-text">Scan complete - {registryProgress.processed} files processed</div>
+					<div class="status-badge success">
+						<span class="badge-icon">✓</span>
+						<span class="badge-text">{registryProgress.processed} files scanned</span>
+					</div>
 				{:else if registryProgress.phase === 'error'}
-					<div class="error-text">{registryProgress.current_file}</div>
+					<div class="status-badge error">{registryProgress.current_file}</div>
 				{:else}
-					<div class="idle-text">Ready to scan</div>
+					<div class="status-badge idle">Ready to scan</div>
 				{/if}
 			</div>
 
-			<button
-				class="action-btn primary"
-				onclick={startScan}
-				disabled={scanning || extracting || analyzing}
-			>
-				{scanning ? 'Scanning...' : 'Start Fingerprinting'}
-			</button>
+			<div class="panel-actions">
+				<button
+					class="btn btn-primary"
+					onclick={startScan}
+					disabled={scanning || extracting || analyzing}
+				>
+					{scanning ? 'Scanning...' : 'Start Scan'}
+				</button>
+			</div>
 		</section>
 
-		<!-- Quick Status Header -->
-		{#if workflowState}
-			<div class="workflow-header">
-				<div
-					class="workflow-step"
-					class:active={workflowState.files_scanned > 0}
-					class:complete={workflowState.files_scanned > 0}
-				>
-					<span class="step-icon">1</span>
-					<span class="step-label">Scanned</span>
-					<span class="step-count">{workflowState.files_scanned}</span>
-				</div>
-				<div class="workflow-arrow">→</div>
-				<div
-					class="workflow-step"
-					class:active={workflowState.files_extracted > 0}
-					class:complete={workflowState.files_extracted > 0}
-				>
-					<span class="step-icon">2</span>
-					<span class="step-label">Extracted</span>
-					<span class="step-count">{workflowState.files_extracted}</span>
-				</div>
-				<div class="workflow-arrow">→</div>
-				<div
-					class="workflow-step"
-					class:active={workflowState.files_analyzed > 0}
-					class:complete={workflowState.files_analyzed > 0}
-				>
-					<span class="step-icon">3</span>
-					<span class="step-label">Analyzed</span>
-					<span class="step-count">{workflowState.files_analyzed}</span>
-				</div>
+		<!-- Stage 2: Extraction -->
+		<section class="panel extraction-panel">
+			<div class="panel-header">
+				<span class="panel-number">02</span>
+				<h2>Text Extraction</h2>
 			</div>
-		{/if}
-
-		<!-- NEW: Stage 1: Extraction Panel -->
-		<section class="panel">
-			<h2>Stage 1: Text Extraction</h2>
-			<p class="description">
-				Extract text from all files using CPU parallelism. Run this first to cache extracted text.
-				Files can be processed in parallel for maximum throughput.
+			<p class="panel-description">
+				Extract text from PDFs, images, and audio using CPU parallelism.
 			</p>
 
-			<div class="progress-section">
+			<div class="progress-display">
 				{#if extracting}
-					<div class="progress-bar">
+					<div class="progress-track">
 						<div class="progress-fill indeterminate"></div>
 					</div>
-					<div class="progress-text">{extractionProgress.phase}</div>
-					{#if extractionProgress.current_file}
-						<div class="current-file">{extractionProgress.current_file}</div>
-					{/if}
-					<div class="progress-stats">
-						<span>Processed: {extractionProgress.processed}/{extractionProgress.total}</span>
+					<div class="progress-label">{extractionProgress.phase}</div>
+					<div class="progress-detail">
+						Processed: {extractionProgress.processed}/{extractionProgress.total}
 					</div>
 				{:else if extractionProgress.phase === 'complete'}
-					<div class="idle-text">
-						{#if extractionProgress.success_count > 0}
-							✓ {extractionProgress.success_count} extracted
-						{/if}
+					<div class="status-badge success">
+						<span class="badge-icon">✓</span>
+						<span class="badge-text">{extractionProgress.success_count} extracted</span>
 						{#if extractionProgress.error_count > 0}
-							<br />✗ {extractionProgress.error_count} failed
+							<span class="badge-error">• {extractionProgress.error_count} failed</span>
 						{/if}
 					</div>
 				{:else if extractionProgress.phase === 'error'}
-					<div class="error-text">{extractionProgress.current_file}</div>
+					<div class="status-badge error">{extractionProgress.current_file}</div>
 				{:else}
-					<div class="idle-text">Ready to extract</div>
+					<div class="status-badge idle">Ready to extract</div>
 				{/if}
 			</div>
 
-			<button
-				class="action-btn primary"
-				onclick={extractAllFiles}
-				disabled={scanning || extracting || analyzing}
-			>
-				{extracting ? 'Extracting...' : 'Extract All Files'}
-			</button>
+			<div class="panel-actions">
+				{#if extracting}
+					<button class="btn btn-danger" onclick={stopExtraction}>Stop</button>
+				{:else}
+					<button
+						class="btn btn-primary"
+						onclick={extractAllFiles}
+						disabled={scanning || extracting || analyzing}
+					>
+						Extract All
+					</button>
+				{/if}
+			</div>
 		</section>
 
-		<!-- Extraction Statistics Panel -->
+		<!-- Stage 3: Analysis -->
+		<section class="panel analysis-panel">
+			<div class="panel-header">
+				<span class="panel-number">03</span>
+				<h2>LLM Analysis</h2>
+			</div>
+			<p class="panel-description">Extract structured facts from text using local LLM inference.</p>
+
+			<div class="model-status">
+				<div class="model-badge" class:loaded={modelLoaded}>
+					{modelLoaded ? 'Model Loaded' : config?.model.local_path ? 'Model Ready' : 'No Model'}
+				</div>
+			</div>
+
+			<div class="progress-display">
+				{#if analyzing}
+					<div class="progress-track">
+						<div class="progress-fill indeterminate"></div>
+					</div>
+					<div class="progress-label">{analysisProgress.phase}</div>
+					<div class="progress-detail">{analysisProgress.processed}/{analysisProgress.total}</div>
+				{:else if analysisProgress.phase === 'complete'}
+					<div class="status-badge success">
+						<span class="badge-icon">✓</span>
+						<span class="badge-text">{analysisProgress.current_file}</span>
+					</div>
+				{:else if analysisProgress.phase === 'error'}
+					<div class="status-badge error">{analysisProgress.current_file}</div>
+				{:else}
+					<div class="status-badge idle">Run extraction first</div>
+				{/if}
+			</div>
+
+			<div class="panel-actions">
+				{#if analyzing}
+					<button class="btn btn-danger" onclick={stopAnalysis}>Stop</button>
+				{:else}
+					<button
+						class="btn btn-primary"
+						onclick={analyzeExtractedFiles}
+						disabled={scanning || extracting || analyzing || !config?.model.local_path}
+					>
+						Analyze Files
+					</button>
+				{/if}
+			</div>
+		</section>
+
+		<!-- Extraction Statistics -->
 		<section class="panel stats-panel">
-			<h2>Extraction Statistics</h2>
+			<div class="panel-header">
+				<h2>Extraction Statistics</h2>
+				<button class="btn-icon" onclick={loadExtractionStats} title="Refresh">↻</button>
+			</div>
+
 			{#if extractionStats}
 				<div class="stats-grid">
-					<div class="stat-item">
+					<div class="stat-card">
 						<span class="stat-value">{extractionStats.total_files}</span>
-						<span class="stat-label">Files Extracted</span>
+						<span class="stat-label">Files</span>
 					</div>
-					<div class="stat-item">
-						<span class="stat-value">{extractionStats.average_quality.toFixed(1)}%</span>
-						<span class="stat-label">Avg Quality</span>
+					<div class="stat-card">
+						<span class="stat-value">{formatPercent(extractionStats.average_quality)}</span>
+						<span class="stat-label">Quality</span>
+						<div class="quality-bar" style="--quality: {extractionStats.average_quality}"></div>
 					</div>
-					<div class="stat-item">
-						<span class="stat-value">{formatNumber(extractionStats.average_characters)}</span>
-						<span class="stat-label">Avg Chars</span>
-					</div>
-					<div class="stat-item">
+					<div class="stat-card">
 						<span class="stat-value">{formatNumber(extractionStats.total_characters)}</span>
-						<span class="stat-label">Total Characters</span>
+						<span class="stat-label">Characters</span>
 					</div>
-					<div class="stat-item" class:warning={extractionStats.partial_count > 0}>
-						<span class="stat-value">{extractionStats.partial_count}</span>
-						<span class="stat-label">Partial (Warnings)</span>
+					<div class="stat-card">
+						<span class="stat-value">{formatNumber(extractionStats.average_characters)}</span>
+						<span class="stat-label">Avg/File</span>
 					</div>
+					{#if extractionStats.partial_count > 0}
+						<div class="stat-card warning">
+							<span class="stat-value">{extractionStats.partial_count}</span>
+							<span class="stat-label">Partial</span>
+						</div>
+					{/if}
 				</div>
 				{#if extractionStats.files_by_type && Object.keys(extractionStats.files_by_type).length > 0}
-					<div class="file-type-dist">
-						<span class="dist-label">By File Type:</span>
-						<div class="dist-items">
+					<div class="file-types">
+						<span class="ft-label">By type:</span>
+						<div class="ft-items">
 							{#each Object.entries(extractionStats.files_by_type) as [type, count]}
-								<span class="dist-item">{type}: {count}</span>
+								<span class="ft-badge">{type} {count}</span>
 							{/each}
 						</div>
 					</div>
 				{/if}
 			{:else}
-				<div class="idle-text">Run extraction to see statistics</div>
+				<div class="empty-stats">Run extraction to see statistics</div>
 			{/if}
-			<button class="action-btn secondary" onclick={loadExtractionStats} disabled={extracting}>
-				Refresh Stats
-			</button>
-		</section>
-
-		<!-- NEW: Stage 2: LLM Analysis Panel -->
-		<section class="panel">
-			<h2>Stage 2: LLM Analysis</h2>
-			<p class="description">
-				Run LLM inference on extracted text to extract structured facts. Uses GPU acceleration for
-				maximum performance.
-			</p>
-
-			<div class="model-info">
-				<div class="info-row">
-					<span class="info-label">Model:</span>
-					<span class="info-value" class:loaded={modelLoaded}>
-						{modelLoaded ? 'Loaded' : config?.model.local_path ? 'Not loaded' : 'No model'}
-					</span>
-				</div>
-				<div class="info-row">
-					<span class="info-label">Model Path:</span>
-					<span class="info-value path">{config?.model.local_path || 'Not set'}</span>
-				</div>
-				<div class="info-row">
-					<span class="info-label">Context:</span>
-					<span class="info-value">{config?.model.context_length || 8192} tokens</span>
-				</div>
-				<div class="info-row">
-					<span class="info-label">GPU:</span>
-					<span class="info-value">{config?.hardware?.gpu_backend || 'metal'}</span>
-				</div>
-			</div>
-
-			<div class="progress-section">
-				{#if analyzing}
-					<div class="progress-bar">
-						<div class="progress-fill indeterminate"></div>
-					</div>
-					<div class="progress-text">{analysisProgress.phase}</div>
-					{#if analysisProgress.current_file}
-						<div class="current-file">{analysisProgress.current_file}</div>
-					{/if}
-				{:else if analysisProgress.phase === 'complete'}
-					<div class="idle-text">{analysisProgress.current_file}</div>
-				{:else if analysisProgress.phase === 'error'}
-					<div class="error-text">{analysisProgress.current_file}</div>
-				{:else}
-					<div class="idle-text">Ready to analyze (run extraction first)</div>
-				{/if}
-			</div>
-
-			<button
-				class="action-btn primary"
-				onclick={analyzeExtractedFiles}
-				disabled={scanning || extracting || analyzing || !config?.model.local_path}
-			>
-				{analyzing ? 'Analyzing...' : 'Analyze Extracted Files'}
-			</button>
 		</section>
 	</div>
 </div>
 
 <style>
-	.analysis {
-		max-width: 1200px;
+	/* CSS Variables - Design System */
+	.analysis-container {
+		--color-primary: #e94560;
+		--color-primary-hover: #d13650;
+		--color-bg-main: #1a1a2e;
+		--color-bg-panel: #16213e;
+		--color-bg-card: #1e1e2e;
+		--color-border: #0f3460;
+		--color-text: #eaeaea;
+		--color-text-muted: #9ca3af;
+		--color-success: #4ade80;
+		--color-warning: #f59e0b;
+		--color-error: #ef4444;
+		--radius-sm: 4px;
+		--radius-md: 8px;
+		--radius-lg: 12px;
 	}
 
-	h1 {
-		font-size: 1.75rem;
+	.analysis-container {
+		max-width: 1400px;
+		padding: 1.5rem;
+	}
+
+	/* Header */
+	.page-header {
 		margin-bottom: 1.5rem;
-		color: #eaeaea;
 	}
 
-	h2 {
-		font-size: 1.25rem;
-		margin-bottom: 0.75rem;
-		color: #e94560;
+	.page-header h1 {
+		font-size: 1.75rem;
+		font-weight: 600;
+		color: var(--color-text);
+		margin-bottom: 0.25rem;
 	}
 
-	.analysis-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+	.subtitle {
+		font-size: 0.875rem;
+		color: var(--color-text-muted);
+	}
+
+	/* Workflow Bar */
+	.workflow-bar {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 1rem 1.25rem;
+		background: var(--color-bg-panel);
+		border-radius: var(--radius-lg);
+		border: 1px solid var(--color-border);
+		margin-bottom: 1.5rem;
+	}
+
+	.workflow-stage {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.5rem 1rem;
+		border-radius: var(--radius-md);
+		background: var(--color-bg-card);
+		opacity: 0.6;
+		transition: all 0.3s;
+	}
+
+	.workflow-stage.done {
+		opacity: 1;
+		background: rgba(74, 222, 128, 0.15);
+	}
+
+	.stage-indicator {
+		width: 28px;
+		height: 28px;
+		border-radius: 50%;
+		background: var(--color-border);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--color-text-muted);
+	}
+
+	.workflow-stage.done .stage-indicator {
+		background: var(--color-success);
+		color: var(--color-bg-main);
+	}
+
+	.stage-info {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.stage-label {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.stage-count {
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--color-text);
+	}
+
+	.workflow-connector {
+		width: 24px;
+		height: 2px;
+		background: var(--color-border);
+	}
+
+	.workflow-spacer {
+		flex: 1;
+	}
+
+	.quick-stats {
+		display: flex;
 		gap: 1.5rem;
 	}
 
-	.panel {
-		background-color: #16213e;
-		padding: 1.5rem;
-		border-radius: 8px;
-		border: 1px solid #0f3460;
-	}
-
-	.description {
-		color: #9ca3af;
-		font-size: 0.875rem;
-		margin-bottom: 1rem;
-		line-height: 1.5;
-	}
-
-	.setup-info,
-	.model-info {
-		margin-bottom: 1rem;
-	}
-
-	.info-row {
+	.quick-stat {
 		display: flex;
-		justify-content: space-between;
-		padding: 0.5rem 0;
-		border-bottom: 1px solid #0f3460;
+		flex-direction: column;
+		align-items: flex-end;
 	}
 
-	.info-label {
-		color: #9ca3af;
-		font-size: 0.875rem;
+	.qs-value {
+		font-size: 1.25rem;
+		font-weight: 700;
+		color: var(--color-success);
 	}
 
-	.info-value {
-		color: #eaeaea;
-		font-size: 0.875rem;
-		font-weight: 500;
+	.qs-label {
+		font-size: 0.625rem;
+		text-transform: uppercase;
+		color: var(--color-text-muted);
 	}
 
-	.info-value.loaded {
-		color: #4ade80;
+	/* Main Grid */
+	.analysis-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 1rem;
 	}
 
-	.info-value.path {
-		max-width: 200px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+	.panel {
+		background: var(--color-bg-panel);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		padding: 1.25rem;
 	}
 
-	.progress-section {
-		margin: 1.5rem 0;
-		min-height: 80px;
+	.stats-panel {
+		grid-column: span 3;
 	}
 
-	.progress-bar {
-		height: 8px;
-		background-color: #1a1a2e;
-		border-radius: 4px;
+	.panel-header {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.panel-number {
+		font-size: 0.625rem;
+		font-weight: 700;
+		color: var(--color-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+	}
+
+	.panel h2 {
+		font-size: 1rem;
+		font-weight: 600;
+		color: var(--color-text);
+		margin: 0;
+	}
+
+	.panel-description {
+		font-size: 0.8125rem;
+		color: var(--color-text-muted);
+		line-height: 1.5;
+		margin-bottom: 1rem;
+	}
+
+	/* Progress Display */
+	.progress-display {
+		margin: 1rem 0;
+		min-height: 60px;
+	}
+
+	.progress-track {
+		height: 6px;
+		background: var(--color-bg-card);
+		border-radius: 3px;
 		overflow: hidden;
 		margin-bottom: 0.5rem;
 	}
 
 	.progress-fill {
 		height: 100%;
-		background-color: #e94560;
+		background: var(--color-primary);
 		transition: width 0.3s ease;
 	}
 
@@ -717,190 +785,200 @@
 		}
 	}
 
-	.progress-text {
-		font-size: 0.875rem;
-		color: #9ca3af;
+	.progress-label {
+		font-size: 0.8125rem;
+		color: var(--color-text);
 	}
 
-	.progress-stats {
+	.progress-detail {
 		font-size: 0.75rem;
-		color: #6b7280;
-		margin-top: 0.25rem;
+		color: var(--color-text-muted);
 	}
 
-	.current-file {
+	/* Status Badges */
+	.status-badge {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		border-radius: var(--radius-md);
+		font-size: 0.8125rem;
+	}
+
+	.status-badge.success {
+		background: rgba(74, 222, 128, 0.15);
+		color: var(--color-success);
+	}
+
+	.status-badge.error {
+		background: rgba(239, 68, 68, 0.15);
+		color: var(--color-error);
+	}
+
+	.status-badge.idle {
+		background: var(--color-bg-card);
+		color: var(--color-text-muted);
+	}
+
+	.badge-icon {
+		font-weight: 700;
+	}
+
+	.badge-error {
+		opacity: 0.7;
+	}
+
+	/* Model Status */
+	.model-status {
+		margin-bottom: 1rem;
+	}
+
+	.model-badge {
+		display: inline-block;
+		padding: 0.25rem 0.75rem;
+		background: var(--color-bg-card);
+		border-radius: var(--radius-sm);
 		font-size: 0.75rem;
-		color: #6b7280;
-		margin-top: 0.25rem;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		color: var(--color-text-muted);
 	}
 
-	.idle-text {
-		color: #4ade80;
-		font-size: 0.875rem;
+	.model-badge.loaded {
+		background: rgba(74, 222, 128, 0.15);
+		color: var(--color-success);
 	}
 
-	.error-text {
-		color: #ef4444;
-		font-size: 0.875rem;
+	/* Buttons */
+	.panel-actions {
+		margin-top: auto;
 	}
 
-	.action-btn {
+	.btn {
 		width: 100%;
-		padding: 0.875rem 1rem;
+		padding: 0.75rem 1rem;
 		border: none;
-		border-radius: 6px;
-		font-size: 1rem;
-		font-weight: 500;
+		border-radius: var(--radius-md);
+		font-size: 0.875rem;
+		font-weight: 600;
 		cursor: pointer;
 		transition: all 0.2s;
 	}
 
-	.action-btn.primary {
-		background-color: #e94560;
-		color: #ffffff;
-	}
-
-	.action-btn.primary:hover:not(:disabled) {
-		background-color: #d13650;
-	}
-
-	.action-btn.secondary {
-		background-color: #0f3460;
-		color: #eaeaea;
-	}
-
-	.action-btn.secondary:hover:not(:disabled) {
-		background-color: #1a4a7a;
-	}
-
-	.action-btn:disabled {
-		opacity: 0.6;
+	.btn:disabled {
+		opacity: 0.5;
 		cursor: not-allowed;
 	}
 
-	.stats-panel {
-		grid-column: 1 / -1;
+	.btn-primary {
+		background: var(--color-primary);
+		color: white;
 	}
 
+	.btn-primary:hover:not(:disabled) {
+		background: var(--color-primary-hover);
+	}
+
+	.btn-danger {
+		background: var(--color-error);
+		color: white;
+	}
+
+	.btn-danger:hover:not(:disabled) {
+		background: #dc2626;
+	}
+
+	.btn-icon {
+		background: none;
+		border: none;
+		color: var(--color-text-muted);
+		cursor: pointer;
+		padding: 0.25rem;
+		font-size: 1rem;
+	}
+
+	/* Stats Grid */
 	.stats-grid {
-		display: grid;
-		grid-template-columns: repeat(5, 1fr);
-		gap: 1rem;
-		margin-bottom: 1rem;
+		display: flex;
+		gap: 0.75rem;
+		flex-wrap: wrap;
 	}
 
-	.stat-item {
+	.stat-card {
+		flex: 1;
+		min-width: 100px;
+		padding: 0.875rem 1rem;
+		background: var(--color-bg-card);
+		border-radius: var(--radius-md);
 		text-align: center;
-		padding: 0.75rem;
-		background-color: #1a1a2e;
-		border-radius: 6px;
 	}
 
-	.stat-item.warning {
-		border: 1px solid #f59e0b;
+	.stat-card.warning {
+		border: 1px solid var(--color-warning);
 	}
 
 	.stat-value {
 		display: block;
-		font-size: 1.25rem;
-		font-weight: 600;
-		color: #eaeaea;
+		font-size: 1.375rem;
+		font-weight: 700;
+		color: var(--color-text);
 	}
 
 	.stat-label {
 		display: block;
-		font-size: 0.75rem;
-		color: #9ca3af;
+		font-size: 0.6875rem;
+		color: var(--color-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
 		margin-top: 0.25rem;
 	}
 
-	.file-type-dist {
-		margin-bottom: 1rem;
-		padding: 0.75rem;
-		background-color: #1a1a2e;
-		border-radius: 6px;
+	.quality-bar {
+		height: 3px;
+		background: var(--color-border);
+		border-radius: 2px;
+		margin-top: 0.5rem;
+		overflow: hidden;
 	}
 
-	.dist-label {
-		font-size: 0.875rem;
-		color: #9ca3af;
+	.quality-bar::before {
+		content: '';
+		display: block;
+		height: 100%;
+		width: calc(var(--quality, 0) * 100%);
+		background: var(--color-success);
+	}
+
+	/* File Types */
+	.file-types {
+		margin-top: 1rem;
+		padding-top: 1rem;
+		border-top: 1px solid var(--color-border);
+	}
+
+	.ft-label {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
 		display: block;
 		margin-bottom: 0.5rem;
 	}
 
-	.dist-items {
+	.ft-items {
 		display: flex;
+		gap: 0.375rem;
 		flex-wrap: wrap;
-		gap: 0.5rem;
 	}
 
-	.dist-item {
-		font-size: 0.75rem;
+	.ft-badge {
 		padding: 0.25rem 0.5rem;
-		background-color: #0f3460;
-		border-radius: 4px;
-		color: #eaeaea;
+		background: var(--color-border);
+		border-radius: var(--radius-sm);
+		font-size: 0.6875rem;
+		color: var(--color-text);
 	}
 
-	.workflow-header {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.75rem;
-		background: #1e1e1e;
-		border-radius: 8px;
-		margin-bottom: 1rem;
-	}
-
-	.workflow-step {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem 1rem;
-		border-radius: 6px;
-		background: #2a2a2a;
-		opacity: 0.5;
-	}
-
-	.workflow-step.active {
-		opacity: 1;
-		background: #3a3a3a;
-	}
-
-	.workflow-step.complete {
-		background: #1a3a1a;
-	}
-
-	.step-icon {
-		width: 24px;
-		height: 24px;
-		border-radius: 50%;
-		background: #444;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 0.75rem;
-	}
-
-	.workflow-step.complete .step-icon {
-		background: #2a7a2a;
-	}
-
-	.workflow-arrow {
-		color: #666;
-	}
-
-	.step-label {
+	.empty-stats {
+		text-align: center;
+		padding: 2rem;
+		color: var(--color-text-muted);
 		font-size: 0.875rem;
-		color: #9ca3af;
-	}
-
-	.step-count {
-		font-size: 0.875rem;
-		color: #eaeaea;
-		font-weight: 600;
 	}
 </style>

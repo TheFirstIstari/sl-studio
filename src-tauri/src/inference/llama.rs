@@ -30,20 +30,24 @@ pub struct LlamaConfig {
     pub use_kv_cache: bool,
     pub prompt_cache: Option<String>,
     pub n_threads: u32,
+    pub n_threads_batch: u32,
 }
 
 impl Default for LlamaConfig {
     fn default() -> Self {
+        // Use 4 threads (physical cores) for Apple Silicon - more doesn't help
+        let n_threads = (num_cpus::get() / 2).max(4) as u32;
         LlamaConfig {
             model_path: String::new(),
-            context_size: 4096,
+            context_size: 4096,  // Smaller context for better throughput
             gpu_layers: 0,
             temperature: 0.1,
             max_tokens: 1024,
             repeat_penalty: 1.1,
             use_kv_cache: true,
             prompt_cache: None,
-            n_threads: num_cpus::get() as u32,
+            n_threads,
+            n_threads_batch: n_threads * 2,  // Batch can use more threads
         }
     }
 }
@@ -164,10 +168,11 @@ impl LlamaModel {
             .map_err(|e| LlamaError::InferenceError(format!("Failed to tokenize: {}", e)))?;
         let prompt_tokens = tokens.len() as u32;
 
-        // Create session params
+        // Create session params - optimized for Metal
         let session_params = llama_cpp::SessionParams {
             n_ctx: self.config.context_size,
             n_threads: self.config.n_threads,
+            n_threads_batch: self.config.n_threads * 2,  // More threads for batch processing
             ..Default::default()
         };
 
