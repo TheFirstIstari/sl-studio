@@ -188,6 +188,9 @@
 		saving = true;
 		statusMessage = '';
 		try {
+			// Get auto-detected hardware settings
+			const hwInfo = await invoke('get_hardware_info');
+			
 			const configData = {
 				version: '0.2.0',
 				project: {
@@ -205,14 +208,14 @@
 					local_path: config.modelPath
 				},
 				hardware: {
-					gpu_backend: config.gpuBackend,
-					gpu_memory_fraction: config.vramAllocation,
-					cpu_workers: config.cpuWorkers,
+					gpu_backend: 'metal',  // Auto-detected
+					gpu_memory_fraction: 0.8,  // Auto-detected (80%)
+					cpu_workers: hwInfo.cpu_workers,  // Auto-detected
 					ocr_provider: 'onnx',
 					whisper_size: 'base'
 				},
 				processing: {
-					batch_size: config.batchSize,
+					batch_size: hwInfo.recommended_batch_size,  // Auto-detected
 					max_image_resolution: 2048
 				}
 			};
@@ -443,63 +446,22 @@
 				{/if}
 
 				<div class="form-group">
-					<label for="contextSize">Context Window</label>
-					<input
-						type="number"
-						id="contextSize"
-						bind:value={config.contextSize}
-						min="2048"
-						max="32768"
-						step="2048"
-					/>
-					<p class="hint">LLM context size (2048-32768)</p>
-				</div>
-			</section>
 
 			<section class="settings-section">
 				<h2>Hardware</h2>
 
 				<div class="form-group">
-					<label for="gpuBackend">GPU Backend</label>
-					<select id="gpuBackend" bind:value={config.gpuBackend}>
-						{#each GPU_BACKENDS as backend}
-							<option value={backend.value}>
-								{backend.label}
-							</option>
-						{/each}
-					</select>
-					<p class="hint">Recommended: {recommendedBackend}</p>
+					<label>GPU Backend</label>
+					<div class="display-value">{recommendedBackend}</div>
+					<p class="hint">Automatically detected</p>
 				</div>
 
-				<div class="form-group">
-					<label for="cpuWorkers">CPU Workers</label>
-					<input type="number" id="cpuWorkers" bind:value={config.cpuWorkers} min="1" max="64" />
-					<p class="hint">Number of parallel workers</p>
-				</div>
 
-				<div class="form-group">
-					<label for="vramAllocation">VRAM Allocation</label>
-					<input
-						type="range"
-						id="vramAllocation"
-						bind:value={config.vramAllocation}
-						min="0.1"
-						max="0.95"
-						step="0.05"
-					/>
-					<span class="range-value">{Math.round(config.vramAllocation * 100)}%</span>
-				</div>
+
+
 			</section>
 
-			<section class="settings-section">
-				<h2>Processing</h2>
 
-				<div class="form-group">
-					<label for="batchSize">Batch Size</label>
-					<input type="number" id="batchSize" bind:value={config.batchSize} min="1" max="64" />
-					<p class="hint">Files per inference batch</p>
-				</div>
-			</section>
 
 			<section class="settings-section">
 				<h2>System Monitor</h2>
@@ -670,6 +632,15 @@
 		font-size: 0.875rem;
 		color: #e94560;
 		font-weight: 600;
+	}
+
+	.display-value {
+		background: #1a1a2e;
+		padding: 0.625rem 0.875rem;
+		border-radius: 6px;
+		color: #e94560;
+		font-weight: 600;
+		font-size: 1rem;
 	}
 
 	.input-with-button {
