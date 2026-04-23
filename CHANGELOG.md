@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-04-23
+
+### Added
+
+- Gemma 3 model support with enhanced fact extraction
+- Audio transcription with whisper CLI integration
+- Hardware auto-scaling with sysinfo detection
+- Metal GPU acceleration for Apple Silicon
+- Two-stage pipeline (extract then analyze)
+- Extraction statistics panel
+- Workflow state persistence across page navigation
+
+### Fixed
+
+- tokio runtime panic (converted blocking HTTP to async)
+- Critical parallel processing race conditions
+- JSON parsing in LLM responses
+- Timeout and hash issues
+- Model selection persistence
+- Settings page HTML structure
+- Gemma 3 prompt and stop button
+
+### Changed
+
+- Remove emojis from UI for professional appearance
+- Simplify Settings page (removed manual performance parameters)
+- Update mise config for GitHub workflow compatibility
+
+### Security
+
+- Remove unused shell:default Tauri permission
+
+### Dependencies
+
+- Update to Tauri 2.x stable
+- Update SvelteKit to 2.x
+
+### Infrastructure
+
+- CI: platform-specific pipelines (Linux, macOS ARM/Intel, Windows)
+- CI: self-hosted runners (Fedora, NixOS)
+- Automated multi-platform release artifacts
+
+---
+
 ## [1.0.0] - 2026-03-30
 
 ### Added
