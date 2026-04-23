@@ -1112,6 +1112,15 @@ impl Database {
             last_extraction_time,
             last_analysis_time,
             current_stage: current_stage.to_string(),
+            is_scanning: false,
+            is_extracting: false,
+            is_analyzing: false,
+            scan_progress: 0.0,
+            extract_progress: 0.0,
+            analyze_progress: 0.0,
+            current_file: String::new(),
+            processed_count: 0,
+            total_count: 0,
         })
     }
 

@@ -18,7 +18,16 @@
 		status: string;
 	}
 
-	interface HardwareStatus {
+	interface HardwareInfo {
+	cpu_threads: number;
+	total_memory_gb: number;
+	available_memory_gb: number;
+	recommended_workers: number;
+	recommended_batch_size: number;
+	cpu_workers: number;
+}
+
+interface HardwareStatus {
 		cpu_threads: number;
 		total_memory_gb: number;
 		recommended_backend: string;
@@ -48,14 +57,6 @@
 			size: '~3.8GB',
 			quantization: 'Q4_K_M'
 		}
-	];
-
-	const GPU_BACKENDS = [
-		{ value: 'metal', label: 'Metal (Apple Silicon)' },
-		{ value: 'cuda', label: 'CUDA (NVIDIA)' },
-		{ value: 'vulkan', label: 'Vulkan' },
-		{ value: 'opencl', label: 'OpenCL' },
-		{ value: 'cpu', label: 'CPU Only' }
 	];
 
 	let config = $state({
@@ -189,7 +190,7 @@
 		statusMessage = '';
 		try {
 			// Get auto-detected hardware settings
-			const hwInfo = await invoke('get_hardware_info');
+			const hwInfo = await invoke<HardwareInfo>('get_hardware_info');
 			
 			const configData = {
 				version: '0.2.0',

@@ -66,3 +66,41 @@ Users can select from downloaded models in Settings:
 - Model info (size, quantization)
 - Active model indicator
 - Load/unload controls
+
+## Recommended Models
+
+For forensic document analysis with structured JSON extraction, these models are recommended:
+
+### Primary Recommendations
+
+| Model                   | Size (Q4) | HuggingFace ID                       | Use Case                           |
+| ----------------------- | --------- | ------------------------------------ | ---------------------------------- |
+| **Qwen2.5-7B-Instruct** | ~4.5GB    | `Qwen/Qwen2.5-7B-Instruct-GGUF`      | Primary choice - clean JSON output |
+| **Qwen2.5-3B-Instruct** | ~2GB      | `Qwen/Qwen2.5-3B-Instruct-GGUF`      | Lightweight option                 |
+| **Phi-4 Mini**          | ~2.5GB    | `bartowski/Phi-4-mini-instruct-GGUF` | Good reasoning capabilities        |
+
+### Alternative Models
+
+| Model         | Size (Q4) | HuggingFace ID                         | Notes                                |
+| ------------- | --------- | -------------------------------------- | ------------------------------------ |
+| Phi-4 Mini    | ~2.5GB    | `bartowski/Phi-4-mini-instruct-GGUF`   | Good reasoning capabilities          |
+| Llama 3.2 3B  | ~2GB      | `bartowski/Llama-3.2-3B-Instruct-GGUF` | General purpose, needs prompt tuning |
+| Qwen 2.5 1.5B | ~1GB      | `bartowski/Qwen2.5-1.5B-Instruct-GGUF` | Lightweight option                   |
+
+### Model Configuration
+
+For best JSON extraction results:
+
+```json
+{
+	"temperature": 0.0,
+	"max_tokens": 2048,
+	"top_p": 0.95,
+	"repeat_penalty": 1.1
+}
+```
+
+### Known Limitations
+
+- **NuExtract 2.0**: Vision-only model - not supported by llama.cpp-rs backend
+- **General instruction models**: May not follow JSON schema strictly without additional prompt engineering

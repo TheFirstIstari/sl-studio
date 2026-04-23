@@ -44,9 +44,9 @@
 	let topEntities = $state<EntityCentrality[]>([]);
 	let loading = $state(true);
 
-	let severityChartEl: HTMLCanvasElement;
-	let categoryChartEl: HTMLCanvasElement;
-	let entityChartEl: HTMLCanvasElement;
+ let severityChartEl: HTMLCanvasElement | undefined = $state();
+ let categoryChartEl: HTMLCanvasElement | undefined = $state();
+ let entityChartEl: HTMLCanvasElement | undefined = $state();
 
 	let severityChart: Chart | null = null;
 	let categoryChart: Chart | null = null;

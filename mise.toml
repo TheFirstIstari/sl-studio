@@ -1,5 +1,6 @@
 [env]
-RUSTUP_HOME = "~/.rustup"
+RUSTUP_HOME = "$HOME/.rustup"
+CARGO_HOME = "$HOME/.cargo"
 RUSTUP_TOOLCHAIN = "stable-aarch64-apple-darwin"
 LIBS = "/opt/homebrew/lib"
 

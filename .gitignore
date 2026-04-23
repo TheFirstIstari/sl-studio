@@ -1,18 +1,51 @@
-# CI/NIX build caches
-.cache/
-.nix/
+# Dependencies
 node_modules/
-.svelte-kit/
+
+# Build outputs
 build/
 target/
 src-tauri/target/
+.cache/
+.nix/
+
+# SvelteKit
+.svelte-kit/
+
+# Coverage
 coverage/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Logs
 *.log
+
+# Test artifacts
+test-results/
+playwright-report/
+
+# Backup files
+*.bak
+*.backup
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Stray home directories (created by mise/rustup misconfiguration)
+$HOME/
+~/
+
+# Rust toolchain files
+rust-toolchain.toml
+
+# Inference models (large GGUF files)
+src-tauri/src/inference/~
+
+# Sample/reference files
 *.pdf
 swebok-v4.txt
 specguide.txt
 rfc2119.txt
-src-tauri/~/.rustup
-~/.rustup
-
-src-tauri/src/inference/~

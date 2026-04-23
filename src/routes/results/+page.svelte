@@ -51,15 +51,6 @@
 	let canUndo = $derived(historyIndex > 0);
 	let canRedo = $derived(historyIndex < history.length - 1);
 	
-	// Workflow state for progress tracking
-	let workflowState = $state<WorkflowState | null>(null);
-	let isProcessing = $derived(workflowState?.is_scanning || workflowState?.is_extracting || workflowState?.is_analyzing || false);
-	let processingLabel = $derived(() => {
-		if (workflowState?.is_scanning) return 'Scanning';
-		if (workflowState?.is_extracting) return 'Extracting';
-		if (workflowState?.is_analyzing) return 'Analyzing';
-		return '';
-	});
 
 	function saveToHistory() {
 		const state: HistoryState = {
@@ -133,7 +124,7 @@
 
 	async function loadWorkflowState() {
 		try {
-			workflowState = await invoke<WorkflowState>('get_workflow_state');
+			await invoke<WorkflowState>('get_workflow_state');
 		} catch (e) {
 			console.error('Error loading workflow state:', e);
 		}

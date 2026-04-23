@@ -240,6 +240,17 @@ async fn init_project(
     state: State<'_, AppState>,
     config: AppConfig,
 ) -> Result<bool, String> {
+    // Check if project is already initialized (both config name AND database exist)
+    {
+        let config_guard = state.config.lock().map_err(|e| format!("Failed to lock config: {}", e))?;
+        let db_guard = state.db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+        
+        if config_guard.project.name == config.project.name && db_guard.is_some() {
+            info!("Project already initialized: {}", config_guard.project.name);
+            return Ok(true); // Already initialized, skip
+        }
+    }
+
     info!("Initializing project: {}", config.project.name);
 
     // Ensure app directories exist
@@ -346,7 +357,6 @@ fn get_stats(state: State<AppState>) -> Result<Stats, String> {
 }
 
 #[tauri::command]
-#[tauri::command]
 fn update_processing_state(
     state: State<AppState>,
     is_scanning: Option<bool>,
@@ -372,6 +382,7 @@ fn update_processing_state(
     Ok(())
 }
 
+#[tauri::command]
 fn get_workflow_state(state: State<AppState>) -> Result<WorkflowState, String> {
     // Get database state
     let (db_state, processing) = {
@@ -381,8 +392,8 @@ fn get_workflow_state(state: State<AppState>) -> Result<WorkflowState, String> {
     };
     
     let mut workflow = match db_state {
-        Ok(w) => w,
-        Err(_) => WorkflowState {
+        Some(Ok(w)) => w,
+        _ => WorkflowState {
             files_scanned: 0,
             files_extracted: 0,
             files_analyzed: 0,
@@ -390,6 +401,15 @@ fn get_workflow_state(state: State<AppState>) -> Result<WorkflowState, String> {
             last_extraction_time: None,
             last_analysis_time: None,
             current_stage: "none".to_string(),
+            is_scanning: false,
+            is_extracting: false,
+            is_analyzing: false,
+            scan_progress: 0.0,
+            extract_progress: 0.0,
+            analyze_progress: 0.0,
+            current_file: String::new(),
+            processed_count: 0,
+            total_count: 0,
         }
     };
     
@@ -1813,6 +1833,31 @@ fn analyze_file(state: State<AppState>, path: String) -> Result<inference::Analy
 }
 
 #[tauri::command]
+fn validate_model(state: State<AppState>, model_path: String) -> Result<bool, String> {
+    use inference::Reasoner;
+    use inference::ReasonerConfig;
+    
+    let config = ReasonerConfig {
+        model_path: model_path.clone(),
+        context_size: 2048,
+        gpu_layers: 0, // Don't use GPU for validation
+        temperature: 0.1,
+        ..Default::default()
+    };
+    
+    match Reasoner::new(config) {
+        Ok(_reasoner) => {
+            info!("Model validation successful: {}", model_path);
+            Ok(true)
+        }
+        Err(e) => {
+            error!("Model validation failed for {}: {}", model_path, e);
+            Err(format!("Model not supported: {}", e))
+        }
+    }
+}
+
+#[tauri::command]
 fn is_model_loaded(state: State<AppState>) -> bool {
     let cached = state.reasoner.lock().unwrap();
     cached
@@ -1872,6 +1917,7 @@ pub fn run() {
             start_registry,
             get_stats,
             get_workflow_state,
+            update_processing_state,
             get_extraction_statistics,
             get_unprocessed_files,
             mark_processed,
@@ -1893,6 +1939,7 @@ pub fn run() {
             init_reasoner,
             analyze_file,
             is_model_loaded,
+            validate_model,
             get_reasoner_config,
             set_cancel_flag,
             get_cancel_flag,

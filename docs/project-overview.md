@@ -10,8 +10,13 @@ SL Studio processes evidence files (PDFs, images, audio/video) through a pipelin
 
 - **Two-Stage Pipeline**: Working
 - **Stage 1 (Text Extraction)**: Fully functional with rayon parallel processing
-- **Stage 2 (LLM Analysis)**: Implemented, pending full testing
+- **Stage 2 (LLM Analysis)**: Implemented, JSON parsing needs improvement
 - **Hardware Auto-Scaling**: Implemented (sysinfo-based detection, smart worker count, memory-aware batching, thread pool reuse)
+
+### Known Issues
+
+- **JSON Parsing**: Qwen2.5-7B-Instruct outputs clean JSON with ChatML format.
+- **Extraction Quality**: Varies significantly based on model choice - see [Model Management](backend/models.md) for recommendations
 
 ### Key Features
 

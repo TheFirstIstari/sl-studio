@@ -8,14 +8,10 @@ use tracing::{error, info, warn};
 /// Model family for prompt format selection
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum ModelFamily {
-    /// Llama 2 style: [INST] <<SYS>>...<[/SYS>>...[/INST]
+    /// Qwen2.5: Uses ChatML format <|im_start|>
+    Qwen2_5,
+    /// Generic ChatML format (fallback for unknown models)
     #[default]
-    Llama2,
-    /// Gemma 3 style: <start_of_turn>user...<end_of_turn>
-    Gemma3,
-    /// Mistral style (same as Llama 2)
-    Mistral,
-    /// Generic chatml style: <|im_start|>user...<|im_end|>
     ChatML,
 }
 
@@ -23,12 +19,8 @@ impl ModelFamily {
     /// Detect model family from model filename
     pub fn from_filename(filename: &str) -> Self {
         let lower = filename.to_lowercase();
-        if lower.contains("gemma-3") || lower.contains("gemma3") {
-            ModelFamily::Gemma3
-        } else if lower.contains("mistral") {
-            ModelFamily::Mistral
-        } else if lower.contains("llama-2") || lower.contains("llama2") {
-            ModelFamily::Llama2
+        if lower.contains("qwen2.5") || lower.contains("qwen-2.5") {
+            ModelFamily::Qwen2_5
         } else {
             // Default to ChatML for unknown models
             ModelFamily::ChatML
@@ -366,35 +358,14 @@ impl Reasoner {
 
     fn build_prompt(&self, filename: &str, text: &str) -> String {
         match self.model_family {
-            ModelFamily::Gemma3 => {
-                // Gemma 3: System instructions go IN the user message (no separate system role)
-                // IMPORTANT: Constraints at the END of the prompt (per Google best practices)
-                let example = r#"[{"source":"doc.pdf","source_quote":"signed on Jan 15 2024","date":"2024-01-15","location":null,"people":["John Smith"],"summary":"Contract signed","category":"legal","identified_crime":null,"severity":2,"confidence":0.9}]"#;
-                let json_fields = r#"Extract facts from this document. For each fact, output a JSON object with these exact fields:
-- source: filename
-- source_quote: EXACT text from document that supports this fact
-- date: date mentioned (YYYY-MM-DD or null)
-- location: location mentioned (or null)
-- people: array of people names mentioned (can be empty)
-- summary: brief description of the fact
-- category: one of [legal, financial, temporal, relationship, communication, activity, other]
-- identified_crime: crime type if applicable (or null)
-- severity: 1-5 (1=minor, 5=critical)
-- confidence: 0.0-1.0 based on source quote quality
-
-Output ONLY valid JSON array. No explanation, no text before or after the JSON."#;
+            ModelFamily::Qwen2_5 => {
+                // Qwen2.5 uses ChatML format <|im_start|>
+                let schema = r#"{"source":"filename","source_quote":"text","date":null,"location":null,"people":[],"summary":"","category":"legal","identified_crime":null,"severity":1,"confidence":0.5}"#;
                 format!(
-                    "<start_of_turn>user\nFilename: {}\n\nText:\n{}\n\n{}\nExample output: {}\n<end_of_turn>\n<start_of_turn>model\n",
-                    filename, text, json_fields, example
+                    "<|im_start|>user\nExtract facts from this document. Output a JSON array of facts.\n\nSchema (all fields required):\n{}\n\nDocument: FILENAME: {}\n{}\n<|im_end|>\n<|im_start|>assistant\n",
+                    schema, filename, text
                 )
-            },
-            ModelFamily::Llama2 | ModelFamily::Mistral => {
-                // Llama 2 / Mistral use [INST] <<SYS>>...<[/SYS>> format
-                format!(
-                    "[INST] <<SYS>>\n{}<</SYS>>\n\nFILE: {}\nDATA: {}\n\nOutput JSON only: [/INST]",
-                    self.system_prompt, filename, text
-                )
-            },
+            }
             ModelFamily::ChatML => {
                 // Default ChatML format
                 format!(
@@ -408,64 +379,70 @@ Output ONLY valid JSON array. No explanation, no text before or after the JSON."
     fn parse_facts(&self, response: &str) -> Vec<Fact> {
         let mut facts = Vec::new();
 
+        // Try to parse as JSON array first (Qwen2.5 outputs flat array)
         let items = Self::extract_json_objects(response);
 
         for item in items {
-            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&item) {
-                // Parse people array
-                let people: Vec<String> = json
-                    .get("people")
-                    .and_then(|v| v.as_array())
-                    .map(|arr| {
-                        arr.iter()
-                            .filter_map(|p| p.as_str())
-                            .map(|s| s.to_string())
-                            .collect()
-                    })
-                    .unwrap_or_default();
-
-                let fact = Fact {
-                    source: json
-                        .get("source")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("unknown")
-                        .to_string(),
-                    source_quote: json
-                        .get("source_quote")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string(),
-                    date: json
-                        .get("date")
-                        .and_then(|v| v.as_str())
-                        .map(|s| s.to_string()),
-                    location: json
-                        .get("location")
-                        .and_then(|v| v.as_str())
-                        .map(|s| s.to_string()),
-                    people,
-                    summary: json
-                        .get("summary")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("No summary")
-                        .to_string(),
-                    category: json
-                        .get("category")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("other")
-                        .to_string(),
-                    identified_crime: json
-                        .get("identified_crime")
-                        .and_then(|v| v.as_str())
-                        .map(|s| s.to_string()),
-                    severity: json.get("severity").and_then(|v| v.as_i64()).unwrap_or(1) as i32,
-                    confidence: json.get("confidence").and_then(|v| v.as_f64()).unwrap_or(0.5) as f32,
-                };
+            if let Some(fact) = Self::parse_single_fact(&item) {
                 facts.push(fact);
             }
         }
 
         facts
+    }
+
+    fn parse_single_fact(json_str: &str) -> Option<Fact> {
+        let json = serde_json::from_str::<serde_json::Value>(json_str).ok()?;
+
+        // Parse people array
+        let people: Vec<String> = json
+            .get("people")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|p| p.as_str())
+                    .map(|s| s.to_string())
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        Some(Fact {
+            source: json
+                .get("source")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            source_quote: json
+                .get("source_quote")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            date: json
+                .get("date")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            location: json
+                .get("location")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            people,
+            summary: json
+                .get("summary")
+                .and_then(|v| v.as_str())
+                .unwrap_or("No summary")
+                .to_string(),
+            category: json
+                .get("category")
+                .and_then(|v| v.as_str())
+                .unwrap_or("other")
+                .to_string(),
+            identified_crime: json
+                .get("identified_crime")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            severity: json.get("severity").and_then(|v| v.as_i64()).unwrap_or(1) as i32,
+            confidence: json.get("confidence").and_then(|v| v.as_f64()).unwrap_or(0.5) as f32,
+        })
     }
 
     fn deduplicate_facts(&self, mut facts: Vec<Fact>) -> Vec<Fact> {
@@ -487,26 +464,9 @@ Output ONLY valid JSON array. No explanation, no text before or after the JSON."
 
     fn system_prompt_for_family(family: ModelFamily) -> String {
         match family {
-            ModelFamily::Gemma3 => {
-                // Keep system minimal - main instructions are in the prompt
-                "You extract facts from documents. Output JSON only.".to_string()
-            },
-            ModelFamily::Llama2 | ModelFamily::Mistral => {
-                r#"You are a forensic document analyst for law enforcement. Extract structured facts from documents.
-For each fact, extract these EXACT fields:
-- source: filename
-- source_quote: EXACT text from document that supports this fact (REQUIRED per forensic standards)
-- date: date/time mentioned (YYYY-MM-DD format, or null if not found)
-- location: location mentioned (city, address, or null)
-- people: array of names mentioned in context of this fact
-- summary: brief description of the fact
-- category: one of [legal, financial, temporal, relationship, communication, activity, other]
-- identified_crime: crime type if applicable (fraud, theft, assault, corruption, etc.) or null
-- severity: 1-5 (1=minor, 2=low, 3=medium, 4=high, 5=critical)
-- confidence: 0.0-1.0 based on how well the source quote supports the fact
-
-Output ONLY valid JSON array. No text before or after JSON.
-Example: [{"source":"doc.pdf","source_quote":"signed on Jan 15 2024","date":"2024-01-15","location":null,"people":["John Smith"],"summary":"Contract signed","category":"legal","identified_crime":null,"severity":2,"confidence":0.9}]"#.to_string()
+            ModelFamily::Qwen2_5 => {
+                // Qwen2.5 uses ChatML format - keep system minimal
+                "You extract structured facts from documents. Output ONLY valid JSON array with no text before or after. Include source_quote for each fact.".to_string()
             },
             ModelFamily::ChatML => {
                 r#"You are a forensic document analyst for law enforcement. Extract structured facts from documents.

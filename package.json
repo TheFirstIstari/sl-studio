@@ -9,7 +9,7 @@
 		"preview": "vite preview",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"tauri": "tauri",
+		"tauri": "PATH=\"$HOME/.cargo/bin:$PATH\" RUSTUP_HOME=\"$HOME/.rustup\" RUSTUP_TOOLCHAIN=\"stable-aarch64-apple-darwin\" CARGO_HOME=\"$HOME/.cargo\" tauri",
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
 		"format": "prettier --write .",
@@ -29,14 +29,15 @@
 		"@tauri-apps/plugin-opener": "^2.5.3",
 		"@tauri-apps/plugin-shell": "^2.3.5",
 		"chart.js": "^4.4.7",
+		"cookie": "^1.1.1",
 		"cytoscape": "^3.30.4",
 		"leaflet": "^1.9.4"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.58.2",
 		"@sveltejs/adapter-static": "^3.0.6",
-		"@sveltejs/kit": "^2.9.0",
-		"@sveltejs/vite-plugin-svelte": "^5.0.0",
+		"@sveltejs/kit": "^2.57.1",
+		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@tauri-apps/cli": "^2",
 		"@types/chart.js": "^2.9.41",
 		"@types/leaflet": "^1.9.21",
@@ -46,9 +47,9 @@
 		"eslint-plugin-svelte": "^3.16.0",
 		"prettier": "^3.8.1",
 		"prettier-plugin-svelte": "^3.5.1",
-		"svelte": "^5.0.0",
-		"svelte-check": "^4.0.0",
+		"svelte": "^5.55.4",
+		"svelte-check": "^4.4.6",
 		"typescript": "~5.6.2",
-		"vite": "^6.0.3"
+		"vite": "^8.0.10"
 	}
 }

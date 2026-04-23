@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/core';
-	import { open } from '@tauri-apps/plugin-dialog';
-	import { listen } from '@tauri-apps/api/event';
+ import { listen } from '@tauri-apps/api/event';
 	import { onMount, onDestroy } from 'svelte';
 
 	// Types
@@ -85,13 +84,7 @@
 		return (n * 100).toFixed(1) + '%';
 	}
 
-	function getQualityColor(quality: number): string {
-		if (quality >= 0.8) return 'var(--color-success)';
-		if (quality >= 0.5) return 'var(--color-warning)';
-		return 'var(--color-error)';
-	}
-
-	// State
+ // State
 	let config = $state<Config | null>(null);
 	let extractionStats = $state<ExtractionStats | null>(null);
 	let workflowState = $state<WorkflowState | null>(null);
@@ -139,8 +132,12 @@
 	onMount(async () => {
 		try {
 			config = await invoke<Config>('load_config');
+			// Reset model loaded state when config changes
+			modelLoaded = false;
 			modelLoaded = await invoke<boolean>('is_model_loaded');
 			if (config) await invoke('init_project', { config });
+			// Reset model loaded state for new project
+			modelLoaded = false;
 
 			// Load workflow state
 			try {
@@ -181,22 +178,6 @@
 	});
 
 	// Actions
-	async function configureFolders() {
-		try {
-			const selected = await open({
-				directory: true,
-				multiple: false,
-				title: 'Select Evidence Folder'
-			});
-			if (selected && config) {
-				config.project.evidence_root = selected as string;
-				await invoke('save_config', { config });
-				config = await invoke<Config>('load_config');
-			}
-		} catch (e) {
-			console.error('Error selecting folder:', e);
-		}
-	}
 
 	async function startScan() {
 		if (!config?.project.evidence_root) {
@@ -205,7 +186,7 @@
 			return;
 		}
 		// Update processing state
-		await invoke('update_processing_state', { isScanning: true, isExtracting: false, isAnalyzing: false, currentFile: 'Starting scan...' });
+		await invoke('update_processing_state', { is_scanning: true, is_extracting: false, is_analyzing: false, current_file: 'Starting scan...' });
 		scanning = true;
 		registryProgress = {
 			phase: 'Initializing...',
@@ -223,7 +204,7 @@
 			registryProgress.processed = result;
 			scanning = false;
 			// Clear processing state
-			await invoke('update_processing_state', { isScanning: false, processed: result, total: result });
+			await invoke('update_processing_state', { is_scanning: false, processed: result, total: result });
 			clearTimeout(scanTimeout);
 		} catch (e) {
 			registryProgress.phase = 'error';
@@ -234,7 +215,7 @@
 
 	async function extractAllFiles() {
 		// Update processing state
-		await invoke('update_processing_state', { isScanning: false, isExtracting: true, isAnalyzing: false, currentFile: 'Starting extraction...' });
+		await invoke('update_processing_state', { is_scanning: false, is_extracting: true, is_analyzing: false, current_file: 'Starting extraction...' });
 		extracting = true;
 		extractionProgress = {
 			phase: 'Loading...',
@@ -280,7 +261,7 @@
 			return;
 		}
 		// Update processing state
-		await invoke('update_processing_state', { isScanning: false, isExtracting: false, isAnalyzing: true, currentFile: 'Loading model...' });
+		await invoke('update_processing_state', { is_scanning: false, is_extracting: false, is_analyzing: true, current_file: 'Loading model...' });
 		analyzing = true;
 		analysisProgress = { phase: 'Loading model...', current_file: '', processed: 0, total: 0 };
 		try {
@@ -289,6 +270,15 @@
 				const modelPath = config.model.local_path || (models.length > 0 ? models[0].path : null);
 				if (!modelPath)
 					throw new Error('No model file found. Please download a model in Settings.');
+				
+				// Validate model can be loaded before trying
+				try {
+					await invoke('validate_model', { modelPath });
+				} catch (e) {
+					modelLoaded = false;
+					throw new Error('Model not supported: ' + e + '. Please select a different model in Settings.');
+				}
+				
 				await invoke('init_reasoner', {
 					modelPath,
 					contextSize: config.model.context_length || 8192,
@@ -311,7 +301,7 @@
 			analysisProgress.phase = 'complete';
 			analysisProgress.current_file = `Analyzed ${queue.length} files`;
 			// Clear processing state
-			await invoke('update_processing_state', { isAnalyzing: false, processed: queue.length, total: queue.length });
+			await invoke('update_processing_state', { is_analyzing: false, processed: queue.length, total: queue.length });
 		} catch (e) {
 			analysisProgress.phase = 'error';
 			analysisProgress.current_file = `Error: ${e}`;
