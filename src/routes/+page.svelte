@@ -1,144 +1,136 @@
 <script lang="ts">
-	import { invoke } from '@tauri-apps/api/core';
-	import { onMount } from 'svelte';
+	// Import shared stores - already initialized in +layout.svelte
+	import { config, hardware, stats, modelLoaded, isLoading, error } from '$lib/stores/app';
 
-	interface Stats {
-		registry_count: number;
-		intelligence_count: number;
-	}
-
-	interface Config {
-		model: {
-			local_path: string;
-		};
-	}
-
-	interface HardwareStatus {
-		cpu_threads: number;
-		total_memory_gb: number;
-		available_memory_gb: number;
-		recommended_backend: string;
-		scaling: {
-			batch_size: number;
-			cpu_workers: number;
-		};
-		gpu_info: Array<{
-			name: string;
-			vendor: string;
-			vram_mb: number;
-		}>;
-	}
-
-	let stats = $state<Stats>({
-		registry_count: 0,
-		intelligence_count: 0
-	});
-
-	let hardware = $state<HardwareStatus | null>(null);
-	let modelLoaded = $state(false);
-	let modelPath = $state('');
-	let loading = $state(true);
-	let error = $state('');
-
-	onMount(async () => {
-		try {
-			stats = await invoke<Stats>('get_stats');
-
-			hardware = await invoke<HardwareStatus>('detect_hardware');
-
-			const config = await invoke<Config>('load_config');
-			modelPath = config.model?.local_path || '';
-			modelLoaded = await invoke<boolean>('is_model_loaded');
-		} catch (e) {
-			console.error('Failed to load data:', e);
-			error = `Failed to load data: ${e}`;
-		} finally {
-			loading = false;
-		}
-	});
+	// Get model path from config store
+	let modelPath = $derived($config?.model?.local_path || '');
 
 	function dismissError() {
-		error = '';
+		error.set('');
 	}
 </script>
 
 <div class="dashboard">
 	<h1>Dashboard</h1>
 
-	{#if error}
+	{#if $error}
 		<div class="error-banner" role="alert">
-			<span>{error}</span>
+			<span>{$error}</span>
 			<button onclick={dismissError} aria-label="Dismiss error">×</button>
 		</div>
 	{/if}
 
-	<div class="cards">
-		<div class="card">
-			<svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-			</svg>
-			<div class="card-content">
-				<div class="card-value">{loading ? '...' : stats.registry_count}</div>
-				<div class="card-label">Files Registered</div>
+	{#if $isLoading}
+		<div class="cards">
+			<div class="card">
+				<svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+				</svg>
+				<div class="card-content">
+					<div class="card-value">...</div>
+					<div class="card-label">Files Registered</div>
+				</div>
+			</div>
+
+			<div class="card">
+				<svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+					<polyline points="22 4 12 14.01 9 11.01" />
+				</svg>
+				<div class="card-content">
+					<div class="card-value">...</div>
+					<div class="card-label">Facts Extracted</div>
+				</div>
+			</div>
+
+			<div class="card">
+				<svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
+					<rect x="9" y="9" width="6" height="6" />
+					<line x1="9" y1="1" x2="9" y2="4" />
+					<line x1="15" y1="1" x2="15" y2="4" />
+					<line x1="9" y1="20" x2="9" y2="23" />
+					<line x1="15" y1="20" x2="15" y2="23" />
+					<line x1="20" y1="9" x2="23" y2="9" />
+					<line x1="20" y1="14" x2="23" y2="14" />
+					<line x1="1" y1="9" x2="4" y2="9" />
+					<line x1="1" y1="14" x2="4" y2="14" />
+				</svg>
+				<div class="card-content">
+					<div class="card-value">...</div>
+					<div class="card-label">CPU Workers</div>
+				</div>
 			</div>
 		</div>
+	{:else}
+		<div class="cards">
+			<div class="card">
+				<svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+				</svg>
+				<div class="card-content">
+					<div class="card-value">{$stats?.registry_count ?? 0}</div>
+					<div class="card-label">Files Registered</div>
+				</div>
+			</div>
 
-		<div class="card">
-			<svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-				<polyline points="22 4 12 14.01 9 11.01" />
-			</svg>
-			<div class="card-content">
-				<div class="card-value">{loading ? '...' : stats.intelligence_count}</div>
-				<div class="card-label">Facts Extracted</div>
+			<div class="card">
+				<svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+					<polyline points="22 4 12 14.01 9 11.01" />
+				</svg>
+				<div class="card-content">
+					<div class="card-value">{$stats?.intelligence_count ?? 0}</div>
+					<div class="card-label">Facts Extracted</div>
+				</div>
+			</div>
+
+			<div class="card">
+				<svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
+					<rect x="9" y="9" width="6" height="6" />
+					<line x1="9" y1="1" x2="9" y2="4" />
+					<line x1="15" y1="1" x2="15" y2="4" />
+					<line x1="9" y1="20" x2="9" y2="23" />
+					<line x1="15" y1="20" x2="15" y2="23" />
+					<line x1="20" y1="9" x2="23" y2="9" />
+					<line x1="20" y1="14" x2="23" y2="14" />
+					<line x1="1" y1="9" x2="4" y2="9" />
+					<line x1="1" y1="14" x2="4" y2="14" />
+				</svg>
+				<div class="card-content">
+					<div class="card-value">{$hardware?.cpu_cores ?? '...'}</div>
+					<div class="card-label">CPU Workers</div>
+				</div>
 			</div>
 		</div>
+	{/if}
 
-		<div class="card">
-			<svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
-				<rect x="9" y="9" width="6" height="6" />
-				<line x1="9" y1="1" x2="9" y2="4" />
-				<line x1="15" y1="1" x2="15" y2="4" />
-				<line x1="9" y1="20" x2="9" y2="23" />
-				<line x1="15" y1="20" x2="15" y2="23" />
-				<line x1="20" y1="9" x2="23" y2="9" />
-				<line x1="20" y1="14" x2="23" y2="14" />
-				<line x1="1" y1="9" x2="4" y2="9" />
-				<line x1="1" y1="14" x2="4" y2="14" />
-			</svg>
-			<div class="card-content">
-				<div class="card-value">{hardware?.scaling?.cpu_workers || '...'}</div>
-				<div class="card-label">CPU Workers</div>
-			</div>
-		</div>
-	</div>
-
-	{#if hardware}
+	{#if $hardware}
 		<div class="info-section">
 			<h2>Hardware Status</h2>
 			<div class="info-grid">
 				<div class="info-card">
 					<span class="info-label">CPU</span>
-					<span class="info-value">{hardware.cpu_threads} cores</span>
+					<span class="info-value">{$hardware.cpu_cores} cores</span>
 				</div>
 				<div class="info-card">
 					<span class="info-label">Memory</span>
-					<span class="info-value">{hardware.total_memory_gb.toFixed(1)} GB total</span>
+					<span class="info-value">{($hardware.total_memory / 1024 / 1024 / 1024).toFixed(1)} GB total</span>
 				</div>
 				<div class="info-card">
 					<span class="info-label">Available</span>
-					<span class="info-value">{hardware.available_memory_gb.toFixed(1)} GB</span>
+					<span class="info-value">{($hardware.available_memory / 1024 / 1024 / 1024).toFixed(1)} GB</span>
 				</div>
 				<div class="info-card">
 					<span class="info-label">Backend</span>
-					<span class="info-value">{hardware.recommended_backend}</span>
+					<span class="info-value">{$hardware.gpu_backend || 'CPU'}</span>
 				</div>
-				{#if hardware.gpu_info.length > 0}
+				{#if $hardware.gpu_name}
 					<div class="info-card full-width">
 						<span class="info-label">GPU</span>
 						<span class="info-value"
-							>{hardware.gpu_info[0].name} ({hardware.gpu_info[0].vram_mb} MB)</span
+							>{$hardware.gpu_name} ({($hardware.gpu_memory / 1024 / 1024).toFixed(0)} MB)</span
 						>
 					</div>
 				{/if}
@@ -150,8 +142,8 @@
 		<h2>Model Status</h2>
 		<div class="status-row">
 			<span class="status-label">Model:</span>
-			<span class="status-value" class:loaded={modelLoaded}>
-				{modelLoaded ? 'Loaded' : modelPath ? 'Not loaded' : 'No model'}
+			<span class="status-value" class:loaded={$modelLoaded}>
+				{$modelLoaded ? 'Loaded' : modelPath ? 'Not loaded' : 'No model'}
 			</span>
 		</div>
 		{#if modelPath}

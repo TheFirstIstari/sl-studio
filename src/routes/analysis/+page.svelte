@@ -3,20 +3,10 @@
 	import { listen } from '@tauri-apps/api/event';
 	import { onMount, onDestroy } from 'svelte';
 
-	// Types
-	interface Config {
-		project: { name: string; evidence_root: string; registry_db: string; intelligence_db: string };
-		model: { id: string; local_path: string; context_length: number };
-		hardware: {
-			gpu_backend: string;
-			gpu_memory_fraction: number;
-			cpu_workers: number;
-			ocr_provider: string;
-			whisper_size: string;
-		};
-		processing: { batch_size: number; max_image_resolution: number };
-	}
+	// Use shared stores for config, hardware, workflow, and model state
+	import { config, hardware, hardwareInfo, modelLoaded, workflow, refreshWorkflow, refreshStats } from '$lib/stores/app';
 
+	// Types
 	interface RegistryFile {
 		path: string;
 		fingerprint: string;
@@ -63,16 +53,6 @@
 		files_by_type: Record<string, number>;
 	}
 
-	interface WorkflowState {
-		files_scanned: number;
-		files_extracted: number;
-		files_analyzed: number;
-		last_scan_time: string | null;
-		last_extraction_time: string | null;
-		last_analysis_time: string | null;
-		current_stage: string;
-	}
-
 	// Utility functions
 	function formatNumber(n: number): string {
 		if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
@@ -84,11 +64,8 @@
 		return (n * 100).toFixed(1) + '%';
 	}
 
-	// State
-	let config = $state<Config | null>(null);
+	// Local state for progress tracking (not in stores)
 	let extractionStats = $state<ExtractionStats | null>(null);
-	let workflowState = $state<WorkflowState | null>(null);
-	let modelLoaded = $state(false);
 	let scanning = $state(false);
 	let extracting = $state(false);
 	let analyzing = $state(false);
@@ -128,33 +105,20 @@
 		}
 	}
 
-	// Initialize
+	// Initialize - use stores for config, modelLoaded, workflow
 	onMount(async () => {
-		try {
-			config = await invoke<Config>('load_config');
-			// Reset model loaded state when config changes
-			modelLoaded = false;
-			modelLoaded = await invoke<boolean>('is_model_loaded');
-			if (config) await invoke('init_project', { config });
-			// Reset model loaded state for new project
-			modelLoaded = false;
+		// Use stores for config, modelLoaded - already initialized in +layout.svelte
+		// The workflow store is also already populated
 
-			// Load workflow state
-			try {
-				workflowState = await invoke<WorkflowState>('get_workflow_state');
-				if (workflowState?.files_scanned > 0) {
-					registryProgress.phase = 'complete';
-					registryProgress.processed = workflowState.files_scanned;
-				}
-				if (workflowState?.files_extracted > 0) {
-					extractionProgress.phase = 'complete';
-					extractionProgress.success_count = workflowState.files_extracted;
-				}
-			} catch (e) {
-				console.error('Failed to load workflow state:', e);
-			}
-		} catch (e) {
-			console.error('Failed to load config:', e);
+		// Sync workflow state to local progress for display
+		const wf = $workflow;
+		if (wf?.files_scanned > 0) {
+			registryProgress.phase = 'complete';
+			registryProgress.processed = wf.files_scanned;
+		}
+		if (wf?.files_extracted > 0) {
+			extractionProgress.phase = 'complete';
+			extractionProgress.success_count = wf.files_extracted;
 		}
 
 		// Event listeners
@@ -269,7 +233,7 @@
 	}
 
 	async function analyzeExtractedFiles() {
-		if (!config?.model.local_path) {
+		if (!$config?.model?.local_path) {
 			analysisProgress.phase = 'error';
 			analysisProgress.current_file = 'No model configured. Please download a model in Settings.';
 			return;
@@ -284,9 +248,9 @@
 		analyzing = true;
 		analysisProgress = { phase: 'Loading model...', current_file: '', processed: 0, total: 0 };
 		try {
-			if (!modelLoaded) {
+			if (!$modelLoaded) {
 				const models = await invoke<Array<{ path: string }>>('list_downloaded_models');
-				const modelPath = config.model.local_path || (models.length > 0 ? models[0].path : null);
+				const modelPath = $config?.model?.local_path || (models.length > 0 ? models[0].path : null);
 				if (!modelPath)
 					throw new Error('No model file found. Please download a model in Settings.');
 
@@ -294,7 +258,7 @@
 				try {
 					await invoke('validate_model', { modelPath });
 				} catch (e) {
-					modelLoaded = false;
+					modelLoaded.set(false);
 					throw new Error(
 						'Model not supported: ' + e + '. Please select a different model in Settings.'
 					);
@@ -302,10 +266,10 @@
 
 				await invoke('init_reasoner', {
 					modelPath,
-					contextSize: config.model.context_length || 8192,
+					contextSize: $config?.model?.context_length || 8192,
 					gpuLayers: 32
 				});
-				modelLoaded = true;
+				modelLoaded.set(true);
 			}
 			const queue = await invoke<RegistryFile[]>('get_analysis_queue', { limit: 10 });
 			if (queue.length === 0) {
@@ -355,29 +319,29 @@
 	</header>
 
 	<!-- Workflow Status Bar -->
-	{#if workflowState}
+	{#if $workflow}
 		<div class="workflow-bar">
-			<div class="workflow-stage" class:done={workflowState.files_scanned > 0}>
-				<div class="stage-indicator">{workflowState.files_scanned > 0 ? '✓' : '1'}</div>
+			<div class="workflow-stage" class:done={$workflow.files_scanned > 0}>
+				<div class="stage-indicator">{$workflow.files_scanned > 0 ? '✓' : '1'}</div>
 				<div class="stage-info">
 					<span class="stage-label">Scanned</span>
-					<span class="stage-count">{workflowState.files_scanned} files</span>
+					<span class="stage-count">{$workflow.files_scanned} files</span>
 				</div>
 			</div>
 			<div class="workflow-connector"></div>
-			<div class="workflow-stage" class:done={workflowState.files_extracted > 0}>
-				<div class="stage-indicator">{workflowState.files_extracted > 0 ? '✓' : '2'}</div>
+			<div class="workflow-stage" class:done={$workflow.files_extracted > 0}>
+				<div class="stage-indicator">{$workflow.files_extracted > 0 ? '✓' : '2'}</div>
 				<div class="stage-info">
 					<span class="stage-label">Extracted</span>
-					<span class="stage-count">{workflowState.files_extracted} files</span>
+					<span class="stage-count">{$workflow.files_extracted} files</span>
 				</div>
 			</div>
 			<div class="workflow-connector"></div>
-			<div class="workflow-stage" class:done={workflowState.files_analyzed > 0}>
-				<div class="stage-indicator">{workflowState.files_analyzed > 0 ? '✓' : '3'}</div>
+			<div class="workflow-stage" class:done={$workflow.files_analyzed > 0}>
+				<div class="stage-indicator">{$workflow.files_analyzed > 0 ? '✓' : '3'}</div>
 				<div class="stage-info">
 					<span class="stage-label">Analyzed</span>
-					<span class="stage-count">{workflowState.files_analyzed} facts</span>
+					<span class="stage-count">{$workflow.files_analyzed} facts</span>
 				</div>
 			</div>
 			<div class="workflow-spacer"></div>
@@ -503,8 +467,8 @@
 			<p class="panel-description">Extract structured facts from text using local LLM inference.</p>
 
 			<div class="model-status">
-				<div class="model-badge" class:loaded={modelLoaded}>
-					{modelLoaded ? 'Model Loaded' : config?.model.local_path ? 'Model Ready' : 'No Model'}
+				<div class="model-badge" class:loaded={$modelLoaded}>
+					{$modelLoaded ? 'Model Loaded' : $config?.model?.local_path ? 'Model Ready' : 'No Model'}
 				</div>
 			</div>
 
@@ -534,7 +498,7 @@
 					<button
 						class="btn btn-primary"
 						onclick={analyzeExtractedFiles}
-						disabled={scanning || extracting || analyzing || !config?.model.local_path}
+						disabled={scanning || extracting || analyzing || !$config?.model?.local_path}
 					>
 						Analyze Files
 					</button>

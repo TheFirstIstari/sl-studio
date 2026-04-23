@@ -3,6 +3,9 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { listen } from '@tauri-apps/api/event';
 
+	// Use shared stores
+	import { stats, workflow, refreshStats, refreshWorkflow } from '$lib/stores/app';
+
 	interface Fact {
 		id: number;
 		fingerprint: string;
@@ -13,22 +16,6 @@
 		severity_score: number;
 		confidence: number | null;
 		created_at: string;
-	}
-
-	interface WorkflowState {
-		files_scanned: number;
-		files_extracted: number;
-		files_analyzed: number;
-		current_stage: string;
-		is_scanning: boolean;
-		is_extracting: boolean;
-		is_analyzing: boolean;
-		scan_progress: number;
-		extract_progress: number;
-		analyze_progress: number;
-		current_file: string;
-		processed_count: number;
-		total_count: number;
 	}
 
 	interface HistoryState {
@@ -96,37 +83,10 @@
 		}
 	}
 
-	interface Config {
-		project: {
-			name: string;
-			evidence_root: string;
-			registry_db: string;
-			intelligence_db: string;
-		};
-	}
-
-	// Async initialization function
+	// Initialize - use stores for state (already initialized in +layout.svelte)
 	async function initialize() {
-		try {
-			// Initialize project first to ensure database is ready
-			const config = await invoke<Config>('load_config');
-			if (config) {
-				await invoke('init_project', { config });
-			}
-		} catch (e) {
-			console.error('Failed to initialize project:', e);
-		}
-
 		await loadFacts();
 		saveToHistory();
-	}
-
-	async function loadWorkflowState() {
-		try {
-			await invoke<WorkflowState>('get_workflow_state');
-		} catch (e) {
-			console.error('Error loading workflow state:', e);
-		}
 	}
 
 	let pollInterval: ReturnType<typeof setInterval>;
@@ -136,13 +96,12 @@
 		initialize();
 		window.addEventListener('keydown', handleKeydown);
 
-		// Load workflow state and start polling
-		await loadWorkflowState();
-		pollInterval = setInterval(loadWorkflowState, 2000);
+		// Use stores for workflow - refresh periodically
+		pollInterval = setInterval(refreshWorkflow, 2000);
 
 		// Listen for analysis progress updates
 		unlistenAnalysis = await listen('analysis_progress', () => {
-			loadWorkflowState();
+			refreshWorkflow();
 		});
 	});
 

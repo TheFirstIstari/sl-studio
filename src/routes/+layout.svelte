@@ -1,7 +1,21 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { 
+		initializeApp, 
+		cleanupEventListeners,
+		config, 
+		hardware, 
+		stats, 
+		workflow, 
+		modelLoaded,
+		projectInitialized,
+		isLoading,
+		error,
+		refreshStats,
+		refreshWorkflow
+	} from '$lib/stores/app';
 
 	const navItems = [
 		{ href: '/', label: 'Dashboard', icon: 'dashboard', shortcut: 'G D' },
@@ -20,6 +34,8 @@
 
 	let showShortcuts = $state(false);
 	let pressedKeys = $state<string[]>([]);
+	let initialized = $state(false);
+	let refreshInterval: ReturnType<typeof setInterval> | null = null;
 
 	const globalShortcuts: Record<string, () => void> = {
 		'?': () => (showShortcuts = !showShortcuts),
@@ -56,10 +72,28 @@
 		}
 	}
 
-	onMount(() => {
+	onMount(async () => {
 		window.addEventListener('keydown', handleKeydown);
-		return () => window.removeEventListener('keydown', handleKeydown);
+		
+		// Initialize app stores ONCE
+		await initializeApp();
+		initialized = true;
+		
+		// Setup periodic refresh for stats (every 10 seconds)
+		refreshInterval = setInterval(async () => {
+			await refreshWorkflow();
+			await refreshStats();
+		}, 10000);
 	});
+
+	onDestroy(() => {
+		window.removeEventListener('keydown', handleKeydown);
+		if (refreshInterval) {
+			clearInterval(refreshInterval);
+		}
+		cleanupEventListeners();
+	});
+
 	let { children } = $props();
 </script>
 
@@ -74,152 +108,90 @@
 			<span class="logo-text">SL Studio</span>
 		</div>
 		<div class="status">
-			<span class="status-dot"></span>
-			<span class="status-text">Ready</span>
+			{#if $isLoading}
+				<span class="status-dot loading"></span>
+				<span class="status-text">Loading...</span>
+			{:else if $error}
+				<span class="status-dot error"></span>
+				<span class="status-text">Error</span>
+			{:else if $projectInitialized}
+				<span class="status-dot ready"></span>
+				<span class="status-text">Ready</span>
+			{:else}
+				<span class="status-dot"></span>
+				<span class="status-text">Not initialized</span>
+			{/if}
 		</div>
 	</header>
 
-	<div class="main-layout">
-		<nav class="sidebar">
-			<ul class="nav-list">
-				{#each navItems as item (item.href)}
-					<li>
-						<a href={item.href} class="nav-item" class:active={$page.url.pathname === item.href}>
-							<svg
-								class="nav-icon"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-							>
-								{#if item.icon === 'dashboard'}
-									<rect x="3" y="3" width="7" height="7" rx="1" />
-									<rect x="14" y="3" width="7" height="7" rx="1" />
-									<rect x="3" y="14" width="7" height="7" rx="1" />
-									<rect x="14" y="14" width="7" height="7" rx="1" />
-								{:else if item.icon === 'search'}
-									<circle cx="11" cy="11" r="8" />
-									<path d="M21 21l-4.35-4.35" />
-								{:else if item.icon === 'list'}
-									<line x1="8" y1="6" x2="21" y2="6" />
-									<line x1="8" y1="12" x2="21" y2="12" />
-									<line x1="8" y1="18" x2="21" y2="18" />
-									<circle cx="4" cy="6" r="1" fill="currentColor" />
-									<circle cx="4" cy="12" r="1" fill="currentColor" />
-									<circle cx="4" cy="18" r="1" fill="currentColor" />
-								{:else if item.icon === 'timeline'}
-									<circle cx="12" cy="12" r="10" />
-									<polyline points="12 6 12 12 16 14" />
-								{:else if item.icon === 'chart'}
-									<line x1="18" y1="20" x2="18" y2="10" />
-									<line x1="12" y1="20" x2="12" y2="4" />
-									<line x1="6" y1="20" x2="6" y2="14" />
-								{:else if item.icon === 'alert'}
-									<path
-										d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-									/>
-									<line x1="12" y1="9" x2="12" y2="13" />
-									<line x1="12" y1="17" x2="12.01" y2="17" />
-								{:else if item.icon === 'network'}
-									<circle cx="12" cy="5" r="3" />
-									<circle cx="5" cy="19" r="3" />
-									<circle cx="19" cy="19" r="3" />
-									<line x1="12" y1="8" x2="5" y2="16" />
-									<line x1="12" y1="8" x2="19" y2="16" />
-								{:else if item.icon === 'map'}
-									<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-									<circle cx="12" cy="10" r="3" />
-								{:else if item.icon === 'settings'}
-									<circle cx="12" cy="12" r="3" />
-									<path
-										d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-									/>
-								{/if}
-							</svg>
-							<span class="nav-label">{item.label}</span>
-						</a>
-					</li>
-				{/each}
-			</ul>
-		</nav>
+	<nav class="nav">
+		{#each navItems as item}
+			<a 
+				href={item.href} 
+				class="nav-item"
+				class:active={$page.url.pathname === item.href}
+				title="{item.label} ({item.shortcut})"
+			>
+				<span class="nav-label">{item.label}</span>
+			</a>
+		{/each}
+	</nav>
 
-		<main class="content">
+	<main class="main">
+		{#if !initialized || $isLoading}
+			<div class="loading-overlay">
+				<div class="loading-spinner"></div>
+				<p>Initializing SL Studio...</p>
+				{#if $error}
+					<p class="error">{$error}</p>
+				{/if}
+			</div>
+		{:else}
 			{@render children()}
-		</main>
-	</div>
+		{/if}
+	</main>
 
-	<footer class="footer">
-		<div class="console">
-			<span class="console-prompt">$</span>
-			<span class="console-text">SL Studio v0.1.0</span>
+	{#if showShortcuts}
+		<div class="shortcuts-overlay" onclick={() => (showShortcuts = false)}>
+			<div class="shortcuts-panel" onclick={(e) => e.stopPropagation()}>
+				<h2>Keyboard Shortcuts</h2>
+				<ul>
+					{#each navItems as item}
+						<li>
+							<kbd>G</kbd> + <kbd>{item.shortcut.replace('G ', '').replace(',', '')}</kbd>
+							<span>{item.label}</span>
+						</li>
+					{/each}
+					<li><kbd>?</kbd><span>Toggle shortcuts</span></li>
+					<li><kbd>Esc</kbd><span>Close overlays</span></li>
+				</ul>
+			</div>
 		</div>
-	</footer>
+	{/if}
+
+	<!-- Shared state display in footer -->
+	{#if $projectInitialized && $workflow}
+		<footer class="workflow-bar">
+			<span class="stage" class:active={$workflow.is_scanning}>
+				Scan: {$workflow.files_scanned}
+			</span>
+			<span class="stage" class:active={$workflow.is_extracting}>
+				Extract: {$workflow.files_extracted}
+			</span>
+			<span class="stage" class:active={$workflow.is_analyzing}>
+				Analyze: {$workflow.files_analyzed}
+			</span>
+			<span class="current-file">{$workflow.current_file || 'Idle'}</span>
+		</footer>
+	{/if}
 </div>
 
-{#if showShortcuts}
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div class="modal-overlay" onclick={() => (showShortcuts = false)}>
-		(
-		<div
-			class="modal"
-			role="dialog"
-			aria-modal="true"
-			tabindex="-1"
-			onclick={(e) => e.stopPropagation()}
-		>
-			<h2>Keyboard Shortcuts</h2>
-
-			<div class="modal-section">
-				<h3>Navigation</h3>
-				{#each navItems as item}
-					<div class="shortcut-row">
-						<span class="shortcut-label">{item.label}</span>
-						<div class="shortcut-key">
-							{#each item.shortcut.split(' ') as key}
-								<kbd>{key}</kbd>
-							{/each}
-						</div>
-					</div>
-				{/each}
-			</div>
-
-			<div class="modal-section">
-				<h3>Global</h3>
-				<div class="shortcut-row">
-					<span class="shortcut-label">Show Shortcuts</span>
-					<div class="shortcut-key"><kbd>?</kbd></div>
-				</div>
-				<div class="shortcut-row">
-					<span class="shortcut-label">Close Modal</span>
-					<div class="shortcut-key"><kbd>Esc</kbd></div>
-				</div>
-			</div>
-		</div>
-	</div>
-{:else}
-	<div class="shortcut-hint">Press ? for shortcuts</div>
-{/if}
-
 <style>
-	:global(*) {
-		box-sizing: border-box;
-		margin: 0;
-		padding: 0;
-	}
-
-	:global(body) {
-		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-		background-color: #1a1a2e;
-		color: #eaeaea;
-		overflow: hidden;
-	}
-
 	.app {
 		display: flex;
 		flex-direction: column;
 		height: 100vh;
-		background-color: #1a1a2e;
+		background: #f5f5f5;
 	}
 
 	.header {
@@ -227,199 +199,187 @@
 		justify-content: space-between;
 		align-items: center;
 		padding: 0.75rem 1rem;
-		background-color: #16213e;
-		border-bottom: 1px solid #0f3460;
-		-webkit-app-region: drag;
+		background: #1a1a2e;
+		color: white;
 	}
 
 	.logo {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		-webkit-app-region: no-drag;
 	}
 
 	.logo-icon {
 		width: 24px;
 		height: 24px;
-		color: #e94560;
 	}
 
 	.logo-text {
-		font-size: 1.25rem;
+		font-size: 1.125rem;
 		font-weight: 600;
-		color: #e94560;
 	}
 
 	.status {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		-webkit-app-region: no-drag;
+		font-size: 0.875rem;
 	}
 
 	.status-dot {
 		width: 8px;
 		height: 8px;
 		border-radius: 50%;
-		background-color: #4ade80;
+		background: #6b7280;
 	}
 
-	.status-text {
-		font-size: 0.875rem;
-		color: #9ca3af;
+	.status-dot.ready {
+		background: #22c55e;
 	}
 
-	.main-layout {
+	.status-dot.loading {
+		background: #eab308;
+		animation: pulse 1s infinite;
+	}
+
+	.status-dot.error {
+		background: #ef4444;
+	}
+
+	.nav {
 		display: flex;
-		flex: 1;
-		overflow: hidden;
-	}
-
-	.sidebar {
-		width: 200px;
-		background-color: #16213e;
-		border-right: 1px solid #0f3460;
-		padding: 1rem 0;
-	}
-
-	.nav-list {
-		list-style: none;
+		gap: 0.25rem;
+		padding: 0.5rem 1rem;
+		background: white;
+		border-bottom: 1px solid #e5e7eb;
+		overflow-x: auto;
 	}
 
 	.nav-item {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 0.75rem 1rem;
-		color: #9ca3af;
+		padding: 0.5rem 0.75rem;
+		border-radius: 0.375rem;
 		text-decoration: none;
-		transition: all 0.2s;
+		color: #374151;
+		font-size: 0.875rem;
+		transition: all 0.15s;
 	}
 
 	.nav-item:hover {
-		background-color: #0f3460;
-		color: #eaeaea;
+		background: #f3f4f6;
 	}
 
 	.nav-item.active {
-		background-color: #e94560;
-		color: #ffffff;
+		background: #1a1a2e;
+		color: white;
 	}
 
-	.nav-icon {
-		width: 20px;
-		height: 20px;
-	}
-
-	.nav-label {
-		font-size: 0.875rem;
-	}
-
-	.content {
+	.main {
 		flex: 1;
-		padding: 1.5rem;
-		overflow-y: auto;
-		background-color: #1a1a2e;
+		overflow: auto;
+		position: relative;
 	}
 
-	.footer {
-		padding: 0.5rem 1rem;
-		background-color: #16213e;
-		border-top: 1px solid #0f3460;
-	}
-
-	.console {
+	.loading-overlay {
+		position: absolute;
+		inset: 0;
 		display: flex;
+		flex-direction: column;
 		align-items: center;
-		gap: 0.5rem;
-		font-family: 'SF Mono', Monaco, 'Courier New', monospace;
-		font-size: 0.75rem;
+		justify-content: center;
+		background: white;
+		gap: 1rem;
 	}
 
-	.console-prompt {
-		color: #4ade80;
+	.loading-spinner {
+		width: 40px;
+		height: 40px;
+		border: 3px solid #e5e7eb;
+		border-top-color: #1a1a2e;
+		border-radius: 50%;
+		animation: spin 1s linear infinite;
 	}
 
-	.console-text {
-		color: #9ca3af;
+	@keyframes spin {
+		to { transform: rotate(360deg); }
 	}
 
-	.shortcut-hint {
-		position: fixed;
-		bottom: 2rem;
-		right: 2rem;
-		padding: 0.5rem 1rem;
-		background-color: #16213e;
-		border: 1px solid #0f3460;
-		border-radius: 6px;
-		font-size: 0.75rem;
-		color: #9ca3af;
+	@keyframes pulse {
+		0%, 100% { opacity: 1; }
+		50% { opacity: 0.5; }
 	}
 
-	.modal-overlay {
+	.error {
+		color: #ef4444;
+	}
+
+	.shortcuts-overlay {
 		position: fixed;
 		inset: 0;
-		background-color: rgba(0, 0, 0, 0.7);
+		background: rgba(0,0,0,0.5);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		z-index: 1000;
+		z-index: 100;
 	}
 
-	.modal {
-		background-color: #16213e;
-		border: 1px solid #0f3460;
-		border-radius: 12px;
+	.shortcuts-panel {
+		background: white;
 		padding: 1.5rem;
-		max-width: 500px;
-		width: 90%;
-		max-height: 80vh;
-		overflow-y: auto;
+		border-radius: 0.5rem;
+		max-width: 400px;
+		width: 100%;
 	}
 
-	.modal h2 {
-		font-size: 1.25rem;
-		color: #eaeaea;
-		margin-bottom: 1rem;
+	.shortcuts-panel h2 {
+		margin: 0 0 1rem;
+		font-size: 1.125rem;
 	}
 
-	.modal-section {
-		margin-bottom: 1.5rem;
+	.shortcuts-panel ul {
+		list-style: none;
+		padding: 0;
+		margin: 0;
 	}
 
-	.modal-section h3 {
-		font-size: 0.875rem;
-		color: #9ca3af;
-		margin-bottom: 0.75rem;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-	}
-
-	.shortcut-row {
+	.shortcuts-panel li {
 		display: flex;
-		justify-content: space-between;
-		padding: 0.5rem 0;
-		border-bottom: 1px solid #0f3460;
+		gap: 0.5rem;
+		padding: 0.25rem 0;
 	}
 
-	.shortcut-label {
-		color: #eaeaea;
-		font-size: 0.875rem;
-	}
-
-	.shortcut-key {
-		display: flex;
-		gap: 0.25rem;
-	}
-
-	.shortcut-key kbd {
-		padding: 0.25rem 0.5rem;
-		background-color: #1a1a2e;
-		border: 1px solid #0f3460;
-		border-radius: 4px;
-		font-family: 'SF Mono', Monaco, monospace;
+	.shortcuts-panel kbd {
+		background: #f3f4f6;
+		padding: 0.125rem 0.375rem;
+		border-radius: 0.25rem;
+		font-family: monospace;
 		font-size: 0.75rem;
-		color: #e94560;
+	}
+
+	.workflow-bar {
+		display: flex;
+		gap: 1rem;
+		padding: 0.5rem 1rem;
+		background: #1a1a2e;
+		color: white;
+		font-size: 0.75rem;
+	}
+
+	.stage {
+		padding: 0.25rem 0.5rem;
+		background: rgba(255,255,255,0.1);
+		border-radius: 0.25rem;
+	}
+
+	.stage.active {
+		background: #22c55e;
+	}
+
+	.current-file {
+		flex: 1;
+		text-align: right;
+		opacity: 0.7;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 </style>
