@@ -720,6 +720,22 @@ fn delete_annotation(state: State<AppState>, annotation_id: i64) -> Result<(), S
 }
 
 #[tauri::command]
+fn delete_facts(state: State<AppState>, ids: Vec<i64>) -> Result<usize, String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        let mut count = 0;
+        for id in ids {
+            if db.delete_intelligence(id).is_ok() {
+                count += 1;
+            }
+        }
+        Ok(count)
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
 fn get_annotations(
     state: State<AppState>,
     intelligence_id: i64,
@@ -1961,6 +1977,7 @@ pub fn run() {
             add_annotation,
             update_annotation,
             delete_annotation,
+            delete_facts,
             get_annotations,
             search_by_tags,
             get_location_entities,

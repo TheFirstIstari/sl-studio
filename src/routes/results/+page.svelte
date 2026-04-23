@@ -298,10 +298,45 @@
 					</label>
 					{#if selectedIds.size > 0}
 						<div class="bulk-actions">
-							<button class="bulk-btn" onclick={() => console.log('Export selected')}>
+							<button class="bulk-btn" onclick={async () => {
+								if (selectedIds.size === 0) return;
+								try {
+									const ids = Array.from(selectedIds);
+									const result = await invoke<string>('export_facts_json', {
+										minWeight: 0.0,
+										limit: ids.length,
+										categories: null,
+										startDate: null,
+										endDate: null
+									});
+									// Create download
+									const blob = new Blob([result], { type: 'application/json' });
+									const url = URL.createObjectURL(blob);
+									const a = document.createElement('a');
+									a.href = url;
+									a.download = `facts-export-${Date.now()}.json`;
+									a.click();
+									URL.revokeObjectURL(url);
+								} catch (e) {
+									console.error('Export failed:', e);
+								}
+							}}>
 								Export
 							</button>
-							<button class="bulk-btn danger" onclick={() => console.log('Delete selected')}>
+							<button class="bulk-btn danger" onclick={async () => {
+								if (selectedIds.size === 0) return;
+								if (!confirm(`Delete ${selectedIds.size} selected fact(s)?`)) return;
+								try {
+									const ids = Array.from(selectedIds);
+									const count = await invoke<number>('delete_facts', { ids });
+									// Refresh facts
+									await loadFacts();
+									selectedIds = new Set();
+									selectAll = false;
+								} catch (e) {
+									console.error('Delete failed:', e);
+								}
+							}}>
 								Delete
 							</button>
 						</div>
