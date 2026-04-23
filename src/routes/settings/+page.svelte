@@ -19,15 +19,15 @@
 	}
 
 	interface HardwareInfo {
-	cpu_threads: number;
-	total_memory_gb: number;
-	available_memory_gb: number;
-	recommended_workers: number;
-	recommended_batch_size: number;
-	cpu_workers: number;
-}
+		cpu_threads: number;
+		total_memory_gb: number;
+		available_memory_gb: number;
+		recommended_workers: number;
+		recommended_batch_size: number;
+		cpu_workers: number;
+	}
 
-interface HardwareStatus {
+	interface HardwareStatus {
 		cpu_threads: number;
 		total_memory_gb: number;
 		recommended_backend: string;
@@ -191,7 +191,7 @@ interface HardwareStatus {
 		try {
 			// Get auto-detected hardware settings
 			const hwInfo = await invoke<HardwareInfo>('get_hardware_info');
-			
+
 			const configData = {
 				version: '0.2.0',
 				project: {
@@ -209,14 +209,14 @@ interface HardwareStatus {
 					local_path: config.modelPath
 				},
 				hardware: {
-					gpu_backend: 'metal',  // Auto-detected
-					gpu_memory_fraction: 0.8,  // Auto-detected (80%)
-					cpu_workers: hwInfo.cpu_workers,  // Auto-detected
+					gpu_backend: 'metal', // Auto-detected
+					gpu_memory_fraction: 0.8, // Auto-detected (80%)
+					cpu_workers: hwInfo.cpu_workers, // Auto-detected
 					ocr_provider: 'onnx',
 					whisper_size: 'base'
 				},
 				processing: {
-					batch_size: hwInfo.recommended_batch_size,  // Auto-detected
+					batch_size: hwInfo.recommended_batch_size, // Auto-detected
 					max_image_resolution: 2048
 				}
 			};
@@ -455,13 +455,7 @@ interface HardwareStatus {
 					<div class="display-value" id="gpu-backend">{recommendedBackend}</div>
 					<p class="hint">Automatically detected</p>
 				</div>
-
-
-
-
 			</section>
-
-
 
 			<section class="settings-section">
 				<h2>System Monitor</h2>

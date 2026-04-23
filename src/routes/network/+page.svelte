@@ -23,7 +23,7 @@
 		distance: number;
 	}
 
- let cyContainer: HTMLDivElement | undefined = $state();
+	let cyContainer: HTMLDivElement | undefined = $state();
 	let cy: cytoscape.Core | null;
 	let relationships = $state<EntityRelationship[]>([]);
 	let connectedEntities = $state<ConnectedEntity[]>([]);

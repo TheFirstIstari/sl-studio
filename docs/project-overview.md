@@ -237,7 +237,7 @@ SL Studio uses `.sls` JSON project files to store investigation settings:
 
 ```json
 {
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"created_at": "2024-01-15T10:30:00Z",
 	"modified_at": "2024-01-15T12:45:00Z",
 	"investigator": {

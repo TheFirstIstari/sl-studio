@@ -50,7 +50,7 @@ Follow conventional commits:
 feat: add entity resolution
 fix: correct z-score calculation
 docs: update API reference
-chore(release): bump version to v0.2.0
+chore(release): bump version to v0.3.0
 perf: optimize search query parsing
 test: add backup/restore E2E tests
 ```

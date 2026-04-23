@@ -20,8 +20,10 @@ test.describe('Analysis Page - Model Selection', () => {
 	test('should have analyze button or stage 2 button', async ({ page }) => {
 		await page.goto('/analysis');
 		await page.waitForLoadState('networkidle');
-		
-		const analyzeButton = page.locator('button:has-text("Analyze"), button:has-text("Stage 2")').first();
+
+		const analyzeButton = page
+			.locator('button:has-text("Analyze"), button:has-text("Stage 2")')
+			.first();
 		const isVisible = await analyzeButton.isVisible().catch(() => false);
 		if (isVisible) {
 			const isDisabled = await analyzeButton.isDisabled().catch(() => false);
@@ -87,30 +89,30 @@ test.describe('Analysis Page - State Persistence', () => {
 	test('should preserve state when navigating between pages', async ({ page }) => {
 		await page.goto('/analysis');
 		await page.waitForLoadState('networkidle');
-		
+
 		await page.goto('/results');
 		await page.waitForLoadState('networkidle');
-		
+
 		await page.goto('/analysis');
 		await page.waitForLoadState('networkidle');
-		
+
 		await expect(page.locator('h1')).toContainText('Analysis');
 	});
 
 	test('should load config on page mount', async ({ page }) => {
 		await page.goto('/analysis');
-		
+
 		const consoleErrors: string[] = [];
-		page.on('console', msg => {
+		page.on('console', (msg) => {
 			if (msg.type() === 'error') {
 				consoleErrors.push(msg.text());
 			}
 		});
-		
+
 		await page.waitForTimeout(1000);
-		
-		const criticalErrors = consoleErrors.filter(e => 
-			!e.includes('model') && !e.includes('Model')
+
+		const criticalErrors = consoleErrors.filter(
+			(e) => !e.includes('model') && !e.includes('Model')
 		);
 		expect(criticalErrors.length).toBeLessThan(2);
 	});

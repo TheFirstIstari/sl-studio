@@ -17,7 +17,7 @@
 		severity: number;
 	}
 
- let mapContainer: HTMLDivElement | undefined = $state();
+	let mapContainer: HTMLDivElement | undefined = $state();
 	let map: L.Map | null;
 	let locations = $state<LocationEntity[]>([]);
 	let loading = $state(true);

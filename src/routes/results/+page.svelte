@@ -50,7 +50,6 @@
 	let historyIndex = $state(-1);
 	let canUndo = $derived(historyIndex > 0);
 	let canRedo = $derived(historyIndex < history.length - 1);
-	
 
 	function saveToHistory() {
 		const state: HistoryState = {
@@ -129,18 +128,18 @@
 			console.error('Error loading workflow state:', e);
 		}
 	}
-	
+
 	let pollInterval: ReturnType<typeof setInterval>;
 	let unlistenAnalysis: (() => void) | null = null;
-	
+
 	onMount(async () => {
 		initialize();
 		window.addEventListener('keydown', handleKeydown);
-		
+
 		// Load workflow state and start polling
 		await loadWorkflowState();
 		pollInterval = setInterval(loadWorkflowState, 2000);
-		
+
 		// Listen for analysis progress updates
 		unlistenAnalysis = await listen('analysis_progress', () => {
 			loadWorkflowState();

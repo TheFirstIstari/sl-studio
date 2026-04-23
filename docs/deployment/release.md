@@ -2,7 +2,7 @@
 
 ## Overview
 
-Releases are triggered by pushing a version tag (e.g., `v0.2.0`). The CI pipeline builds all platform bundles and publishes a GitHub Release.
+Releases are triggered by pushing a version tag (e.g., `v0.3.0`). The CI pipeline builds all platform bundles and publishes a GitHub Release.
 
 ## Release Steps
 
@@ -10,17 +10,17 @@ Releases are triggered by pushing a version tag (e.g., `v0.2.0`). The CI pipelin
 
 Update version in two files:
 
-- `src-tauri/Cargo.toml`: `version = "0.2.0"`
-- `src-tauri/tauri.conf.json`: `"version": "0.2.0"`
+- `src-tauri/Cargo.toml`: `version = "0.3.0"`
+- `src-tauri/tauri.conf.json`: `"version": "0.3.0"`
 
 ### 2. Commit and Tag
 
 ```bash
 git add -A
-git commit -m "chore(release): bump sl-studio to v0.2.0"
-git tag -a v0.2.0 -m "Release v0.2.0"
+git commit -m "chore(release): bump sl-studio to v0.3.0"
+git tag -a v0.3.0 -m "Release v0.3.0"
 git push origin HEAD
-git push origin v0.2.0
+git push origin v0.3.0
 ```
 
 ### 3. CI Pipeline Runs
@@ -38,7 +38,7 @@ The CI workflow triggers on the `v*` tag:
 After CI completes:
 
 1. Go to GitHub > TheFirstIstari/sl-studio > Releases
-2. Open the new release (e.g., v0.2.0)
+2. Open the new release (e.g., v0.3.0)
 3. Verify all platform artifacts are attached:
    - `tauri-aarch64-apple-darwin/*.dmg`, `*.app`
    - `tauri-x86_64-apple-darwin/*.dmg`, `*.app`
