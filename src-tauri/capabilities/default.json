@@ -17,7 +17,6 @@
 		"dialog:allow-save",
 		"dialog:allow-message",
 		"fs:default",
-		"shell:default",
 		{
 			"identifier": "fs:allow-read-text-file",
 			"allow": [
