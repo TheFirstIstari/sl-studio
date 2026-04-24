@@ -2062,6 +2062,14 @@ pub struct ExtractionProgress {
     pub error_count: usize,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnalysisProgress {
+    pub total: usize,
+    pub processed: usize,
+    pub current_file: String,
+    pub phase: String,
+}
+
 #[tauri::command]
 async fn extract_batch(
     app: AppHandle,
@@ -2222,6 +2230,7 @@ async fn extract_batch(
 
 #[tauri::command]
 async fn analyze_batch(
+    app: AppHandle,
     state: State<'_, AppState>,
     fingerprints: Vec<String>,
 ) -> Result<Vec<inference::AnalysisResult>, String> {
@@ -2232,9 +2241,19 @@ async fn analyze_batch(
 
     let reasoner = reasoner_arc.ok_or("Reasoner not initialized. Call init_reasoner first.")?;
 
+    // Emit initial progress
+    let total = fingerprints.len();
+    app.emit("analysis_progress", AnalysisProgress {
+        total,
+        processed: 0,
+        current_file: "Starting analysis...".to_string(),
+        phase: "Initializing".to_string(),
+    }).ok();
+
     let db_guard = state.db.lock().unwrap();
     let db = db_guard.as_ref().ok_or("Database not initialized")?;
     let mut results = Vec::new();
+    let mut processed = 0;
 
     for fingerprint in &fingerprints {
         // Check if cancelled
@@ -2251,6 +2270,14 @@ async fn analyze_batch(
                 continue;
             }
         };
+
+        // Emit progress for current file
+        app.emit("analysis_progress", AnalysisProgress {
+            total,
+            processed,
+            current_file: entry.file_name.clone(),
+            phase: "Analyzing".to_string(),
+        }).ok();
 
         // Get extracted text from cache
         let text = match db.get_extracted_text(fingerprint) {
@@ -2320,7 +2347,17 @@ async fn analyze_batch(
                 error!("Analysis failed for {}: {}", fingerprint, e);
             }
         }
+        
+        processed += 1;
     }
+
+    // Emit completion progress
+    app.emit("analysis_progress", AnalysisProgress {
+        total,
+        processed,
+        current_file: String::new(),
+        phase: "Complete".to_string(),
+    }).ok();
 
     info!("Analysis complete: {} files processed", results.len());
     Ok(results)

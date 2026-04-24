@@ -18,7 +18,7 @@
 	// Quality badge colors per SPEC
 	function getQualityBadgeColor(confidence: number | null): string {
 		const conf = confidence ?? 0;
-		if (conf >= 0.7) return '#22c55e'; // green
+		if (conf >= 0.7) return '#4ade80'; // green
 		if (conf >= 0.5) return '#eab308'; // yellow
 		return '#ef4444'; // red
 	}
@@ -388,12 +388,12 @@
 	.page-header h1 {
 		font-size: 1.75rem;
 		font-weight: 600;
-		color: #f1f5f9;
+		color: #eaeaea;
 		margin: 0;
 	}
 
 	.subtitle {
-		color: #94a3b8;
+		color: #9ca3af;
 		margin: 0.25rem 0 0;
 	}
 
@@ -413,7 +413,7 @@
 	}
 
 	.stat-card {
-		background: #1e293b;
+		background: #16213e;
 		border-radius: 0.5rem;
 		padding: 1rem;
 		text-align: center;
@@ -428,11 +428,11 @@
 	}
 
 	.stat-card.high {
-		border: 1px solid #22c55e;
+		border: 1px solid #4ade80;
 	}
 
 	.stat-card.confirmed {
-		border: 1px solid #22c55e;
+		border: 1px solid #4ade80;
 	}
 
 	.stat-card.disputed {
@@ -442,12 +442,12 @@
 	.stat-value {
 		font-size: 1.5rem;
 		font-weight: 600;
-		color: #f1f5f9;
+		color: #eaeaea;
 	}
 
 	.stat-label {
 		font-size: 0.75rem;
-		color: #94a3b8;
+		color: #9ca3af;
 		margin-top: 0.25rem;
 	}
 
@@ -459,10 +459,10 @@
 
 	.filter-input,
 	.filter-select {
-		background: #1e293b;
-		border: 1px solid #334155;
+		background: #16213e;
+		border: 1px solid #0f3460;
 		border-radius: 0.375rem;
-		color: #f1f5f9;
+		color: #eaeaea;
 		padding: 0.5rem 0.75rem;
 		font-size: 0.875rem;
 	}
@@ -492,8 +492,8 @@
 	}
 
 	.fact-item {
-		background: #1e293b;
-		border: 1px solid #334155;
+		background: #16213e;
+		border: 1px solid #0f3460;
 		border-radius: 0.5rem;
 		padding: 0.75rem;
 		text-align: left;
@@ -506,7 +506,7 @@
 	}
 
 	.fact-item.selected {
-		border-color: #3b82f6;
+		border-color: #e94560;
 	}
 
 	.fact-header {
@@ -538,7 +538,7 @@
 	}
 
 	.status-badge.confirmed {
-		background: #22c55e;
+		background: #4ade80;
 	}
 
 	.status-badge.disputed {
@@ -560,7 +560,7 @@
 		display: flex;
 		gap: 1rem;
 		font-size: 0.75rem;
-		color: #94a3b8;
+		color: #9ca3af;
 	}
 
 	.category {
@@ -569,15 +569,15 @@
 
 	.loading,
 	.empty-state {
-		background: #1e293b;
+		background: #16213e;
 		border-radius: 0.5rem;
 		padding: 2rem;
 		text-align: center;
-		color: #94a3b8;
+		color: #9ca3af;
 	}
 
 	.detail-panel {
-		background: #1e293b;
+		background: #16213e;
 		border-radius: 0.5rem;
 		padding: 1rem;
 		height: fit-content;
@@ -586,7 +586,7 @@
 	.detail-panel h2 {
 		font-size: 1.125rem;
 		font-weight: 600;
-		color: #f1f5f9;
+		color: #eaeaea;
 		margin: 0 0 1rem;
 	}
 
@@ -604,7 +604,7 @@
 	.detail-section h3 {
 		font-size: 0.75rem;
 		font-weight: 500;
-		color: #94a3b8;
+		color: #9ca3af;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		margin: 0 0 0.25rem;
@@ -624,10 +624,10 @@
 	.verify-btn {
 		flex: 1;
 		padding: 0.5rem;
-		border: 1px solid #334155;
+		border: 1px solid #0f3460;
 		border-radius: 0.375rem;
 		background: transparent;
-		color: #94a3b8;
+		color: #9ca3af;
 		font-size: 0.8rem;
 		cursor: pointer;
 		transition: all 0.15s;
@@ -645,8 +645,8 @@
 	}
 
 	.verify-btn.active.confirmed {
-		background: #22c55e;
-		border-color: #22c55e;
+		background: #4ade80;
+		border-color: #4ade80;
 		color: white;
 	}
 
@@ -665,7 +665,7 @@
 	.action-btn {
 		flex: 1;
 		padding: 0.5rem;
-		background: #334155;
+		background: #0f3460;
 		border: none;
 		border-radius: 0.375rem;
 		color: #e2e8f0;
@@ -693,7 +693,7 @@
 
 	.export-btn {
 		padding: 0.625rem 1.25rem;
-		background: #3b82f6;
+		background: #e94560;
 		border: none;
 		border-radius: 0.375rem;
 		color: white;
@@ -704,6 +704,6 @@
 	}
 
 	.export-btn:hover {
-		background: #2563eb;
+		background: #d13650;
 	}
 </style>

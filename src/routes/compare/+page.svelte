@@ -232,7 +232,7 @@
 
 	.project-card {
 		flex: 1;
-		background: var(--card-bg, #1e1e1e);
+		background: var(--card-bg, #16213e);
 		border-radius: 8px;
 		padding: 1.5rem;
 	}
@@ -264,7 +264,7 @@
 
 	.selected-path {
 		font-size: 0.875rem;
-		color: #888;
+		color: #9ca3af;
 		word-break: break-all;
 	}
 
@@ -290,7 +290,7 @@
 	}
 
 	.comparison-results {
-		background: var(--card-bg, #1e1e1e);
+		background: var(--card-bg, #16213e);
 		border-radius: 8px;
 		padding: 1.5rem;
 	}
@@ -301,7 +301,7 @@
 
 	.score-bar {
 		height: 24px;
-		background: #333;
+		background: #0f3460;
 		border-radius: 12px;
 		overflow: hidden;
 		margin: 0.5rem 0;
@@ -316,13 +316,13 @@
 	.timeline-correlation {
 		margin-bottom: 1.5rem;
 		padding: 1rem;
-		background: #252525;
+		background: #1a1a2e;
 		border-radius: 4px;
 	}
 
 	.date-range {
 		font-size: 0.875rem;
-		color: #888;
+		color: #9ca3af;
 	}
 
 	.entity-overlap {
@@ -339,22 +339,22 @@
 	td {
 		padding: 0.75rem;
 		text-align: left;
-		border-bottom: 1px solid #444;
+		border-bottom: 1px solid #0f3460;
 	}
 
 	th {
-		background: #252525;
+		background: #1a1a2e;
 		font-weight: 600;
 	}
 
 	.no-overlap {
-		color: #888;
+		color: #9ca3af;
 		font-style: italic;
 	}
 
 	.more {
 		margin-top: 0.5rem;
-		color: #888;
+		color: #9ca3af;
 		font-size: 0.875rem;
 	}
 </style>

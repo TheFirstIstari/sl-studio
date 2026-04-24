@@ -181,7 +181,7 @@
 	}
 
 	.export-form {
-		background: var(--card-bg, #1e1e1e);
+		background: var(--card-bg, #16213e);
 		border-radius: 8px;
 		padding: 1.5rem;
 	}
@@ -206,9 +206,9 @@
 	input {
 		width: 100%;
 		padding: 0.5rem;
-		border: 1px solid #444;
+		border: 1px solid #0f3460;
 		border-radius: 4px;
-		background: #2a2a2a;
+		background: #1a1a2e;
 		color: #fff;
 	}
 
@@ -236,7 +236,7 @@
 	.status-message {
 		margin-top: 1rem;
 		padding: 0.75rem;
-		background: #2a2a2a;
+		background: #1a1a2e;
 		border-radius: 4px;
 		text-align: center;
 	}
@@ -259,11 +259,11 @@
 	td {
 		padding: 0.75rem;
 		text-align: left;
-		border-bottom: 1px solid #444;
+		border-bottom: 1px solid #0f3460;
 	}
 
 	th {
-		background: var(--card-bg, #1e1e1e);
+		background: var(--card-bg, #16213e);
 	}
 
 	.success {

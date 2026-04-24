@@ -133,13 +133,13 @@
 	}
 
 	.backup-card {
-		background: var(--card-bg, #1e1e1e);
+		background: var(--card-bg, #16213e);
 		border-radius: 8px;
 		padding: 1.5rem;
 	}
 
 	.backup-card p {
-		color: #888;
+		color: #9ca3af;
 		margin-bottom: 1rem;
 	}
 
@@ -200,7 +200,7 @@
 	.last-backup {
 		margin-top: 1rem;
 		padding: 0.75rem;
-		background: #252525;
+		background: #1a1a2e;
 		border-radius: 4px;
 		font-size: 0.875rem;
 		color: #4caf50;
@@ -215,13 +215,13 @@
 	}
 
 	.warning-box p {
-		color: #333;
+		color: #0f3460;
 		margin: 0;
 	}
 
 	.status-message {
 		padding: 1rem;
-		background: #252525;
+		background: #1a1a2e;
 		border-radius: 4px;
 		margin-bottom: 1.5rem;
 	}
@@ -232,13 +232,13 @@
 	}
 
 	.backup-info {
-		background: var(--card-bg, #1e1e1e);
+		background: var(--card-bg, #16213e);
 		border-radius: 8px;
 		padding: 1.5rem;
 	}
 
 	.backup-info ul {
-		color: #888;
+		color: #9ca3af;
 		padding-left: 1.5rem;
 	}
 

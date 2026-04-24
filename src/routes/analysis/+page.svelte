@@ -95,6 +95,7 @@
 	let unlistenProgress: (() => void) | null = null;
 	let unlistenComplete: (() => void) | null = null;
 	let unlistenExtraction: (() => void) | null = null;
+	let unlistenAnalysis: (() => void) | null = null;
 
 	// Load stats
 	async function loadExtractionStats() {
@@ -133,12 +134,16 @@
 		unlistenExtraction = await listen<ExtractionProgress>('extraction_progress', (e) => {
 			extractionProgress = e.payload;
 		});
+		unlistenAnalysis = await listen<AnalysisProgress>('analysis_progress', (e) => {
+			analysisProgress = e.payload;
+		});
 	});
 
 	onDestroy(() => {
 		if (unlistenProgress) unlistenProgress();
 		if (unlistenComplete) unlistenComplete();
 		if (unlistenExtraction) unlistenExtraction();
+		if (unlistenAnalysis) unlistenAnalysis();
 	});
 
 	// Actions
