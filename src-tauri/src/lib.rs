@@ -498,6 +498,22 @@ fn search_facts(
 }
 
 #[tauri::command]
+fn update_fact_verification(
+    state: State<AppState>,
+    id: i64,
+    status: String,
+    review_notes: Option<String>,
+) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    if let Some(db) = db.as_ref() {
+        db.update_fact_verification(id, &status, review_notes.as_deref())
+            .map_err(|e| e.to_string())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
 fn search_entities(
     state: State<AppState>,
     query: String,
@@ -1960,6 +1976,7 @@ pub fn run() {
             set_cancel_flag,
             get_cancel_flag,
             search_facts,
+            update_fact_verification,
             search_entities,
             search_combined,
             get_timeline_events,

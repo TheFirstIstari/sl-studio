@@ -193,6 +193,8 @@ impl Database {
                 pipeline_id TEXT,
                 pass_name TEXT,
                 tags TEXT,
+                verification_status TEXT DEFAULT 'unverified',
+                review_notes TEXT,
                 is_deleted BOOLEAN DEFAULT FALSE,
                 deleted_at DATETIME,
                 processing_time_ms INTEGER,
@@ -2845,6 +2847,21 @@ impl Database {
         })?;
 
         entries.collect()
+    }
+
+    /// Update fact verification status
+    pub fn update_fact_verification(
+        &self,
+        id: i64,
+        status: &str,
+        review_notes: Option<&str>,
+    ) -> Result<()> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        conn.execute(
+            "UPDATE intelligence SET verification_status = ?1, review_notes = ?2 WHERE id = ?3",
+            params![status, review_notes, id],
+        )?;
+        Ok(())
     }
 
     pub fn search_by_tags(

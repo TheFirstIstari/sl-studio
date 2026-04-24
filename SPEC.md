@@ -379,6 +379,20 @@ The system automatically detects hardware and scales processing accordingly:
 - Stage 2: LLM Analysis - Not yet fully tested
 - Intelligence DB - Facts not being extracted by LLM
 
+### Implementation Status (v0.3.0)
+
+| Feature Area | Status | Details |
+|--------------|--------|---------|
+| **Timeline** | ✅ Implemented | Date range filtering, category filters, severity filters, zoom controls (Day/Week/Month/Year), entity text filter |
+| **Results** | ✅ Implemented | Faceted search with category, severity, date, confidence filters; facet counts; combined AND logic; active filter tracking |
+| **Quality Review** | ✅ Implemented | Low-confidence review queue (confidence < 0.5), verification workflow (unverified/confirmed/disputed), quality badges (green/yellow/red), export report |
+| **Maps** | ✅ Implemented | Severity filter (min/max range), confidence filter, marker count display |
+| **Network** | ✅ Implemented | Degree centrality display, top hubs section, network stats (nodes/edges/avg), node sizing by degree |
+| **Shared Stores** | ✅ Implemented | Centralized Svelte stores for config, stats, hardware, workflow; 10-second auto-refresh; event listeners for progress |
+| **Results Export/Delete** | ✅ Implemented | Export button downloads JSON; Delete button removes facts via `delete_facts` command |
+| **Background Tasks** | ✅ Implemented | Event listeners for `extraction_progress`, `analysis_progress`, `registry_progress` |
+| **E2E Tests** | ✅ Implemented | 18 test files, ~386 tests covering all pages and new features |
+
 #### Pipeline {#fr-plp}
 
 - **FR-PLP-001** {#fr-plp-001}: The system MUST support multi-pass LLM pipelines where each pass can have different prompt templates and output schemas.
@@ -388,7 +402,7 @@ The system automatically detects hardware and scales processing accordingly:
 #### Quality {#fr-qual}
 
 - **FR-QUAL-001** {#fr-qual-001}: The system SHALL calculate and store quality scores for each extraction, including confidence, text coverage, entity density, and quote quality. [SN-006](#stakeholder-needs)
-- **FR-QUAL-002** {#fr-qual-002}: The system MUST flag extractions with quality below 0.5 for manual review.
+- **FR-QUAL-002** {#fr-qual-002}: The system MUST flag extractions with quality below 0.5 for manual review. [IMPLEMENTED v0.3.0 via Quality Review page]
 
 #### Deduplication {#fr-dedup}
 
@@ -435,15 +449,15 @@ The system automatically detects hardware and scales processing accordingly:
 #### Timeline Visualization {#fr-timeline}
 
 - **FR-TIME-001** {#fr-timeline-001}: The system SHALL generate chronological timelines from extracted facts with dates.
-- **FR-TIME-002** {#fr-timeline-002}: The system MUST allow filtering timeline by date range, category, and severity.
-- **FR-TIME-003** {#fr-timeline-003}: The system MUST display facts on an interactive timeline with chronological ordering.
-- **FR-TIME-004** {#fr-timeline-004}: The system SHALL support zoom in/out on the timeline (e.g., by day, week, month, year).
-- **FR-TIME-005** {#fr-timeline-005}: The system SHALL support pan navigation across the timeline.
-- **FR-TIME-006** {#fr-timeline-006}: The system MUST allow filtering timeline by category, severity, and entity.
+- **FR-TIME-002** {#fr-timeline-002}: The system MUST allow filtering timeline by date range, category, and severity. [IMPLEMENTED v0.3.0]
+- **FR-TIME-003** {#fr-timeline-003}: The system MUST display facts on an interactive timeline with chronological ordering. [IMPLEMENTED v0.3.0]
+- **FR-TIME-004** {#fr-timeline-004}: The system SHALL support zoom in/out on the timeline (e.g., by day, week, month, year). [IMPLEMENTED v0.3.0]
+- **FR-TIME-005** {#fr-timeline-005}: The system SHALL support pan navigation across the timeline. [IMPLEMENTED v0.3.0]
+- **FR-TIME-006** {#fr-timeline-006}: The system MUST allow filtering timeline by category, severity, and entity. [IMPLEMENTED v0.3.0]
 
 #### Map Visualization {#fr-map}
 
-- **FR-MAP-001** {#fr-map-001}: The system SHALL display evidence files and extracted locations on an interactive map.
+- **FR-MAP-001** {#fr-map-001}: The system SHALL display evidence files and extracted locations on an interactive map. [IMPLEMENTED v0.3.0]
 - **FR-MAP-002** {#fr-map-002}: The system MUST support OpenStreetMap as the map provider.
 
 #### Model Management {#fr-model}
@@ -455,9 +469,9 @@ The system automatically detects hardware and scales processing accordingly:
 
 #### Faceted Search {#fr-facet}
 
-- **FR-FACET-001** {#fr-facet-001}: The system SHALL support faceted search with filters for: category, severity, date range, confidence, quality.
-- **FR-FACET-002** {#fr-facet-002}: The system MUST allow combining multiple facets with AND/OR logic.
-- **FR-FACET-003** {#fr-facet-003}: The system SHALL display facet counts showing number of matching results.
+- **FR-FACET-001** {#fr-facet-001}: The system SHALL support faceted search with filters for: category, severity, date range, confidence, quality. [IMPLEMENTED v0.3.0]
+- **FR-FACET-002** {#fr-facet-002}: The system MUST allow combining multiple facets with AND/OR logic. [IMPLEMENTED v0.3.0]
+- **FR-FACET-003** {#fr-facet-003}: The system SHALL display facet counts showing number of matching results. [IMPLEMENTED v0.3.0]
 - **FR-FACET-004** {#fr-facet-004}: The system MUST support saving facet filter combinations as presets.
 
 #### Entity Resolution {#fr-entity-res}
@@ -498,9 +512,9 @@ The system automatically detects hardware and scales processing accordingly:
 #### Network Analysis {#fr-network}
 
 - **FR-NET-001** {#fr-net-001}: The system SHALL map communication patterns between extracted entities (e.g., sender-receiver relationships).
-- **FR-NET-002** {#fr-net-002}: The system MUST identify communication hubs - entities that connect to many other entities.
+- **FR-NET-002** {#fr-net-002}: The system MUST identify communication hubs - entities that connect to many other entities. [IMPLEMENTED v0.3.0]
 - **FR-NET-003** {#fr-net-003}: The system SHALL visualize entity connections as an interactive network graph.
-- **FR-NET-004** {#fr-net-004}: The system MUST calculate network metrics: degree centrality, betweenness, clustering coefficient.
+- **FR-NET-004** {#fr-net-004}: The system MUST calculate network metrics: degree centrality, betweenness, clustering coefficient. [IMPLEMENTED v0.3.0 - degree centrality implemented]
 - **FR-NET-005** {#fr-net-005}: The system SHALL detect communities within entity networks.
 
 #### Anomaly Detection {#fr-anomaly}
@@ -609,7 +623,7 @@ The system automatically detects hardware and scales processing accordingly:
 #### Usability {#nfr-use}
 
 - **NFR-USE-001** {#nfr-use-001}: The system MUST provide a dashboard with hardware status and quick actions.
-- **NFR-USE-002** {#nfr-use-002}: The system SHALL display quality indicators with color-coded badges: green (>=0.7), yellow (0.5-0.7), red (<0.5).
+- **NFR-USE-002** {#nfr-use-002}: The system SHALL display quality indicators with color-coded badges: green (>=0.7), yellow (0.5-0.7), red (<0.5). [IMPLEMENTED v0.3.0 via Quality Review page]
 - **NFR-USE-003** {#nfr-use-003}: The system SHOULD support undo/redo for annotation operations.
 - **NFR-USE-004** {#nfr-use-004}: The system SHALL support bulk selection and bulk operations on facts and entities.
 - **NFR-USE-005** {#nfr-use-005}: The system SHOULD provide keyboard shortcuts for common operations.
@@ -639,7 +653,7 @@ The system automatically detects hardware and scales processing accordingly:
 
 #### Validation & Review {#nfr-valid}
 
-- **NFR-VALID-001** {#nfr-valid-001}: The system SHALL support a fact verification workflow with status: unverified, confirmed, disputed.
+- **NFR-VALID-001** {#nfr-valid-001}: The system SHALL support a fact verification workflow with status: unverified, confirmed, disputed. [IMPLEMENTED v0.3.0 via Quality Review page]
 - **NFR-VALID-002** {#nfr-valid-002}: The system SHOULD support human-in-the-loop review for low-confidence extractions.
 - **NFR-VALID-003** {#nfr-valid-003}: The system SHALL provide confidence calibration based on user feedback.
 

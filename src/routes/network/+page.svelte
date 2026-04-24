@@ -23,6 +23,13 @@
 		distance: number;
 	}
 
+	interface NodeDegree {
+		id: string;
+		value: string;
+		type: string;
+		degree: number;
+	}
+
 	let cyContainer: HTMLDivElement | undefined = $state();
 	let cy: cytoscape.Core | null;
 	let relationships = $state<EntityRelationship[]>([]);
@@ -30,6 +37,11 @@
 	let loading = $state(true);
 	let selectedNode = $state<string | null>(null);
 	let minConfidence = $state<number>(0.5);
+	let nodeDegrees = $state<NodeDegree[]>([]);
+	let totalNodes = $state(0);
+	let totalEdges = $state(0);
+	let avgConnections = $state(0);
+	let selectedNodeDegree = $state(0);
 
 	onMount(async () => {
 		await loadRelationships();
@@ -49,9 +61,44 @@
 				entityId: null,
 				minConfidence: minConfidence
 			});
+
+			// Calculate degree centrality metrics
+			const degreeMap = new Map<string, { id: string; value: string; type: string; degree: number }>();
+
+			for (const rel of relationships) {
+				const id1 = `node-${rel.entity1_id}`;
+				const id2 = `node-${rel.entity2_id}`;
+
+				// Initialize or increment degree for entity1
+				if (!degreeMap.has(id1)) {
+					degreeMap.set(id1, { id: id1, value: rel.entity1_value, type: rel.entity1_type, degree: 0 });
+				}
+				const node1 = degreeMap.get(id1)!;
+				node1.degree++;
+
+				// Initialize or increment degree for entity2
+				if (!degreeMap.has(id2)) {
+					degreeMap.set(id2, { id: id2, value: rel.entity2_value, type: rel.entity2_type, degree: 0 });
+				}
+				const node2 = degreeMap.get(id2)!;
+				node2.degree++;
+			}
+
+			// Convert to array and sort by degree (descending)
+			nodeDegrees = Array.from(degreeMap.values())
+				.sort((a, b) => b.degree - a.degree);
+
+			// Calculate network summary stats
+			totalNodes = degreeMap.size;
+			totalEdges = relationships.length;
+			avgConnections = totalNodes > 0 ? (totalEdges * 2) / totalNodes : 0;
 		} catch (e) {
 			console.error('Error loading relationships:', e);
 			relationships = [];
+			nodeDegrees = [];
+			totalNodes = 0;
+			totalEdges = 0;
+			avgConnections = 0;
 		} finally {
 			loading = false;
 		}
@@ -74,36 +121,60 @@
 
 		const elements: cytoscape.ElementDefinition[] = [];
 
-		const nodeMap = new Map<string, { id: string; type: string; value: string }>();
+		const nodeMap = new Map<string, { id: string; type: string; value: string; degree: number }>();
 
+		// First pass: build node map with degree calculation
 		for (const rel of relationships) {
 			const id1 = `node-${rel.entity1_id}`;
 			const id2 = `node-${rel.entity2_id}`;
 
 			if (!nodeMap.has(id1)) {
-				nodeMap.set(id1, { id: id1, type: rel.entity1_type, value: rel.entity1_value });
+				nodeMap.set(id1, { id: id1, type: rel.entity1_type, value: rel.entity1_value, degree: 0 });
 			}
 			if (!nodeMap.has(id2)) {
-				nodeMap.set(id2, { id: id2, type: rel.entity2_type, value: rel.entity2_value });
+				nodeMap.set(id2, { id: id2, type: rel.entity2_type, value: rel.entity2_value, degree: 0 });
 			}
 
+			// Increment degrees
+			const node1 = nodeMap.get(id1)!;
+			const node2 = nodeMap.get(id2)!;
+			node1.degree++;
+			node2.degree++;
+		}
+
+		// Calculate max degree for normalization
+		let maxDegree = 0;
+		for (const node of nodeMap.values()) {
+			if (node.degree > maxDegree) maxDegree = node.degree;
+		}
+
+		// Add edges
+		for (const rel of relationships) {
 			elements.push({
 				data: {
 					id: `edge-${rel.entity1_id}-${rel.entity2_id}`,
-					source: id1,
-					target: id2,
+					source: `node-${rel.entity1_id}`,
+					target: `node-${rel.entity2_id}`,
 					weight: rel.cooccurrence
 				}
 			});
 		}
 
+		// Add nodes with degree-based sizing
 		for (const node of nodeMap.values()) {
+			// Scale node size: min 30, max 60 based on degree
+			const sizeRatio = maxDegree > 0 ? node.degree / maxDegree : 0;
+			const nodeSize = 30 + sizeRatio * 30;
+
 			elements.push({
 				data: {
 					id: node.id,
 					label: node.value.length > 15 ? node.value.substring(0, 15) + '...' : node.value,
 					fullLabel: node.value,
-					type: node.type
+					type: node.type,
+					degree: node.degree,
+					width: nodeSize,
+					height: nodeSize
 				}
 			});
 		}
@@ -121,8 +192,8 @@
 						'font-size': '10px',
 						'text-valign': 'bottom',
 						'text-margin-y': 5,
-						width: 30,
-						height: 30
+						width: 'data(width)',
+						height: 'data(height)'
 					}
 				},
 				{
@@ -177,8 +248,13 @@
 
 		cy.on('tap', 'node', async (evt) => {
 			const nodeId = evt.target.id();
-			selectedNode = nodeId;
 			const nodeIdNum = parseInt(nodeId.replace('node-', ''));
+
+			// Find degree for selected node
+			const nodeDegreeData = nodeDegrees.find(n => n.id === nodeId);
+			selectedNodeDegree = nodeDegreeData ? nodeDegreeData.degree : 0;
+
+			selectedNode = nodeId;
 			await loadConnectedEntities(nodeIdNum);
 		});
 
@@ -291,6 +367,21 @@
 		</div>
 	{:else}
 		<div class="network-container">
+			<div class="network-stats">
+				<div class="stat-item">
+					<span class="stat-value">{totalNodes}</span>
+					<span class="stat-label">Total Nodes</span>
+				</div>
+				<div class="stat-item">
+					<span class="stat-value">{totalEdges}</span>
+					<span class="stat-label">Total Edges</span>
+				</div>
+				<div class="stat-item">
+					<span class="stat-value">{avgConnections.toFixed(1)}</span>
+					<span class="stat-label">Avg Connections</span>
+				</div>
+			</div>
+
 			<div class="graph-container" bind:this={cyContainer}></div>
 
 			{#if selectedNode}
@@ -304,6 +395,13 @@
 						<div class="selection-label">Selected:</div>
 						<div class="selection-value">{selectedNode}</div>
 					</div>
+
+					{#if selectedNodeDegree > 0}
+						<div class="degree-info">
+							<div class="selection-label">Degree (Connections):</div>
+							<div class="degree-value">{selectedNodeDegree}</div>
+						</div>
+					{/if}
 
 					{#if connectedEntities.length > 0}
 						<div class="connected-list">
@@ -322,6 +420,23 @@
 												<span class="entity-confidence">{Math.round(entity.confidence * 100)}%</span
 												>
 											{/if}
+										</div>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{/if}
+
+					{#if nodeDegrees.length > 0}
+						<div class="hub-list">
+							<h3>Top Hubs</h3>
+							{#each nodeDegrees.slice(0, 5) as hub}
+								<div class="hub-item">
+									<div class="hub-rank">#{nodeDegrees.indexOf(hub) + 1}</div>
+									<div class="hub-info">
+										<div class="hub-value">{hub.value}</div>
+										<div class="hub-meta">
+											<span class="hub-degree">{hub.degree} connections</span>
 										</div>
 									</div>
 								</div>
@@ -590,5 +705,82 @@
 		width: 12px;
 		height: 12px;
 		border-radius: 50%;
+	}
+
+	.network-stats {
+		display: flex;
+		gap: 1.5rem;
+		padding: 0.75rem 1rem;
+		background-color: #16213e;
+		border-bottom: 1px solid #0f3460;
+	}
+
+	.stat-item {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.stat-value {
+		font-size: 1.25rem;
+		font-weight: 600;
+		color: #eaeaea;
+	}
+
+	.stat-label {
+		font-size: 0.75rem;
+		color: #9ca3af;
+	}
+
+	.degree-info {
+		padding: 0.75rem;
+		background-color: #1a1a2e;
+		border-radius: 6px;
+		margin-bottom: 1rem;
+	}
+
+	.degree-value {
+		font-size: 1.5rem;
+		font-weight: 600;
+		color: #e94560;
+	}
+
+	.hub-list {
+		margin-bottom: 1.5rem;
+	}
+
+	.hub-item {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
+		padding: 0.5rem 0;
+		border-bottom: 1px solid #0f3460;
+	}
+
+	.hub-rank {
+		font-size: 0.75rem;
+		color: #9ca3af;
+		min-width: 20px;
+	}
+
+	.hub-info {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.hub-value {
+		font-size: 0.875rem;
+		color: #eaeaea;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.hub-meta {
+		font-size: 0.75rem;
+	}
+
+	.hub-degree {
+		color: #f59e0b;
 	}
 </style>

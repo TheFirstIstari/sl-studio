@@ -18,6 +18,17 @@
 	let viewMode = $state<'timeline' | 'list'>('timeline');
 	let selectedEvent = $state<TimelineEvent | null>(null);
 
+	// Filter states
+	let zoomLevel = $state<'day' | 'week' | 'month' | 'year'>('month');
+	let startDate = $state<string>('');
+	let endDate = $state<string>('');
+	let categoryFilters = $state<string[]>([]);
+	let severityMin = $state<number>(0);
+	let severityMax = $state<number>(10);
+	let entityFilter = $state<string>('');
+
+	const categories = ['Financial', 'Legal', 'Digital', 'Physical', 'Verbal'];
+
 	onMount(async () => {
 		await loadTimeline();
 	});
@@ -25,9 +36,11 @@
 	async function loadTimeline() {
 		loading = true;
 		try {
+			const start = startDate || null;
+			const end = endDate || null;
 			events = await invoke<TimelineEvent[]>('get_timeline_events', {
-				startDate: null,
-				endDate: null,
+				startDate: start,
+				endDate: end,
 				limit: 500
 			});
 		} catch (e) {
@@ -36,6 +49,41 @@
 		} finally {
 			loading = false;
 		}
+	}
+
+	function applyFilters() {
+		let filtered = [...events];
+
+		// Filter by category
+		if (categoryFilters.length > 0) {
+			filtered = filtered.filter(e => e.category && categoryFilters.includes(e.category));
+		}
+
+		// Filter by severity range
+		filtered = filtered.filter(e => e.severity >= severityMin && e.severity <= severityMax);
+
+		// Filter by entity mention (search in summary and filename)
+		if (entityFilter.trim()) {
+			const search = entityFilter.toLowerCase();
+			filtered = filtered.filter(e =>
+				e.summary.toLowerCase().includes(search) ||
+				e.filename.toLowerCase().includes(search)
+			);
+		}
+
+		return filtered;
+	}
+
+	function toggleCategory(category: string) {
+		if (categoryFilters.includes(category)) {
+			categoryFilters = categoryFilters.filter(c => c !== category);
+		} else {
+			categoryFilters = [...categoryFilters, category];
+		}
+	}
+
+	function setZoom(level: 'day' | 'week' | 'month' | 'year') {
+		zoomLevel = level;
 	}
 
 	function getSeverityColor(severity: number): string {
@@ -54,9 +102,11 @@
 		});
 	}
 
+	let filteredEvents = $derived(applyFilters());
+
 	let groupedByMonth = $derived(() => {
 		const groups: Record<string, TimelineEvent[]> = {};
-		for (const event of events) {
+		for (const event of filteredEvents) {
 			const month = event.date.substring(0, 7);
 			if (!groups[month]) {
 				groups[month] = [];
@@ -65,6 +115,21 @@
 		}
 		return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
 	});
+
+	function handleDateFilterApply() {
+		loadTimeline();
+	}
+
+	function clearFilters() {
+		startDate = '';
+		endDate = '';
+		categoryFilters = [];
+		severityMin = 0;
+		severityMax = 10;
+		entityFilter = '';
+		zoomLevel = 'month';
+		loadTimeline();
+	}
 </script>
 
 <div class="timeline-page">
@@ -87,6 +152,102 @@
 				List
 			</button>
 		</div>
+	</div>
+
+	<div class="filter-bar">
+		<div class="filter-section">
+			<label class="filter-label">Zoom</label>
+			<div class="zoom-controls">
+				<button
+					class="zoom-btn"
+					class:active={zoomLevel === 'day'}
+					onclick={() => setZoom('day')}
+				>Day</button>
+				<button
+					class="zoom-btn"
+					class:active={zoomLevel === 'week'}
+					onclick={() => setZoom('week')}
+				>Week</button>
+				<button
+					class="zoom-btn"
+					class:active={zoomLevel === 'month'}
+					onclick={() => setZoom('month')}
+				>Month</button>
+				<button
+					class="zoom-btn"
+					class:active={zoomLevel === 'year'}
+					onclick={() => setZoom('year')}
+				>Year</button>
+			</div>
+		</div>
+
+		<div class="filter-section">
+			<label class="filter-label">Date Range</label>
+			<div class="date-inputs">
+				<input
+					type="date"
+					class="date-input"
+					bind:value={startDate}
+					onchange={handleDateFilterApply}
+				/>
+				<span class="date-separator">to</span>
+				<input
+					type="date"
+					class="date-input"
+					bind:value={endDate}
+					onchange={handleDateFilterApply}
+				/>
+			</div>
+		</div>
+
+		<div class="filter-section">
+			<label class="filter-label">Category</label>
+			<div class="category-filters">
+				{#each categories as category}
+					<button
+						class="category-btn"
+						class:active={categoryFilters.includes(category)}
+						onclick={() => toggleCategory(category)}
+					>
+						{category}
+					</button>
+				{/each}
+			</div>
+		</div>
+
+		<div class="filter-section">
+			<label class="filter-label">Severity: {severityMin} - {severityMax}</label>
+			<div class="severity-range">
+				<input
+					type="range"
+					class="severity-slider"
+					min="0"
+					max="10"
+					bind:value={severityMin}
+				/>
+				<input
+					type="range"
+					class="severity-slider"
+					min="0"
+					max="10"
+					bind:value={severityMax}
+				/>
+			</div>
+		</div>
+
+		<div class="filter-section">
+			<label class="filter-label">Entity</label>
+			<input
+				type="text"
+				class="entity-input"
+				placeholder="Search entity..."
+				bind:value={entityFilter}
+			/>
+		</div>
+
+		<button class="clear-filters-btn" onclick={clearFilters}>
+			Clear Filters
+		</button>
 	</div>
 
 	{#if loading}
@@ -150,7 +311,7 @@
 		</div>
 	{:else}
 		<div class="list-view">
-			{#each events as event}
+			{#each filteredEvents as event}
 				<button
 					class="list-item"
 					class:selected={selectedEvent?.id === event.id}
@@ -260,6 +421,182 @@
 	.view-btn.active {
 		background-color: #e94560;
 		border-color: #e94560;
+		color: #ffffff;
+	}
+
+	.filter-bar {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1.5rem;
+		padding: 1rem;
+		background-color: #16213e;
+		border: 1px solid #0f3460;
+		border-radius: 8px;
+		margin-bottom: 1.5rem;
+		align-items: flex-end;
+	}
+
+	.filter-section {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.filter-label {
+		font-size: 0.75rem;
+		color: #9ca3af;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.zoom-controls {
+		display: flex;
+		gap: 0.25rem;
+	}
+
+	.zoom-btn {
+		padding: 0.375rem 0.75rem;
+		background-color: #0f3460;
+		border: 1px solid #0f3460;
+		border-radius: 4px;
+		color: #9ca3af;
+		font-size: 0.75rem;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.zoom-btn:hover {
+		border-color: #e94560;
+		color: #eaeaea;
+	}
+
+	.zoom-btn.active {
+		background-color: #e94560;
+		border-color: #e94560;
+		color: #ffffff;
+	}
+
+	.date-inputs {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.date-input {
+		padding: 0.375rem 0.5rem;
+		background-color: #0f3460;
+		border: 1px solid #0f3460;
+		border-radius: 4px;
+		color: #eaeaea;
+		font-size: 0.875rem;
+	}
+
+	.date-input:focus {
+		outline: none;
+		border-color: #e94560;
+	}
+
+	.date-separator {
+		color: #6b7280;
+		font-size: 0.875rem;
+	}
+
+	.category-filters {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+	}
+
+	.category-btn {
+		padding: 0.25rem 0.5rem;
+		background-color: #0f3460;
+		border: 1px solid #0f3460;
+		border-radius: 4px;
+		color: #9ca3af;
+		font-size: 0.75rem;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.category-btn:hover {
+		border-color: #e94560;
+		color: #eaeaea;
+	}
+
+	.category-btn.active {
+		background-color: #e94560;
+		border-color: #e94560;
+		color: #ffffff;
+	}
+
+	.severity-range {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+	}
+
+	.severity-slider {
+		width: 80px;
+		height: 4px;
+		-webkit-appearance: none;
+		appearance: none;
+		background: #0f3460;
+		border-radius: 2px;
+		outline: none;
+	}
+
+	.severity-slider::-webkit-slider-thumb {
+		-webkit-appearance: none;
+		appearance: none;
+		width: 14px;
+		height: 14px;
+		background: #e94560;
+		border-radius: 50%;
+		cursor: pointer;
+	}
+
+	.severity-slider::-moz-range-thumb {
+		width: 14px;
+		height: 14px;
+		background: #e94560;
+		border-radius: 50%;
+		cursor: pointer;
+		border: none;
+	}
+
+	.entity-input {
+		padding: 0.375rem 0.5rem;
+		background-color: #0f3460;
+		border: 1px solid #0f3460;
+		border-radius: 4px;
+		color: #eaeaea;
+		font-size: 0.875rem;
+		width: 150px;
+	}
+
+	.entity-input:focus {
+		outline: none;
+		border-color: #e94560;
+	}
+
+	.entity-input::placeholder {
+		color: #6b7280;
+	}
+
+	.clear-filters-btn {
+		padding: 0.375rem 0.75rem;
+		background-color: transparent;
+		border: 1px solid #e94560;
+		border-radius: 4px;
+		color: #e94560;
+		font-size: 0.75rem;
+		cursor: pointer;
+		transition: all 0.2s;
+		align-self: flex-end;
+	}
+
+	.clear-filters-btn:hover {
+		background-color: #e94560;
 		color: #ffffff;
 	}
 

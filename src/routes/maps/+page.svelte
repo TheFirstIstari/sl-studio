@@ -23,6 +23,8 @@
 	let loading = $state(true);
 	let selectedLocation = $state<LocationEntity | null>(null);
 	let minConfidence = $state(0.5);
+	let minSeverity = $state(1);
+	let maxSeverity = $state(10);
 
 	onMount(async () => {
 		await loadLocations();
@@ -49,6 +51,13 @@
 		}
 	}
 
+	// Derived state for filtered locations based on severity range
+	function getFilteredLocations(): LocationEntity[] {
+		return locations.filter(
+			(loc) => loc.severity >= minSeverity && loc.severity <= maxSeverity
+		);
+	}
+
 	function initMap() {
 		if (!mapContainer) return;
 
@@ -67,7 +76,9 @@
 	function addMarkers() {
 		if (!map) return;
 
-		locations.forEach((loc) => {
+		const filteredLocations = getFilteredLocations();
+
+		filteredLocations.forEach((loc) => {
 			if (loc.latitude !== null && loc.longitude !== null) {
 				const color = getSeverityColor(loc.severity);
 
@@ -86,9 +97,9 @@
 			}
 		});
 
-		if (locations.filter((l) => l.latitude !== null).length > 0) {
+		if (filteredLocations.filter((l) => l.latitude !== null).length > 0) {
 			const bounds = L.latLngBounds(
-				locations
+				filteredLocations
 					.filter((l) => l.latitude !== null)
 					.map((l) => [l.latitude!, l.longitude!] as L.LatLngTuple)
 			);
@@ -130,6 +141,28 @@
 					onchange={reloadMap}
 				/>
 			</div>
+			<div class="control-group">
+				<label for="min-sev">Severity:</label>
+				<input
+					id="min-sev"
+					type="number"
+					min="1"
+					max="10"
+					step="1"
+					bind:value={minSeverity}
+					onchange={reloadMap}
+				/>
+				<span class="range-separator">to</span>
+				<input
+					id="max-sev"
+					type="number"
+					min="1"
+					max="10"
+					step="1"
+					bind:value={maxSeverity}
+					onchange={reloadMap}
+				/>
+			</div>
 			<button class="refresh-btn" onclick={reloadMap}>
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 					<path d="M23 4v6h-6" />
@@ -163,9 +196,9 @@
 
 			{#if locations.length > 0}
 				<div class="locations-panel">
-					<h2>Locations ({locations.length})</h2>
+					<h2>Locations ({getFilteredLocations().length} of {locations.length})</h2>
 					<div class="locations-list">
-						{#each locations as loc}
+						{#each getFilteredLocations() as loc}
 							<button
 								class="location-item"
 								class:selected={selectedLocation?.id === loc.id}
@@ -297,6 +330,11 @@
 		border: 1px solid #0f3460;
 		border-radius: 6px;
 		color: #eaeaea;
+		font-size: 0.875rem;
+	}
+
+	.range-separator {
+		color: #9ca3af;
 		font-size: 0.875rem;
 	}
 

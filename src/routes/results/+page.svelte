@@ -22,7 +22,16 @@
 		filter: string;
 		sortBy: 'severity' | 'date';
 		selectedIds: number[];
+		// Facet filters
+		categories: string[];
+		minSeverity: number;
+		maxSeverity: number;
+		startDate: string;
+		endDate: string;
+		minConfidence: number;
 	}
+
+	const CATEGORIES = ['Financial', 'Legal', 'Digital', 'Physical', 'Verbal'];
 
 	let facts = $state<Fact[]>([]);
 	let loading = $state(true);
@@ -33,16 +42,72 @@
 	let selectedIds = $state(new Set<number>());
 	let selectAll = $state(false);
 
+	// Facet filter state
+	let selectedCategories = $state<string[]>([]);
+	let minSeverity = $state(0);
+	let maxSeverity = $state(10);
+	let startDate = $state('');
+	let endDate = $state('');
+	let minConfidence = $state(0);
+
 	let history = $state<HistoryState[]>([]);
 	let historyIndex = $state(-1);
 	let canUndo = $derived(historyIndex > 0);
 	let canRedo = $derived(historyIndex < history.length - 1);
 
+	let activeFilterCount = $derived.by(() => {
+		let count = 0;
+		if (filter) count++;
+		if (selectedCategories.length > 0) count++;
+		if (minSeverity > 0) count++;
+		if (maxSeverity < 10) count++;
+		if (startDate) count++;
+		if (endDate) count++;
+		if (minConfidence > 0) count++;
+		return count;
+	});
+
+	// Calculate facet counts
+	let categoryCounts = $derived.by(() => {
+		const counts: Record<string, number> = {};
+		CATEGORIES.forEach((cat) => (counts[cat] = 0));
+		facts.forEach((f) => {
+			if (f.category && counts[f.category] !== undefined) {
+				counts[f.category]++;
+			}
+		});
+		return counts;
+	});
+
+	let severityCounts = $derived.by(() => {
+		const counts: Record<string, number> = { low: 0, medium: 0, high: 0 };
+		facts.forEach((f) => {
+			if (f.severity_score >= 8) counts.high++;
+			else if (f.severity_score >= 4) counts.medium++;
+			else counts.low++;
+		});
+		return counts;
+	});
+
+	let confidenceRanges = $derived.by(() => {
+		return {
+			high: facts.filter((f) => (f.confidence ?? 0) >= 80).length,
+			medium: facts.filter((f) => (f.confidence ?? 0) >= 50 && (f.confidence ?? 0) < 80).length,
+			low: facts.filter((f) => (f.confidence ?? 0) < 50).length
+		};
+	});
+
 	function saveToHistory() {
 		const state: HistoryState = {
 			filter,
 			sortBy,
-			selectedIds: Array.from(selectedIds)
+			selectedIds: Array.from(selectedIds),
+			categories: selectedCategories,
+			minSeverity,
+			maxSeverity,
+			startDate,
+			endDate,
+			minConfidence
 		};
 		history = [...history.slice(0, historyIndex + 1), state];
 		historyIndex = history.length - 1;
@@ -55,6 +120,12 @@
 			filter = state.filter;
 			sortBy = state.sortBy;
 			selectedIds = new Set(state.selectedIds);
+			selectedCategories = state.categories;
+			minSeverity = state.minSeverity;
+			maxSeverity = state.maxSeverity;
+			startDate = state.startDate;
+			endDate = state.endDate;
+			minConfidence = state.minConfidence;
 		}
 	}
 
@@ -65,6 +136,12 @@
 			filter = state.filter;
 			sortBy = state.sortBy;
 			selectedIds = new Set(state.selectedIds);
+			selectedCategories = state.categories;
+			minSeverity = state.minSeverity;
+			maxSeverity = state.maxSeverity;
+			startDate = state.startDate;
+			endDate = state.endDate;
+			minConfidence = state.minConfidence;
 		}
 	}
 
@@ -171,15 +248,45 @@
 		return 'file';
 	}
 
-	let filteredFacts = $derived(
+let filteredFacts = $derived(
 		facts
-			.filter(
-				(f) =>
-					!filter ||
-					f.fact_summary.toLowerCase().includes(filter.toLowerCase()) ||
-					f.category?.toLowerCase().includes(filter.toLowerCase()) ||
-					f.identified_crime?.toLowerCase().includes(filter.toLowerCase())
-			)
+			.filter((f) => {
+				// Text filter
+				if (
+					filter &&
+					!f.fact_summary.toLowerCase().includes(filter.toLowerCase()) &&
+					!f.category?.toLowerCase().includes(filter.toLowerCase()) &&
+					!f.identified_crime?.toLowerCase().includes(filter.toLowerCase())
+				) {
+					return false;
+				}
+				// Category filter (AND logic - must match any selected)
+				if (selectedCategories.length > 0) {
+					if (!f.category || !selectedCategories.includes(f.category)) {
+						return false;
+					}
+				}
+				// Severity range filter
+				if (f.severity_score < minSeverity || f.severity_score > maxSeverity) {
+					return false;
+				}
+				// Date range filter
+				if (startDate) {
+					const factDate = new Date(f.created_at);
+					const start = new Date(startDate);
+					if (factDate < start) return false;
+				}
+				if (endDate) {
+					const factDate = new Date(f.created_at);
+					const end = new Date(endDate);
+					if (factDate > end) return false;
+				}
+				// Confidence filter
+				if (minConfidence > 0 && (f.confidence ?? 0) < minConfidence / 100) {
+					return false;
+				}
+				return true;
+			})
 			.sort((a, b) => {
 				if (sortBy === 'severity') {
 					return b.severity_score - a.severity_score;
@@ -187,11 +294,38 @@
 				return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
 			})
 	);
-</script>
 
-<div class="results">
+	function toggleCategory(category: string) {
+		if (selectedCategories.includes(category)) {
+			selectedCategories = selectedCategories.filter((c) => c !== category);
+		} else {
+			selectedCategories = [...selectedCategories, category];
+		}
+		saveToHistory();
+	}
+
+	function clearAllFilters() {
+		filter = '';
+		selectedCategories = [];
+		minSeverity = 0;
+		maxSeverity = 10;
+		startDate = '';
+		endDate = '';
+		minConfidence = 0;
+saveToHistory();
+	}
+	</script>
+
+	<div class="results">
 	<div class="results-header">
-		<h1>Results</h1>
+		<div class="header-top">
+			<h1>Results</h1>
+			{#if activeFilterCount > 0}
+				<button class="clear-filters-btn" onclick={clearAllFilters}>
+					Clear {activeFilterCount} filter{activeFilterCount === 1 ? '' : 's'}
+				</button>
+			{/if}
+		</div>
 
 		{#if error}
 			<div class="error-banner" role="alert">
@@ -248,6 +382,105 @@
 			<p class="empty-hint">Run the analysis pipeline to extract facts from your evidence.</p>
 		</div>
 	{:else}
+		<!-- Faceted Filters Panel -->
+		<div class="filters-panel">
+			<div class="filter-section">
+				<h3>Category</h3>
+				<div class="filter-options">
+					{#each CATEGORIES as category}
+						<label class="filter-option">
+							<input
+								type="checkbox"
+								checked={selectedCategories.includes(category)}
+								onchange={() => toggleCategory(category)}
+							/>
+							<span class="option-label">{category}</span>
+							<span class="option-count">({categoryCounts[category]})</span>
+						</label>
+					{/each}
+				</div>
+			</div>
+
+			<div class="filter-section">
+				<h3>Severity</h3>
+				<div class="severity-range">
+					<div class="range-inputs">
+						<label>
+							<span>Min</span>
+							<input
+								type="number"
+								min="0"
+								max="10"
+								bind:value={minSeverity}
+								onchange={onFilterChange}
+								class="range-input"
+							/>
+						</label>
+						<span class="range-separator">to</span>
+						<label>
+							<span>Max</span>
+							<input
+								type="number"
+								min="0"
+								max="10"
+								bind:value={maxSeverity}
+								onchange={onFilterChange}
+								class="range-input"
+							/>
+						</label>
+					</div>
+					<div class="severity-badges">
+						<span class="severity-badge low">Low ({severityCounts.low})</span>
+						<span class="severity-badge medium">Med ({severityCounts.medium})</span>
+						<span class="severity-badge high">High ({severityCounts.high})</span>
+					</div>
+				</div>
+			</div>
+
+			<div class="filter-section">
+				<h3>Date Range</h3>
+				<div class="date-inputs">
+					<label class="date-field">
+						<span>From</span>
+						<input
+							type="date"
+							bind:value={startDate}
+							onchange={onFilterChange}
+							class="date-input"
+						/>
+					</label>
+					<label class="date-field">
+						<span>To</span>
+						<input
+							type="date"
+							bind:value={endDate}
+							onchange={onFilterChange}
+							class="date-input"
+						/>
+					</label>
+				</div>
+			</div>
+
+			<div class="filter-section">
+				<h3>Min Confidence: {minConfidence}%</h3>
+				<div class="confidence-slider">
+					<input
+						type="range"
+						min="0"
+						max="100"
+						bind:value={minConfidence}
+						onchange={onFilterChange}
+						class="slider"
+					/>
+					<div class="confidence-badges">
+						<span class="conf-badge low">Low ({confidenceRanges.low})</span>
+						<span class="conf-badge medium">Med ({confidenceRanges.medium})</span>
+						<span class="conf-badge high">High ({confidenceRanges.high})</span>
+					</div>
+				</div>
+			</div>
+		</div>
+
 		<div class="results-grid">
 			<div class="facts-list">
 				<div class="facts-toolbar">
@@ -552,6 +785,11 @@
 		min-height: 0;
 	}
 
+	/* Make filters panel full width above results grid */
+	.filters-panel {
+		width: 100%;
+	}
+
 	.facts-list {
 		overflow-y: auto;
 		background-color: #16213e;
@@ -779,5 +1017,243 @@
 		border-radius: 8px;
 		border: 1px solid #0f3460;
 		color: #6b7280;
+	}
+
+	/* Filter Panel Styles */
+	.header-top {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+	}
+
+	.clear-filters-btn {
+		padding: 0.375rem 0.75rem;
+		background-color: #e94560;
+		border: none;
+		border-radius: 4px;
+		color: white;
+		font-size: 0.75rem;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.clear-filters-btn:hover {
+		background-color: #ff6b8a;
+	}
+
+	.filters-panel {
+		background-color: #16213e;
+		border-radius: 8px;
+		border: 1px solid #0f3460;
+		padding: 1rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.filter-section {
+		margin-bottom: 1.25rem;
+	}
+
+	.filter-section:last-child {
+		margin-bottom: 0;
+	}
+
+	.filter-section h3 {
+		font-size: 0.875rem;
+		color: #9ca3af;
+		margin-bottom: 0.75rem;
+		font-weight: 500;
+	}
+
+	.filter-options {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.filter-option {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.375rem 0.625rem;
+		background-color: #1a1a2e;
+		border: 1px solid #0f3460;
+		border-radius: 4px;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.filter-option:hover {
+		border-color: #e94560;
+	}
+
+	.filter-option input {
+		width: 14px;
+		height: 14px;
+	}
+
+	.option-label {
+		font-size: 0.75rem;
+		color: #eaeaea;
+	}
+
+	.option-count {
+		font-size: 0.75rem;
+		color: #6b7280;
+	}
+
+	.severity-range {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.range-inputs {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.range-inputs label {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+	}
+
+	.range-inputs span {
+		font-size: 0.75rem;
+		color: #9ca3af;
+	}
+
+	.range-input {
+		width: 60px;
+		padding: 0.375rem;
+		background-color: #1a1a2e;
+		border: 1px solid #0f3460;
+		border-radius: 4px;
+		color: #eaeaea;
+		font-size: 0.75rem;
+	}
+
+	.range-input:focus {
+		outline: none;
+		border-color: #e94560;
+	}
+
+	.range-separator {
+		font-size: 0.75rem;
+		color: #6b7280;
+	}
+
+	.severity-badges {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.severity-badge {
+		padding: 0.25rem 0.5rem;
+		border-radius: 4px;
+		font-size: 0.625rem;
+		color: white;
+	}
+
+	.severity-badge.low {
+		background-color: #4ade80;
+	}
+
+	.severity-badge.medium {
+		background-color: #eab308;
+	}
+
+	.severity-badge.high {
+		background-color: #ef4444;
+	}
+
+	.date-inputs {
+		display: flex;
+		gap: 0.75rem;
+	}
+
+	.date-field {
+		display: flex;
+		flex-direction: column;
+		gap: 0.375rem;
+	}
+
+	.date-field span {
+		font-size: 0.75rem;
+		color: #9ca3af;
+	}
+
+	.date-input {
+		padding: 0.375rem;
+		background-color: #1a1a2e;
+		border: 1px solid #0f3460;
+		border-radius: 4px;
+		color: #eaeaea;
+		font-size: 0.75rem;
+	}
+
+	.date-input:focus {
+		outline: none;
+		border-color: #e94560;
+	}
+
+	.confidence-slider {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.slider {
+		width: 100%;
+		height: 6px;
+		-webkit-appearance: none;
+		appearance: none;
+		background: #0f3460;
+		border-radius: 3px;
+		outline: none;
+	}
+
+	.slider::-webkit-slider-thumb {
+		-webkit-appearance: none;
+		appearance: none;
+		width: 16px;
+		height: 16px;
+		background: #e94560;
+		border-radius: 50%;
+		cursor: pointer;
+	}
+
+	.slider::-moz-range-thumb {
+		width: 16px;
+		height: 16px;
+		background: #e94560;
+		border-radius: 50%;
+		cursor: pointer;
+		border: none;
+	}
+
+	.confidence-badges {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.conf-badge {
+		padding: 0.25rem 0.5rem;
+		border-radius: 4px;
+		font-size: 0.625rem;
+		color: white;
+	}
+
+	.conf-badge.low {
+		background-color: #ef4444;
+	}
+
+	.conf-badge.medium {
+		background-color: #eab308;
+	}
+
+	.conf-badge.high {
+		background-color: #4ade80;
 	}
 </style>

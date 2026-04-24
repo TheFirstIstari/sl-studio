@@ -21,6 +21,7 @@
 		{ href: '/', label: 'Dashboard', icon: 'dashboard', shortcut: 'G D' },
 		{ href: '/analysis', label: 'Analysis', icon: 'search', shortcut: 'G A' },
 		{ href: '/results', label: 'Results', icon: 'list', shortcut: 'G R' },
+		{ href: '/quality', label: 'Quality', icon: 'quality', shortcut: 'G Q' },
 		{ href: '/timeline', label: 'Timeline', icon: 'timeline', shortcut: 'G T' },
 		{ href: '/stats', label: 'Statistics', icon: 'chart', shortcut: 'G S' },
 		{ href: '/network', label: 'Network', icon: 'network', shortcut: 'G N' },
