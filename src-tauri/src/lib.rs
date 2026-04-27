@@ -2943,110 +2943,149 @@ async fn extract_batch(
 
     let total = fingerprints.len();
 
-    // Phase 1: Pre-fetch ALL paths from DB BEFORE parallel (outside parallel)
-    let db_guard = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    let db = db_guard.as_ref().ok_or("Database not initialized")?;
+    // Phase 1: Pre-fetch all paths from DB and pre-resolve any cache hits.
+    // For fingerprints that already have text in the text_cache (audio
+    // re-runs or repeat extractions), we short-circuit the whole extractor
+    // pipeline and emit a synthetic ExtractionResult straight from cache.
+    //
+    // Scope the lock so the MutexGuard (which is !Send) is provably dropped
+    // before the spawn_blocking().await below.
+    let (file_data, cached_results): (Vec<(String, String)>, Vec<ExtractionResult>) = {
+        let db_guard = state
+            .db
+            .lock()
+            .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+        let db = db_guard.as_ref().ok_or("Database not initialized")?;
+        let mut to_extract = Vec::new();
+        let mut cached = Vec::new();
+        for fingerprint in &fingerprints {
+            let Ok(entry) = db.get_registry_entry(fingerprint) else {
+                continue;
+            };
+            // Cache hit: skip the extractor entirely.
+            if let Ok(Some(text)) = db.get_extracted_text(fingerprint) {
+                if !text.is_empty() {
+                    cached.push(ExtractionResult {
+                        fingerprint: fingerprint.clone(),
+                        path: entry.path.clone(),
+                        success: true,
+                        char_count: text.chars().count(),
+                        error: None,
+                        quality: Some(1.0),
+                        extraction_text: Some(text),
+                        is_partial: false,
+                    });
+                    continue;
+                }
+            }
+            to_extract.push((fingerprint.clone(), entry.path));
+        }
+        (to_extract, cached)
+    };
+    let cache_hits = cached_results.len();
+    if cache_hits > 0 {
+        info!(
+            "extract_batch: {} cache hit(s); extracting {} remaining file(s)",
+            cache_hits,
+            file_data.len()
+        );
+    }
 
-    let file_data: Vec<(String, String)> = fingerprints
-        .iter()
-        .filter_map(|fingerprint| match db.get_registry_entry(fingerprint) {
-            Ok(entry) => Some((fingerprint.clone(), entry.path)),
-            Err(_) => None,
-        })
-        .collect();
-
-    drop(db_guard);
-
-    // Phase 2: Run parallel extraction using thread pool (NO locks)
+    // Phase 2: Run parallel extraction using thread pool (NO locks).
+    // Offload to spawn_blocking so the rayon work doesn't pin a tokio
+    // executor thread for what can be tens of seconds on large files.
     let deconstructor = {
         let config = ExtractorConfig::default();
         Deconstructor::new(config).map_err(|e| format!("Failed to create Deconstructor: {}", e))?
     };
 
-    let results: Vec<ExtractionResult> = pool.install(|| {
-        // Check cancel flag periodically - this runs in worker threads
-        file_data
-            .par_iter()
-            .filter_map(|(fingerprint, path)| {
-                // Quick check - won't catch instant cancels but better than nothing
-                // Note: can't easily check atomic from rayon's parallel context
-                let file_path = std::path::Path::new(path);
-                if !file_path.exists() {
-                    return Some(ExtractionResult {
-                        fingerprint: fingerprint.clone(),
-                        path: path.clone(),
-                        success: false,
-                        char_count: 0,
-                        error: Some("File not found".to_string()),
-                        quality: None,
-                        extraction_text: None,
-                        is_partial: false,
-                    });
-                }
-
-                match deconstructor.extract(file_path) {
-                    Ok(extraction) => Some(ExtractionResult {
-                        fingerprint: fingerprint.clone(),
-                        path: path.clone(),
-                        success: true,
-                        char_count: extraction.char_count,
-                        error: None,
-                        quality: Some(extraction.is_partial as u8 as f64),
-                        extraction_text: Some(extraction.text),
-                        is_partial: extraction.is_partial,
-                    }),
-                    Err(e) => {
-                        error!("Extraction failed for {}: {}", path, e);
-                        Some(ExtractionResult {
+    let results: Vec<ExtractionResult> = tokio::task::spawn_blocking(move || {
+        pool.install(|| {
+            file_data
+                .par_iter()
+                .filter_map(|(fingerprint, path)| {
+                    let file_path = std::path::Path::new(path);
+                    if !file_path.exists() {
+                        return Some(ExtractionResult {
                             fingerprint: fingerprint.clone(),
                             path: path.clone(),
                             success: false,
                             char_count: 0,
-                            error: Some(e.to_string()),
+                            error: Some("File not found".to_string()),
                             quality: None,
                             extraction_text: None,
                             is_partial: false,
-                        })
+                        });
                     }
-                }
-            })
-            .collect()
-    });
 
-    // Phase 3: Write results to DB AFTER parallel completes
-    let success_results: Vec<ExtractionResult> =
-        results.iter().filter(|r| r.success).cloned().collect();
+                    match deconstructor.extract(file_path) {
+                        Ok(extraction) => Some(ExtractionResult {
+                            fingerprint: fingerprint.clone(),
+                            path: path.clone(),
+                            success: true,
+                            char_count: extraction.char_count,
+                            error: None,
+                            quality: Some(extraction.is_partial as u8 as f64),
+                            extraction_text: Some(extraction.text),
+                            is_partial: extraction.is_partial,
+                        }),
+                        Err(e) => {
+                            error!("Extraction failed for {}: {}", path, e);
+                            Some(ExtractionResult {
+                                fingerprint: fingerprint.clone(),
+                                path: path.clone(),
+                                success: false,
+                                char_count: 0,
+                                error: Some(e.to_string()),
+                                quality: None,
+                                extraction_text: None,
+                                is_partial: false,
+                            })
+                        }
+                    }
+                })
+                .collect()
+        })
+    })
+    .await
+    .map_err(|e| format!("Extraction task failed: {e}"))?;
 
-    let db_guard = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    let db = db_guard.as_ref().ok_or("Database not initialized")?;
+    // Phase 3: Merge cache hits with newly-extracted results, then write
+    // the new ones to the DB. Cache hits don't need re-saving.
+    let mut all_results: Vec<ExtractionResult> = cached_results;
+    all_results.extend(results);
 
-    for result in &success_results {
-        if let Some(ref text) = result.extraction_text {
-            let _ = db.save_text_cache(
-                &result.fingerprint,
-                &result.path,
-                text,
-                &result.fingerprint,
-                0,
-                result.quality.unwrap_or(0.0),
-            );
-            let _ = db.mark_extracted(&result.fingerprint, result.is_partial);
+    {
+        let db_guard = state
+            .db
+            .lock()
+            .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+        let db = db_guard.as_ref().ok_or("Database not initialized")?;
+
+        // Only persist the freshly-extracted slice (after the cached prefix).
+        for result in all_results.iter().skip(cache_hits) {
+            if !result.success {
+                continue;
+            }
+            if let Some(ref text) = result.extraction_text {
+                let _ = db.save_text_cache(
+                    &result.fingerprint,
+                    &result.path,
+                    text,
+                    &result.fingerprint,
+                    0,
+                    result.quality.unwrap_or(0.0),
+                );
+                let _ = db.mark_extracted(&result.fingerprint, result.is_partial);
+            }
         }
     }
 
-    drop(db_guard);
-
     let mut success_count = 0;
     let mut error_count = 0;
-    let processed = results.len();
+    let processed = all_results.len();
 
-    for result in &results {
+    for result in &all_results {
         if result.success {
             success_count += 1;
         } else {
@@ -3065,12 +3104,13 @@ async fn extract_batch(
     app.emit("extraction_progress", progress).ok();
 
     info!(
-        "Extraction complete: {}/{} successful",
+        "Extraction complete: {}/{} successful ({} from cache)",
         success_count,
-        results.len()
+        all_results.len(),
+        cache_hits
     );
 
-    Ok(results)
+    Ok(all_results)
 }
 
 #[tauri::command]
