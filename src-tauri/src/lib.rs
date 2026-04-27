@@ -862,6 +862,384 @@ fn delete_facts(state: State<AppState>, ids: Vec<i64>) -> Result<usize, String> 
     }
 }
 
+// ----------------------------------------------------------------------------
+// FR-DEDUP: near-duplicate fact detection and merging
+// ----------------------------------------------------------------------------
+
+#[tauri::command]
+fn find_duplicate_facts(
+    state: State<AppState>,
+    threshold: Option<f32>,
+    require_same_category: Option<bool>,
+    require_same_date: Option<bool>,
+) -> Result<Vec<inference::quality::DuplicateGroup>, String> {
+    use inference::quality::{find_duplicate_groups, DeduplicationConfig};
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    let candidates = db.get_dedup_candidates().map_err(|e| e.to_string())?;
+    let config = DeduplicationConfig {
+        similarity_threshold: threshold.unwrap_or(0.85),
+        require_same_category: require_same_category.unwrap_or(true),
+        require_same_date: require_same_date.unwrap_or(false),
+    };
+    Ok(find_duplicate_groups(&candidates, &config))
+}
+
+#[tauri::command]
+fn merge_duplicate_facts(
+    state: State<AppState>,
+    keeper_id: i64,
+    member_ids: Vec<i64>,
+) -> Result<usize, String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    db.merge_duplicate_facts(keeper_id, &member_ids)
+        .map_err(|e| e.to_string())
+}
+
+// ----------------------------------------------------------------------------
+// FR-PLP: persisted user-defined pipelines
+// ----------------------------------------------------------------------------
+
+#[tauri::command]
+fn list_pipelines(state: State<AppState>) -> Result<Vec<inference::Pipeline>, String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    let rows = db.list_pipelines().map_err(|e| e.to_string())?;
+    let mut pipelines = Vec::with_capacity(rows.len());
+    for (id, name, description, passes_json, is_builtin) in rows {
+        let passes: Vec<inference::PipelinePass> =
+            serde_json::from_str(&passes_json).map_err(|e| e.to_string())?;
+        pipelines.push(inference::Pipeline {
+            id,
+            name,
+            description,
+            passes,
+            is_builtin,
+        });
+    }
+    // Always include the builtins so the UI has them even if they have not
+    // been persisted yet (first run, or user nuked the table).
+    let mut seen_ids: std::collections::HashSet<String> =
+        pipelines.iter().map(|p| p.id.clone()).collect();
+    for builtin in inference::get_builtin_pipelines() {
+        if !seen_ids.contains(&builtin.id) {
+            seen_ids.insert(builtin.id.clone());
+            pipelines.push(builtin);
+        }
+    }
+    Ok(pipelines)
+}
+
+#[tauri::command]
+fn save_pipeline(state: State<AppState>, pipeline: inference::Pipeline) -> Result<(), String> {
+    if pipeline.is_builtin {
+        return Err("Cannot persist builtin pipelines".to_string());
+    }
+    let passes_json = serde_json::to_string(&pipeline.passes).map_err(|e| e.to_string())?;
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    db.save_pipeline(
+        &pipeline.id,
+        &pipeline.name,
+        &pipeline.description,
+        &passes_json,
+        false,
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_pipeline(
+    state: State<AppState>,
+    pipeline_id: String,
+) -> Result<Option<inference::Pipeline>, String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    if let Some((id, name, description, passes_json, is_builtin)) =
+        db.get_pipeline(&pipeline_id).map_err(|e| e.to_string())?
+    {
+        let passes: Vec<inference::PipelinePass> =
+            serde_json::from_str(&passes_json).map_err(|e| e.to_string())?;
+        return Ok(Some(inference::Pipeline {
+            id,
+            name,
+            description,
+            passes,
+            is_builtin,
+        }));
+    }
+    // Fall back to builtins by id.
+    Ok(inference::get_pipeline_by_id(&pipeline_id))
+}
+
+#[tauri::command]
+fn delete_pipeline(state: State<AppState>, pipeline_id: String) -> Result<(), String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    db.delete_pipeline(&pipeline_id).map_err(|e| e.to_string())
+}
+
+// ----------------------------------------------------------------------------
+// FR-ER: entity resolution (alias suggestions, alias storage, lookup)
+// ----------------------------------------------------------------------------
+
+#[tauri::command]
+fn suggest_entity_matches(
+    state: State<AppState>,
+    threshold: Option<f32>,
+    per_type_limit: Option<u32>,
+    scan_limit: Option<i64>,
+) -> Result<Vec<inference::quality::EntityMatchSuggestion>, String> {
+    use inference::quality::{find_entity_matches, EntityCandidate, EntityResolutionConfig};
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    let raw = db
+        .list_distinct_entities(scan_limit.unwrap_or(2000))
+        .map_err(|e| e.to_string())?;
+    let candidates: Vec<EntityCandidate> = raw
+        .into_iter()
+        .map(|(id, entity_type, value)| EntityCandidate {
+            id,
+            entity_type,
+            value,
+        })
+        .collect();
+    let config = EntityResolutionConfig {
+        similarity_threshold: threshold.unwrap_or(0.80),
+        per_type_limit: per_type_limit.unwrap_or(1000) as usize,
+    };
+    Ok(find_entity_matches(&candidates, &config))
+}
+
+#[tauri::command]
+fn add_entity_alias(
+    state: State<AppState>,
+    canonical_id: i64,
+    alias: String,
+    alias_type: Option<String>,
+    confidence: Option<f64>,
+) -> Result<(), String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    db.add_entity_alias(
+        canonical_id,
+        &alias,
+        alias_type.as_deref().unwrap_or("manual"),
+        confidence.unwrap_or(1.0),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn resolve_entity_alias(
+    state: State<AppState>,
+    alias: String,
+) -> Result<Vec<core::ResolvedEntity>, String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    db.resolve_entity(&alias).map_err(|e| e.to_string())
+}
+
+// ----------------------------------------------------------------------------
+// FR-CHAIN: evidence chain management (DB methods existed; commands did not)
+// ----------------------------------------------------------------------------
+
+#[tauri::command]
+fn create_evidence_chain(
+    state: State<AppState>,
+    name: String,
+    chain_type: String,
+    description: Option<String>,
+    created_by: Option<String>,
+) -> Result<i64, String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    db.create_chain(
+        &name,
+        &chain_type,
+        description.as_deref().unwrap_or(""),
+        created_by.as_deref().unwrap_or(""),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn list_evidence_chains(
+    state: State<AppState>,
+    limit: Option<i64>,
+    offset: Option<i64>,
+) -> Result<Vec<core::ChainSummary>, String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    db.get_all_chains(limit.unwrap_or(100), offset.unwrap_or(0))
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_evidence_chain(
+    state: State<AppState>,
+    chain_id: i64,
+) -> Result<Option<core::EvidenceChain>, String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    let mut chain = db.get_chain(chain_id).map_err(|e| e.to_string())?;
+    if let Some(ref mut c) = chain {
+        c.items = db.get_chain_items(chain_id).map_err(|e| e.to_string())?;
+    }
+    Ok(chain)
+}
+
+#[tauri::command]
+fn add_to_evidence_chain(
+    state: State<AppState>,
+    chain_id: i64,
+    intelligence_id: i64,
+    relationship_type: String,
+    strength: f64,
+    notes: Option<String>,
+    linked_by: Option<String>,
+) -> Result<(), String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    db.add_to_chain(
+        chain_id,
+        intelligence_id,
+        &relationship_type,
+        strength,
+        notes.as_deref().unwrap_or(""),
+        linked_by.as_deref().unwrap_or(""),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn remove_from_evidence_chain(
+    state: State<AppState>,
+    chain_id: i64,
+    intelligence_id: i64,
+) -> Result<(), String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    db.remove_from_chain(chain_id, intelligence_id)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn update_evidence_chain(
+    state: State<AppState>,
+    chain_id: i64,
+    name: Option<String>,
+    description: Option<String>,
+) -> Result<(), String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    db.update_chain(chain_id, name.as_deref(), description.as_deref())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn delete_evidence_chain(state: State<AppState>, chain_id: i64) -> Result<(), String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    db.delete_chain(chain_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_evidence_chain_statistics(
+    state: State<AppState>,
+    chain_id: i64,
+) -> Result<core::ChainStatistics, String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    db.get_chain_statistics(chain_id).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn get_annotations(
     state: State<AppState>,
@@ -2186,6 +2564,27 @@ pub fn run() {
             restore_backup,
             send_notification,
             get_schema_version,
+            // FR-DEDUP
+            find_duplicate_facts,
+            merge_duplicate_facts,
+            // FR-PLP
+            list_pipelines,
+            save_pipeline,
+            get_pipeline,
+            delete_pipeline,
+            // FR-ER
+            suggest_entity_matches,
+            add_entity_alias,
+            resolve_entity_alias,
+            // FR-CHAIN
+            create_evidence_chain,
+            list_evidence_chains,
+            get_evidence_chain,
+            add_to_evidence_chain,
+            remove_from_evidence_chain,
+            update_evidence_chain,
+            delete_evidence_chain,
+            get_evidence_chain_statistics,
         ])
         .setup(|_app| {
             info!("Tauri app setup complete");

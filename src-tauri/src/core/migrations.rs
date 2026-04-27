@@ -12,11 +12,28 @@ pub struct Migration {
 /// `Database::init_schema()` as already applied. Future migrations should be
 /// appended with strictly increasing versions.
 pub fn intelligence_migrations() -> Vec<Migration> {
-    vec![Migration {
-        version: 1,
-        name: "baseline_intelligence_schema",
-        up_sql: "SELECT 1",
-    }]
+    vec![
+        Migration {
+            version: 1,
+            name: "baseline_intelligence_schema",
+            up_sql: "SELECT 1",
+        },
+        // FR-PLP: persist user-defined LLM pipelines.
+        Migration {
+            version: 2,
+            name: "create_pipelines_table",
+            up_sql: "CREATE TABLE IF NOT EXISTS pipelines (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                passes_json TEXT NOT NULL,
+                is_builtin BOOLEAN NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_pipelines_builtin ON pipelines(is_builtin);",
+        },
+    ]
 }
 
 /// Migrations for the registry database.
@@ -126,7 +143,6 @@ mod tests {
     fn baseline_migrations_run_clean() {
         let mut conn = Connection::open_in_memory().unwrap();
         run_migrations(&mut conn, &intelligence_migrations()).unwrap();
-        run_migrations(&mut conn, &registry_migrations()).unwrap();
         let max: i64 = conn
             .query_row(
                 "SELECT COALESCE(MAX(version), 0) FROM schema_migrations",
@@ -134,6 +150,26 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(max, 1);
+        // Highest intelligence migration version (currently 2: pipelines table).
+        assert!(max >= 2);
+
+        let mut reg_conn = Connection::open_in_memory().unwrap();
+        run_migrations(&mut reg_conn, &registry_migrations()).unwrap();
+    }
+
+    #[test]
+    fn pipelines_migration_creates_table() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        run_migrations(&mut conn, &intelligence_migrations()).unwrap();
+        // Insert a row to confirm the table is usable.
+        conn.execute(
+            "INSERT INTO pipelines (id, name, passes_json, is_builtin) VALUES (?1, ?2, ?3, ?4)",
+            params!["test", "Test Pipeline", "[]", 0],
+        )
+        .unwrap();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM pipelines", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
     }
 }

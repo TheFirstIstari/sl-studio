@@ -1,4 +1,4 @@
-use crate::inference::reasoner::{Fact, AnalysisResult};
+use crate::inference::reasoner::Fact;
 use serde::{Deserialize, Serialize};
 
 /// Represents the quality metrics for an extraction
@@ -33,7 +33,7 @@ impl ExtractionQuality {
     pub fn calculate(
         fact: &Fact,
         source_text: &str,
-        entities: &[String>,
+        entities: &[String],
         llm_confidence: f32,
         quote_length: usize,
     ) -> Self {
@@ -114,9 +114,9 @@ impl QualityLevel {
     /// Get the color for this quality level (as hex string)
     pub fn color(&self) -> &'static str {
         match self {
-            QualityLevel::Good => "#22C55E", // green
+            QualityLevel::Good => "#22C55E",     // green
             QualityLevel::Marginal => "#F59E0B", // yellow
-            QualityLevel::Poor => "#EF4444", // red
+            QualityLevel::Poor => "#EF4444",     // red
         }
     }
 

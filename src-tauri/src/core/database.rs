@@ -1625,6 +1625,103 @@ impl Database {
         Ok(combined)
     }
 
+    // ----------------------------------------------------------------------
+    // FR-PLP: persisted user-defined pipelines (table created by migration v2)
+    // ----------------------------------------------------------------------
+
+    /// Persist a pipeline. Acts as upsert (id is the primary key).
+    /// `passes_json` is the JSON-serialized Vec<PipelinePass>.
+    pub fn save_pipeline(
+        &self,
+        id: &str,
+        name: &str,
+        description: &str,
+        passes_json: &str,
+        is_builtin: bool,
+    ) -> Result<()> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO pipelines (id, name, description, passes_json, is_builtin)
+             VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                description = excluded.description,
+                passes_json = excluded.passes_json,
+                is_builtin = excluded.is_builtin,
+                updated_at = CURRENT_TIMESTAMP",
+            params![id, name, description, passes_json, is_builtin as i64],
+        )?;
+        Ok(())
+    }
+
+    /// Returns (id, name, description, passes_json, is_builtin) for every
+    /// stored pipeline, newest-updated first.
+    pub fn list_pipelines(&self) -> Result<Vec<(String, String, String, String, bool)>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, name, description, passes_json, is_builtin
+               FROM pipelines
+              ORDER BY updated_at DESC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            let is_builtin: i64 = row.get(4)?;
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                is_builtin != 0,
+            ))
+        })?;
+        rows.collect()
+    }
+
+    pub fn get_pipeline(&self, id: &str) -> Result<Option<(String, String, String, String, bool)>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, name, description, passes_json, is_builtin
+               FROM pipelines WHERE id = ?1",
+        )?;
+        let mut rows = stmt.query(params![id])?;
+        if let Some(row) = rows.next()? {
+            let is_builtin: i64 = row.get(4)?;
+            Ok(Some((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                is_builtin != 0,
+            )))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn delete_pipeline(&self, id: &str) -> Result<()> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        conn.execute("DELETE FROM pipelines WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    /// Build a deduped list of (id, type, value) entity tuples for the
+    /// resolution scanner. Distinct by (entity_type, lower(value)) so we
+    /// don't churn on per-document duplicates that already exist by design.
+    pub fn list_distinct_entities(&self, limit: i64) -> Result<Vec<(i64, String, String)>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT MIN(id) AS id, entity_type, value
+               FROM entities
+              WHERE is_deleted = FALSE
+              GROUP BY entity_type, LOWER(value)
+              ORDER BY entity_type, value
+              LIMIT ?1",
+        )?;
+        let rows = stmt.query_map(params![limit], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get(1)?, row.get(2)?))
+        })?;
+        rows.collect()
+    }
+
     // Entity alias methods for entity resolution
     pub fn add_entity_alias(
         &self,
@@ -1833,6 +1930,52 @@ impl Database {
             return Err(rusqlite::Error::QueryReturnedNoRows);
         }
         Ok(())
+    }
+
+    /// Load lightweight candidates for the deduplication scanner.
+    ///
+    /// Returns only non-deleted intelligence rows projected down to the
+    /// fields the dedup engine actually needs.
+    pub fn get_dedup_candidates(&self) -> Result<Vec<crate::inference::quality::DedupCandidate>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, fact_summary, category, associated_date, severity_score, confidence
+             FROM intelligence
+             WHERE is_deleted = FALSE",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(crate::inference::quality::DedupCandidate {
+                id: row.get(0)?,
+                fact_summary: row.get(1)?,
+                category: row.get(2)?,
+                associated_date: row.get(3)?,
+                severity_score: row.get(4)?,
+                confidence: row.get(5)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    /// Merge a duplicate group: soft-delete every member that is not the
+    /// keeper and (optionally) annotate the keeper with the merge.
+    /// Returns the number of rows soft-deleted.
+    pub fn merge_duplicate_facts(&self, keeper_id: i64, member_ids: &[i64]) -> Result<usize> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        let mut deleted = 0usize;
+        for id in member_ids {
+            if *id == keeper_id {
+                continue;
+            }
+            let n = conn.execute(
+                "UPDATE intelligence
+                    SET is_deleted = TRUE,
+                        deleted_at = CURRENT_TIMESTAMP
+                  WHERE id = ?1 AND is_deleted = FALSE",
+                params![id],
+            )?;
+            deleted += n;
+        }
+        Ok(deleted)
     }
 
     pub fn delete_chain(&self, chain_id: i64) -> Result<()> {

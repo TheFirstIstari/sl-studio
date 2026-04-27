@@ -1,5 +1,6 @@
 pub mod llama;
 pub mod pipeline;
+pub mod quality;
 pub mod reasoner;
 
 pub use llama::{
