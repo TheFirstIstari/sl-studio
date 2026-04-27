@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/core';
 	import { onMount } from 'svelte';
+	import { PageHeader, StatCard, FilterBar } from '$lib/components';
 
 	interface Fact {
 		id: number;
@@ -239,11 +240,11 @@
 	}
 </script>
 
-<div class="quality-page">
-	<header class="page-header">
-		<h1>Quality Review Queue</h1>
-		<p class="subtitle">Review low-confidence extractions and verify facts</p>
-	</header>
+<div class="quality-page page">
+	<PageHeader
+		title="Quality Review Queue"
+		subtitle="Review low-confidence extractions and verify facts"
+	/>
 
 	{#if error}
 		<div class="error-banner">
@@ -312,46 +313,25 @@
 	</section>
 
 	<!-- Stats Cards -->
-	<div class="stats-grid">
-		<div class="stat-card">
-			<div class="stat-value">{stats.total}</div>
-			<div class="stat-label">Total Facts</div>
-		</div>
-		<div class="stat-card low">
-			<div class="stat-value">{stats.lowConfidence}</div>
-			<div class="stat-label">Low Confidence (&lt;50%)</div>
-		</div>
-		<div class="stat-card medium">
-			<div class="stat-value">{stats.mediumConfidence}</div>
-			<div class="stat-label">Medium (50-70%)</div>
-		</div>
-		<div class="stat-card high">
-			<div class="stat-value">{stats.highConfidence}</div>
-			<div class="stat-label">High (≥70%)</div>
-		</div>
-		<div class="stat-card">
-			<div class="stat-value">{stats.unverified}</div>
-			<div class="stat-label">Unverified</div>
-		</div>
-		<div class="stat-card confirmed">
-			<div class="stat-value">{stats.confirmed}</div>
-			<div class="stat-label">Confirmed</div>
-		</div>
-		<div class="stat-card disputed">
-			<div class="stat-value">{stats.disputed}</div>
-			<div class="stat-label">Disputed</div>
-		</div>
+	<div class="stat-grid">
+		<StatCard value={stats.total} label="Total facts" />
+		<StatCard value={stats.lowConfidence} label="Low confidence (<50%)" variant="danger" />
+		<StatCard value={stats.mediumConfidence} label="Medium (50-70%)" variant="warning" />
+		<StatCard value={stats.highConfidence} label="High (≥70%)" variant="success" />
+		<StatCard value={stats.unverified} label="Unverified" />
+		<StatCard value={stats.confirmed} label="Confirmed" variant="success" />
+		<StatCard value={stats.disputed} label="Disputed" variant="danger" />
 	</div>
 
-	<!-- Filters -->
-	<div class="filters">
-		<input type="text" placeholder="Filter facts..." bind:value={filter} class="filter-input" />
-		<select bind:value={showVerified} class="filter-select">
-			<option value="low">Low Confidence First</option>
-			<option value="all">All Facts</option>
-			<option value="verified">Verified Only</option>
-		</select>
-	</div>
+	<FilterBar bind:search={filter} placeholder="Filter facts...">
+		{#snippet extras()}
+			<select bind:value={showVerified} class="filter-select">
+				<option value="low">Low confidence first</option>
+				<option value="all">All facts</option>
+				<option value="verified">Verified only</option>
+			</select>
+		{/snippet}
+	</FilterBar>
 
 	<!-- Facts List -->
 	<div class="facts-container">
@@ -504,98 +484,16 @@
 		margin: 0 auto;
 	}
 
-	.page-header {
-		margin-bottom: 1.5rem;
-	}
-
-	.page-header h1 {
-		font-size: 1.75rem;
-		font-weight: 600;
-		color: #eaeaea;
-		margin: 0;
-	}
-
-	.subtitle {
-		color: #9ca3af;
-		margin: 0.25rem 0 0;
-	}
-
-	.error-banner {
-		background: #7f1d1d;
-		color: #fecaca;
-		padding: 0.75rem 1rem;
-		border-radius: 0.5rem;
-		margin-bottom: 1rem;
-	}
-
-	.stats-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-		gap: 0.75rem;
-		margin-bottom: 1.5rem;
-	}
-
-	.stat-card {
-		background: #16213e;
-		border-radius: 0.5rem;
-		padding: 1rem;
-		text-align: center;
-	}
-
-	.stat-card.low {
-		border: 1px solid #ef4444;
-	}
-
-	.stat-card.medium {
-		border: 1px solid #eab308;
-	}
-
-	.stat-card.high {
-		border: 1px solid #4ade80;
-	}
-
-	.stat-card.confirmed {
-		border: 1px solid #4ade80;
-	}
-
-	.stat-card.disputed {
-		border: 1px solid #ef4444;
-	}
-
-	.stat-value {
-		font-size: 1.5rem;
-		font-weight: 600;
-		color: #eaeaea;
-	}
-
-	.stat-label {
-		font-size: 0.75rem;
-		color: #9ca3af;
-		margin-top: 0.25rem;
-	}
-
-	.filters {
-		display: flex;
-		gap: 0.75rem;
-		margin-bottom: 1rem;
-	}
-
-	.filter-input,
-	.filter-select {
-		background: #16213e;
-		border: 1px solid #0f3460;
-		border-radius: 0.375rem;
-		color: #eaeaea;
-		padding: 0.5rem 0.75rem;
-		font-size: 0.875rem;
-	}
-
-	.filter-input {
-		flex: 1;
-		max-width: 300px;
-	}
+	/* page-header, stat cards, filter input come from shared components and
+	   theme.css; this page only styles its bespoke pieces below. */
 
 	.filter-select {
+		background: var(--color-bg-input);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		color: var(--color-text-primary);
+		padding: var(--space-2) var(--space-3);
+		font-size: var(--text-sm);
 		min-width: 150px;
 	}
 

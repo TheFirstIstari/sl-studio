@@ -1,6 +1,7 @@
 <script lang="ts">
 	// Import shared stores - already initialized in +layout.svelte
 	import { config, hardware, stats, modelLoaded, isLoading, error } from '$lib/stores/app';
+	import { PageHeader, StatCard } from '$lib/components';
 
 	// Get model path from config store
 	let modelPath = $derived($config?.model?.local_path || '');
@@ -8,143 +9,40 @@
 	function dismissError() {
 		error.set('');
 	}
+
+	function gb(bytes: number | undefined): string {
+		if (!bytes) return '0';
+		return (bytes / 1024 / 1024 / 1024).toFixed(1);
+	}
 </script>
 
-<div class="dashboard">
-	<h1>Dashboard</h1>
+<div class="page">
+	<PageHeader title="Dashboard" subtitle="Project status and quick actions" />
 
 	{#if $error}
 		<div class="error-banner" role="alert">
 			<span>{$error}</span>
-			<button onclick={dismissError} aria-label="Dismiss error">×</button>
+			<button class="dismiss" onclick={dismissError} aria-label="Dismiss error">×</button>
 		</div>
 	{/if}
 
-	{#if $isLoading}
-		<div class="cards">
-			<div class="card">
-				<svg
-					class="card-icon"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-				</svg>
-				<div class="card-content">
-					<div class="card-value">...</div>
-					<div class="card-label">Files Registered</div>
-				</div>
-			</div>
-
-			<div class="card">
-				<svg
-					class="card-icon"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-					<polyline points="22 4 12 14.01 9 11.01" />
-				</svg>
-				<div class="card-content">
-					<div class="card-value">...</div>
-					<div class="card-label">Facts Extracted</div>
-				</div>
-			</div>
-
-			<div class="card">
-				<svg
-					class="card-icon"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
-					<rect x="9" y="9" width="6" height="6" />
-					<line x1="9" y1="1" x2="9" y2="4" />
-					<line x1="15" y1="1" x2="15" y2="4" />
-					<line x1="9" y1="20" x2="9" y2="23" />
-					<line x1="15" y1="20" x2="15" y2="23" />
-					<line x1="20" y1="9" x2="23" y2="9" />
-					<line x1="20" y1="14" x2="23" y2="14" />
-					<line x1="1" y1="9" x2="4" y2="9" />
-					<line x1="1" y1="14" x2="4" y2="14" />
-				</svg>
-				<div class="card-content">
-					<div class="card-value">...</div>
-					<div class="card-label">CPU Workers</div>
-				</div>
-			</div>
-		</div>
-	{:else}
-		<div class="cards">
-			<div class="card">
-				<svg
-					class="card-icon"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-				</svg>
-				<div class="card-content">
-					<div class="card-value">{$stats?.registry_count ?? 0}</div>
-					<div class="card-label">Files Registered</div>
-				</div>
-			</div>
-
-			<div class="card">
-				<svg
-					class="card-icon"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-					<polyline points="22 4 12 14.01 9 11.01" />
-				</svg>
-				<div class="card-content">
-					<div class="card-value">{$stats?.intelligence_count ?? 0}</div>
-					<div class="card-label">Facts Extracted</div>
-				</div>
-			</div>
-
-			<div class="card">
-				<svg
-					class="card-icon"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
-					<rect x="9" y="9" width="6" height="6" />
-					<line x1="9" y1="1" x2="9" y2="4" />
-					<line x1="15" y1="1" x2="15" y2="4" />
-					<line x1="9" y1="20" x2="9" y2="23" />
-					<line x1="15" y1="20" x2="15" y2="23" />
-					<line x1="20" y1="9" x2="23" y2="9" />
-					<line x1="20" y1="14" x2="23" y2="14" />
-					<line x1="1" y1="9" x2="4" y2="9" />
-					<line x1="1" y1="14" x2="4" y2="14" />
-				</svg>
-				<div class="card-content">
-					<div class="card-value">{$hardware?.cpu_cores ?? '...'}</div>
-					<div class="card-label">CPU Workers</div>
-				</div>
-			</div>
-		</div>
-	{/if}
+	<div class="stat-grid">
+		<StatCard
+			value={$isLoading ? '...' : ($stats?.registry_count ?? 0)}
+			label="Files registered"
+			variant="info"
+		/>
+		<StatCard
+			value={$isLoading ? '...' : ($stats?.intelligence_count ?? 0)}
+			label="Facts extracted"
+			variant="success"
+		/>
+		<StatCard value={$isLoading ? '...' : ($hardware?.cpu_cores ?? '...')} label="CPU cores" />
+	</div>
 
 	{#if $hardware}
-		<div class="info-section">
-			<h2>Hardware Status</h2>
+		<section class="dashboard-section">
+			<h2>Hardware</h2>
 			<div class="info-grid">
 				<div class="info-card">
 					<span class="info-label">CPU</span>
@@ -152,15 +50,11 @@
 				</div>
 				<div class="info-card">
 					<span class="info-label">Memory</span>
-					<span class="info-value"
-						>{($hardware.total_memory / 1024 / 1024 / 1024).toFixed(1)} GB total</span
-					>
+					<span class="info-value">{gb($hardware.total_memory)} GB total</span>
 				</div>
 				<div class="info-card">
 					<span class="info-label">Available</span>
-					<span class="info-value"
-						>{($hardware.available_memory / 1024 / 1024 / 1024).toFixed(1)} GB</span
-					>
+					<span class="info-value">{gb($hardware.available_memory)} GB</span>
 				</div>
 				<div class="info-card">
 					<span class="info-label">Backend</span>
@@ -169,81 +63,45 @@
 				{#if $hardware.gpu_name}
 					<div class="info-card full-width">
 						<span class="info-label">GPU</span>
-						<span class="info-value"
-							>{$hardware.gpu_name} ({($hardware.gpu_memory / 1024 / 1024).toFixed(0)} MB)</span
-						>
+						<span class="info-value">
+							{$hardware.gpu_name} ({($hardware.gpu_memory / 1024 / 1024).toFixed(0)} MB)
+						</span>
 					</div>
 				{/if}
 			</div>
-		</div>
+		</section>
 	{/if}
 
-	<div class="model-status">
-		<h2>Model Status</h2>
-		<div class="status-row">
-			<span class="status-label">Model:</span>
-			<span class="status-value" class:loaded={$modelLoaded}>
-				{$modelLoaded ? 'Loaded' : modelPath ? 'Not loaded' : 'No model'}
-			</span>
-		</div>
-		{#if modelPath}
+	<section class="dashboard-section">
+		<h2>Model</h2>
+		<div class="model-status">
 			<div class="status-row">
-				<span class="status-label">Path:</span>
-				<span class="status-value path">{modelPath}</span>
+				<span class="info-label">Status</span>
+				<span class="info-value" class:loaded={$modelLoaded}>
+					{$modelLoaded ? 'Loaded' : modelPath ? 'Not loaded' : 'No model configured'}
+				</span>
 			</div>
-		{/if}
-	</div>
-
-	<div class="quick-actions">
-		<h2>Quick Actions</h2>
-		<div class="action-buttons">
-			<a href="/analysis" class="action-btn">
-				<svg
-					class="action-icon"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<circle cx="11" cy="11" r="8" />
-					<path d="M21 21l-4.35-4.35" />
-				</svg>
-				<span class="action-label">Start Analysis</span>
-			</a>
-			<a href="/results" class="action-btn">
-				<svg
-					class="action-icon"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<line x1="8" y1="6" x2="21" y2="6" />
-					<line x1="8" y1="12" x2="21" y2="12" />
-					<line x1="8" y1="18" x2="21" y2="18" />
-					<circle cx="4" cy="6" r="1" fill="currentColor" />
-					<circle cx="4" cy="12" r="1" fill="currentColor" />
-					<circle cx="4" cy="18" r="1" fill="currentColor" />
-				</svg>
-				<span class="action-label">View Results</span>
-			</a>
-			<a href="/settings" class="action-btn">
-				<svg
-					class="action-icon"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<circle cx="12" cy="12" r="3" />
-					<path
-						d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-					/>
-				</svg>
-				<span class="action-label">Settings</span>
-			</a>
+			{#if modelPath}
+				<div class="status-row">
+					<span class="info-label">Path</span>
+					<span class="info-value mono">{modelPath}</span>
+				</div>
+			{/if}
 		</div>
-	</div>
+	</section>
+
+	<section class="dashboard-section">
+		<h2>Quick actions</h2>
+		<div class="action-buttons">
+			<a href="/analysis" class="btn">Start analysis</a>
+			<a href="/results" class="btn">View results</a>
+			<a href="/quality" class="btn">Quality review</a>
+			<a href="/chains" class="btn">Evidence chains</a>
+			<a href="/entities" class="btn">Entity resolution</a>
+			<a href="/pipelines" class="btn">Pipelines</a>
+			<a href="/settings" class="btn ghost">Settings</a>
+		</div>
+	</section>
 </div>
 
 <style>
@@ -251,189 +109,109 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		background: #fee2e2;
-		color: #991b1b;
-		padding: 0.75rem 1rem;
-		border-radius: 6px;
-		margin-bottom: 1.5rem;
-		border: 1px solid #fecaca;
 	}
 
-	.error-banner button {
+	.error-banner .dismiss {
 		background: none;
 		border: none;
-		color: #991b1b;
+		color: inherit;
 		font-size: 1.25rem;
 		cursor: pointer;
-		padding: 0 0.25rem;
+		padding: 0 var(--space-1);
 	}
 
-	.dashboard {
-		max-width: 1200px;
+	.dashboard-section {
+		margin-top: var(--space-6);
 	}
 
-	h1 {
-		font-size: 1.75rem;
-		margin-bottom: 1.5rem;
-		color: #eaeaea;
-	}
-
-	h2 {
-		font-size: 1.25rem;
-		margin-bottom: 1rem;
-		color: #9ca3af;
-	}
-
-	.cards {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-		gap: 1rem;
-		margin-bottom: 2rem;
-	}
-
-	.card {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		padding: 1.5rem;
-		background-color: #16213e;
-		border-radius: 8px;
-		border: 1px solid #0f3460;
-	}
-
-	.card-icon {
-		width: 40px;
-		height: 40px;
-		color: #e94560;
-	}
-
-	.card-value {
-		font-size: 2rem;
-		font-weight: 700;
-		color: #e94560;
-	}
-
-	.card-label {
-		font-size: 0.875rem;
-		color: #9ca3af;
-	}
-
-	.quick-actions {
-		margin-top: 2rem;
-	}
-
-	.action-buttons {
-		display: flex;
-		gap: 1rem;
-		flex-wrap: wrap;
-	}
-
-	.action-btn {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 1rem 1.5rem;
-		background-color: #0f3460;
-		border-radius: 8px;
-		text-decoration: none;
-		color: #eaeaea;
-		transition: all 0.2s;
-	}
-
-	.action-btn:hover {
-		background-color: #e94560;
-		transform: translateY(-2px);
-	}
-
-	.action-icon {
-		width: 20px;
-		height: 20px;
-	}
-
-	.action-label {
-		font-size: 1rem;
-		font-weight: 500;
-	}
-
-	.info-section {
-		margin-top: 2rem;
-	}
-
-	.info-section h2 {
-		margin-bottom: 1rem;
+	.dashboard-section h2 {
+		font-size: var(--text-lg);
+		font-weight: 600;
+		margin: 0 0 var(--space-3);
+		color: var(--color-text-secondary);
 	}
 
 	.info-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-		gap: 1rem;
+		gap: var(--space-3);
 	}
 
 	.info-card {
 		display: flex;
 		flex-direction: column;
-		padding: 1rem;
-		background-color: #16213e;
-		border-radius: 8px;
-		border: 1px solid #0f3460;
+		gap: var(--space-1);
+		padding: var(--space-4);
+		background-color: var(--color-bg-card);
+		border-radius: var(--radius-lg);
+		border: 1px solid var(--color-border);
 	}
 
 	.info-card.full-width {
 		grid-column: 1 / -1;
 	}
 
-	.info-card .info-label {
-		font-size: 0.75rem;
-		color: #9ca3af;
-		margin-bottom: 0.25rem;
+	.info-label {
+		font-size: var(--text-xs);
+		color: var(--color-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
 	}
 
-	.info-card .info-value {
-		font-size: 0.875rem;
-		color: #eaeaea;
+	.info-value {
+		font-size: var(--text-base);
+		color: var(--color-text-primary);
 		font-weight: 500;
 	}
 
-	.model-status {
-		margin-top: 2rem;
-		padding: 1.5rem;
-		background-color: #16213e;
-		border-radius: 8px;
-		border: 1px solid #0f3460;
+	.info-value.loaded {
+		color: var(--color-status-confirmed);
 	}
 
-	.model-status h2 {
-		margin-bottom: 1rem;
+	.info-value.mono {
+		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		font-size: var(--text-sm);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.model-status {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding: var(--space-4);
+		background-color: var(--color-bg-card);
+		border-radius: var(--radius-lg);
+		border: 1px solid var(--color-border);
 	}
 
 	.status-row {
 		display: flex;
+		gap: var(--space-3);
 		align-items: center;
-		gap: 1rem;
-		padding: 0.5rem 0;
+		min-width: 0;
 	}
 
-	.status-label {
-		font-size: 0.875rem;
-		color: #9ca3af;
-		min-width: 60px;
+	.status-row .info-label {
+		min-width: 80px;
 	}
 
-	.status-value {
-		font-size: 0.875rem;
-		color: #eaeaea;
+	.action-buttons {
+		display: flex;
+		gap: var(--space-2);
+		flex-wrap: wrap;
 	}
 
-	.status-value.loaded {
-		color: #4ade80;
+	/* Override .btn to have a tinted background for the action shortcuts. */
+	.action-buttons :global(a.btn) {
+		text-decoration: none;
+		background-color: var(--color-bg-elevated);
 	}
 
-	.status-value.path {
-		font-family: 'SF Mono', Monaco, monospace;
-		font-size: 0.75rem;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		max-width: 400px;
+	.action-buttons :global(a.btn:hover) {
+		background-color: var(--color-accent);
+		color: white;
+		border-color: var(--color-accent);
 	}
 </style>
