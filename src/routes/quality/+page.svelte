@@ -47,6 +47,58 @@
 	let filter = $state('');
 	let showVerified = $state('low'); // 'low' | 'all' | 'verified'
 
+	// FR-DEDUP: near-duplicate detection
+	interface DuplicateGroup {
+		keeper_id: number;
+		member_ids: number[];
+		similarity: number;
+	}
+	let dedupGroups = $state<DuplicateGroup[]>([]);
+	let dedupThreshold = $state(0.85);
+	let dedupRequireSameCategory = $state(true);
+	let dedupRunning = $state(false);
+	let dedupRanOnce = $state(false);
+
+	async function findDuplicates() {
+		dedupRunning = true;
+		error = '';
+		try {
+			dedupGroups = await invoke<DuplicateGroup[]>('find_duplicate_facts', {
+				threshold: dedupThreshold,
+				requireSameCategory: dedupRequireSameCategory,
+				requireSameDate: false
+			});
+			dedupRanOnce = true;
+		} catch (e) {
+			console.error('Find duplicates failed:', e);
+			error = String(e);
+		} finally {
+			dedupRunning = false;
+		}
+	}
+
+	async function mergeGroup(group: DuplicateGroup) {
+		try {
+			const deleted = await invoke<number>('merge_duplicate_facts', {
+				keeperId: group.keeper_id,
+				memberIds: group.member_ids
+			});
+			// Drop the merged group from the panel and reload facts so the
+			// list reflects the soft-deletes.
+			dedupGroups = dedupGroups.filter((g) => g.keeper_id !== group.keeper_id);
+			await loadFacts();
+			error = '';
+			console.info(`Merged ${deleted} duplicates into fact ${group.keeper_id}`);
+		} catch (e) {
+			console.error('Merge failed:', e);
+			error = String(e);
+		}
+	}
+
+	function factSummaryById(id: number): string {
+		return facts.find((f) => f.id === id)?.fact_summary ?? `(fact #${id})`;
+	}
+
 	// Stats
 	let stats = $derived.by(() => ({
 		total: facts.length,
@@ -199,6 +251,66 @@
 		</div>
 	{/if}
 
+	<!-- FR-DEDUP: Duplicate detection panel -->
+	<section class="dedup-panel">
+		<header class="dedup-header">
+			<h2>Find Duplicate Facts</h2>
+			<p class="subtitle">
+				Detect near-duplicate fact summaries so you can merge them. Soft-deletes losers; the keeper
+				retains its provenance.
+			</p>
+		</header>
+		<div class="dedup-controls">
+			<label>
+				Similarity threshold
+				<input
+					type="range"
+					min="0.5"
+					max="1"
+					step="0.05"
+					bind:value={dedupThreshold}
+					disabled={dedupRunning}
+				/>
+				<span class="range-value">{dedupThreshold.toFixed(2)}</span>
+			</label>
+			<label class="checkbox-label">
+				<input type="checkbox" bind:checked={dedupRequireSameCategory} disabled={dedupRunning} />
+				Require same category
+			</label>
+			<button class="primary" onclick={findDuplicates} disabled={dedupRunning}>
+				{dedupRunning ? 'Scanning...' : 'Find Duplicates'}
+			</button>
+		</div>
+
+		{#if dedupRanOnce && dedupGroups.length === 0 && !dedupRunning}
+			<p class="dedup-empty">No duplicate groups found at threshold {dedupThreshold.toFixed(2)}.</p>
+		{/if}
+
+		{#if dedupGroups.length > 0}
+			<div class="dedup-groups">
+				{#each dedupGroups as group (group.keeper_id)}
+					<div class="dedup-group">
+						<div class="dedup-group-header">
+							<span class="dedup-count">{group.member_ids.length} facts</span>
+							<span class="dedup-similarity">avg sim {group.similarity.toFixed(2)}</span>
+							<button class="merge-btn" onclick={() => mergeGroup(group)}>
+								Merge into #{group.keeper_id}
+							</button>
+						</div>
+						<ul class="dedup-members">
+							{#each group.member_ids as id (id)}
+								<li class:keeper={id === group.keeper_id}>
+									<strong>#{id}{id === group.keeper_id ? ' (keeper)' : ''}</strong>
+									<span>{factSummaryById(id)}</span>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</section>
+
 	<!-- Stats Cards -->
 	<div class="stats-grid">
 		<div class="stat-card">
@@ -338,7 +450,8 @@
 						<button
 							class="verify-btn unverified"
 							class:active={selectedFact.verification_status === 'unverified'}
-							onclick={() => selectedFact && updateVerificationStatus(selectedFact.id, 'unverified')}
+							onclick={() =>
+								selectedFact && updateVerificationStatus(selectedFact.id, 'unverified')}
 						>
 							Unverified
 						</button>
@@ -715,5 +828,134 @@
 
 	.export-btn:hover {
 		background: #d13650;
+	}
+
+	/* FR-DEDUP panel */
+	.dedup-panel {
+		background: var(--card-bg, #1a1d29);
+		border: 1px solid var(--border-color, #2c3046);
+		border-radius: 0.5rem;
+		padding: 1.25rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.dedup-header h2 {
+		margin: 0 0 0.25rem;
+		font-size: 1.15rem;
+	}
+
+	.dedup-header .subtitle {
+		margin: 0 0 0.75rem;
+		color: var(--text-muted, #8b91a8);
+		font-size: 0.85rem;
+	}
+
+	.dedup-controls {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 1rem;
+		margin: 0.5rem 0 1rem;
+	}
+
+	.dedup-controls label {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.85rem;
+	}
+
+	.dedup-controls input[type='range'] {
+		width: 160px;
+	}
+
+	.dedup-controls .range-value {
+		font-variant-numeric: tabular-nums;
+		min-width: 2.5rem;
+	}
+
+	.dedup-controls button.primary {
+		background: #e94560;
+		color: white;
+		border: none;
+		padding: 0.5rem 1rem;
+		border-radius: 0.375rem;
+		font-weight: 500;
+		cursor: pointer;
+	}
+
+	.dedup-controls button.primary:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	.dedup-empty {
+		color: var(--text-muted, #8b91a8);
+		font-style: italic;
+		margin: 0.5rem 0 0;
+	}
+
+	.dedup-groups {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.dedup-group {
+		border: 1px solid var(--border-color, #2c3046);
+		border-radius: 0.375rem;
+		padding: 0.75rem;
+		background: rgba(255, 255, 255, 0.02);
+	}
+
+	.dedup-group-header {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.dedup-count {
+		font-weight: 600;
+	}
+
+	.dedup-similarity {
+		color: var(--text-muted, #8b91a8);
+		font-size: 0.85rem;
+	}
+
+	.merge-btn {
+		margin-left: auto;
+		background: transparent;
+		color: #e94560;
+		border: 1px solid #e94560;
+		padding: 0.35rem 0.75rem;
+		border-radius: 0.375rem;
+		font-size: 0.85rem;
+		cursor: pointer;
+	}
+
+	.merge-btn:hover {
+		background: #e94560;
+		color: white;
+	}
+
+	.dedup-members {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.dedup-members li {
+		display: flex;
+		gap: 0.5rem;
+		font-size: 0.85rem;
+	}
+
+	.dedup-members li.keeper {
+		color: #4ade80;
 	}
 </style>
