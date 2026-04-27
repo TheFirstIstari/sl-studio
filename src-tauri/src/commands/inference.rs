@@ -204,17 +204,26 @@ pub async fn analyze_batch(
             }
         };
 
-        match reasoner.analyze_text(fingerprint, &entry.file_name, &text) {
-            Ok(result) => {
-                for fact in &result.facts {
-                    let location_str = fact.location.clone();
-                    let people_str = if fact.people.is_empty() {
-                        None
-                    } else {
-                        Some(fact.people.join(", "))
-                    };
+        // Run the LLM analysis on a blocking thread so the tokio runtime
+        // stays free to service IPC traffic (cancel, progress polling).
+        // Reasoner is already an Arc; cheap to clone into the closure.
+        let reasoner_clone = reasoner.clone();
+        let fp = fingerprint.clone();
+        let fname = entry.file_name.clone();
+        let analyze_result =
+            tokio::task::spawn_blocking(move || reasoner_clone.analyze_text(&fp, &fname, &text))
+                .await
+                .map_err(|e| format!("Analysis task failed: {e}"))?;
 
-                    let intel_entry = IntelligenceEntry {
+        match analyze_result {
+            Ok(result) => {
+                // Build all IntelligenceEntry rows up front, then insert
+                // them in a single transaction. Saves N pool checkouts +
+                // N autocommits for a typical 10–50 facts per file.
+                let entries: Vec<IntelligenceEntry> = result
+                    .facts
+                    .iter()
+                    .map(|fact| IntelligenceEntry {
                         id: 0,
                         registry_id: entry.id,
                         fingerprint: fingerprint.clone(),
@@ -224,8 +233,12 @@ pub async fn analyze_batch(
                         evidence_full: None,
                         evidence_hash: None,
                         associated_date: fact.date.clone(),
-                        location: location_str,
-                        people: people_str,
+                        location: fact.location.clone(),
+                        people: if fact.people.is_empty() {
+                            None
+                        } else {
+                            Some(fact.people.join(", "))
+                        },
                         fact_summary: fact.summary.clone(),
                         category: Some(fact.category.clone()),
                         identified_crime: fact.identified_crime.clone(),
@@ -240,11 +253,11 @@ pub async fn analyze_batch(
                         deleted_at: None,
                         processing_time_ms: None,
                         created_at: None,
-                    };
+                    })
+                    .collect();
 
-                    if let Err(e) = db.insert_intelligence(&intel_entry) {
-                        error!("Failed to save fact for {}: {}", fingerprint, e);
-                    }
+                if let Err(e) = db.insert_intelligence_batch(&entries) {
+                    error!("Failed to save facts for {}: {}", fingerprint, e);
                 }
 
                 let _ = db.mark_processed(fingerprint);

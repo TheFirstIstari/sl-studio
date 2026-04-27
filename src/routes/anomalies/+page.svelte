@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/core';
 	import { onMount } from 'svelte';
-	import { PageHeader } from '$lib/components';
+	import { PageHeader, StatCard } from '$lib/components';
 
 	interface Anomaly {
 		id: number;
@@ -120,19 +120,10 @@
 			<p class="empty-hint">All values are within the normal range.</p>
 		</div>
 	{:else}
-		<div class="summary">
-			<div class="summary-stat">
-				<span class="stat-value">{anomalies.length}</span>
-				<span class="stat-label">Anomalies Found</span>
-			</div>
-			<div class="summary-stat">
-				<span class="stat-value">{selectedMetric}</span>
-				<span class="stat-label">Metric</span>
-			</div>
-			<div class="summary-stat">
-				<span class="stat-value">±{threshold}σ</span>
-				<span class="stat-label">Threshold</span>
-			</div>
+		<div class="stat-grid">
+			<StatCard value={anomalies.length} label="Anomalies Found" variant="warning" />
+			<StatCard value={selectedMetric} label="Metric" />
+			<StatCard value="±{threshold}σ" label="Threshold" />
 		</div>
 
 		<div class="anomalies-list">
@@ -274,32 +265,6 @@
 		font-size: 0.875rem;
 		color: #6b7280;
 		margin-top: 0.5rem;
-	}
-
-	.summary {
-		display: flex;
-		gap: 2rem;
-		margin-bottom: 1.5rem;
-		padding: 1rem;
-		background-color: #16213e;
-		border-radius: 8px;
-		border: 1px solid #0f3460;
-	}
-
-	.summary-stat {
-		display: flex;
-		flex-direction: column;
-	}
-
-	.stat-value {
-		font-size: 1.5rem;
-		font-weight: 700;
-		color: #e94560;
-	}
-
-	.stat-label {
-		font-size: 0.75rem;
-		color: #9ca3af;
 	}
 
 	.anomalies-list {

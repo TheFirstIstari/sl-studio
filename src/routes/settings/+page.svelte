@@ -4,7 +4,7 @@
 	import { listen } from '@tauri-apps/api/event';
 	import { onMount, onDestroy } from 'svelte';
 	import type { AppConfig } from '$lib/stores/app';
-	import { PageHeader } from '$lib/components';
+	import { PageHeader, StatCard } from '$lib/components';
 
 	interface ModelInfo {
 		id: string;
@@ -481,35 +481,15 @@
 			{#if hardwareInfo}
 				<section class="settings-section hardware-section">
 					<h2>Hardware Stats</h2>
-					<div class="hardware-cards">
-						<div class="hardware-card">
-							<div class="hardware-icon">[CPU]</div>
-							<div class="hardware-data">
-								<span class="hardware-value">{hardwareInfo.cpu_threads}</span>
-								<span class="hardware-label">CPU Cores</span>
-							</div>
-						</div>
-						<div class="hardware-card">
-							<div class="hardware-icon">[RAM]</div>
-							<div class="hardware-data">
-								<span class="hardware-value">{hardwareInfo.total_memory_gb.toFixed(1)} GB</span>
-								<span class="hardware-label">Total RAM</span>
-							</div>
-						</div>
-						<div class="hardware-card">
-							<div class="hardware-icon">[Workers]</div>
-							<div class="hardware-data">
-								<span class="hardware-value">{hardwareInfo.recommended_workers}</span>
-								<span class="hardware-label">Recommended Workers</span>
-							</div>
-						</div>
-						<div class="hardware-card">
-							<div class="hardware-icon">[Batch]</div>
-							<div class="hardware-data">
-								<span class="hardware-value">{hardwareInfo.recommended_batch_size}</span>
-								<span class="hardware-label">Recommended Batch Size</span>
-							</div>
-						</div>
+					<div class="stat-grid">
+						<StatCard value={hardwareInfo.cpu_threads} label="CPU Cores" variant="info" />
+						<StatCard
+							value="{hardwareInfo.total_memory_gb.toFixed(1)} GB"
+							label="Total RAM"
+							variant="info"
+						/>
+						<StatCard value={hardwareInfo.recommended_workers} label="Recommended Workers" />
+						<StatCard value={hardwareInfo.recommended_batch_size} label="Recommended Batch Size" />
 					</div>
 				</section>
 			{/if}
@@ -824,47 +804,5 @@
 
 	.hardware-section {
 		grid-column: 1 / -1;
-	}
-
-	.hardware-cards {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-		gap: 1rem;
-	}
-
-	.hardware-card {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		padding: 1rem;
-		background-color: #1a1a2e;
-		border: 1px solid #0f3460;
-		border-radius: 8px;
-		transition: all 0.2s;
-	}
-
-	.hardware-card:hover {
-		border-color: #e94560;
-		transform: translateY(-2px);
-	}
-
-	.hardware-icon {
-		font-size: 2rem;
-	}
-
-	.hardware-data {
-		display: flex;
-		flex-direction: column;
-	}
-
-	.hardware-value {
-		font-size: 1.25rem;
-		font-weight: 600;
-		color: #e94560;
-	}
-
-	.hardware-label {
-		font-size: 0.75rem;
-		color: #9ca3af;
 	}
 </style>

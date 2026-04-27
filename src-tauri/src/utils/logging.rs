@@ -6,7 +6,14 @@ pub fn init_logging() -> Result<WorkerGuard, Box<dyn std::error::Error>> {
     let log_dir = get_log_dir();
     std::fs::create_dir_all(&log_dir)?;
 
-    let file_appender = RollingFileAppender::new(Rotation::DAILY, &log_dir, "slstudio.log");
+    // Daily rotation, retain the last 30 files. tracing_appender 0.2 does not
+    // support a per-file size cap, so we bound disk usage by file count instead.
+    let file_appender = RollingFileAppender::builder()
+        .rotation(Rotation::DAILY)
+        .max_log_files(30)
+        .filename_prefix("slstudio")
+        .filename_suffix("log")
+        .build(&log_dir)?;
 
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 

@@ -47,6 +47,61 @@ impl Database {
         Ok(())
     }
 
+    /// Bulk-insert intelligence rows in a single transaction. Saves
+    /// per-row pool checkout + autocommit overhead when a single LLM
+    /// pass produces dozens of facts.
+    pub fn insert_intelligence_batch(&self, entries: &[IntelligenceEntry]) -> Result<usize> {
+        if entries.is_empty() {
+            return Ok(0);
+        }
+        let mut conn = self.intel_conn()?;
+        let tx = conn.transaction()?;
+        let inserted = {
+            let mut stmt = tx.prepare(
+                "INSERT OR REPLACE INTO intelligence
+                 (registry_id, fingerprint, filename, source_quote, page_number, evidence_full, evidence_hash,
+                  associated_date, location, people, fact_summary, category, identified_crime, severity_score,
+                  confidence, quality_score, source_language, translated_quote, pipeline_id, pass_name,
+                  is_deleted, deleted_at, processing_time_ms, created_at)
+                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
+            )?;
+            let mut count = 0usize;
+            for entry in entries {
+                stmt.execute(params![
+                    entry.registry_id,
+                    entry.fingerprint,
+                    entry.filename,
+                    entry.source_quote,
+                    entry.page_number,
+                    entry.evidence_full,
+                    entry.evidence_hash,
+                    entry.associated_date,
+                    entry.location,
+                    entry.people,
+                    entry.fact_summary,
+                    entry.category,
+                    entry.identified_crime,
+                    entry.severity_score,
+                    entry.confidence,
+                    entry.quality_score,
+                    entry.source_language,
+                    entry.translated_quote,
+                    entry.pipeline_id,
+                    entry.pass_name,
+                    entry.is_deleted,
+                    entry.deleted_at,
+                    entry.processing_time_ms,
+                    entry.created_at,
+                ])?;
+                count += 1;
+            }
+            count
+        };
+        tx.commit()?;
+        self.invalidate_cache();
+        Ok(inserted)
+    }
+
     pub fn get_intelligence(&self, limit: i64, offset: i64) -> Result<Vec<IntelligenceEntry>> {
         let conn = self.intel_conn()?;
         let mut stmt = conn.prepare(

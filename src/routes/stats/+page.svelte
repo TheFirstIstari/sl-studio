@@ -2,7 +2,7 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { onMount, onDestroy } from 'svelte';
 	import { Chart, registerables } from 'chart.js';
-	import { PageHeader } from '$lib/components';
+	import { PageHeader, StatCard } from '$lib/components';
 
 	Chart.register(...registerables);
 
@@ -215,35 +215,18 @@
 		<div class="loading">Loading statistics...</div>
 	{:else}
 		{#if overallStats}
-			<div class="overview-cards">
-				<div class="overview-card">
-					<div class="card-value">{overallStats.total_facts}</div>
-					<div class="card-label">Total Facts</div>
-				</div>
-				<div class="overview-card">
-					<div class="card-value">{overallStats.avg_severity?.toFixed(1) || '0'}</div>
-					<div class="card-label">Avg Severity</div>
-				</div>
-				<div class="overview-card">
-					<div class="card-value">
-						{overallStats.avg_confidence
-							? (overallStats.avg_confidence * 100).toFixed(0) + '%'
-							: 'N/A'}
-					</div>
-					<div class="card-label">Avg Confidence</div>
-				</div>
-				<div class="overview-card">
-					<div class="card-value">{overallStats.total_entities}</div>
-					<div class="card-label">Entity Mentions</div>
-				</div>
-				<div class="overview-card">
-					<div class="card-value">{overallStats.unique_entities}</div>
-					<div class="card-label">Unique Entities</div>
-				</div>
-				<div class="overview-card">
-					<div class="card-value">{overallStats.total_chains}</div>
-					<div class="card-label">Evidence Chains</div>
-				</div>
+			<div class="stat-grid">
+				<StatCard value={overallStats.total_facts} label="Total Facts" variant="info" />
+				<StatCard value={overallStats.avg_severity?.toFixed(1) || '0'} label="Avg Severity" />
+				<StatCard
+					value={overallStats.avg_confidence
+						? (overallStats.avg_confidence * 100).toFixed(0) + '%'
+						: 'N/A'}
+					label="Avg Confidence"
+				/>
+				<StatCard value={overallStats.total_entities} label="Entity Mentions" />
+				<StatCard value={overallStats.unique_entities} label="Unique Entities" />
+				<StatCard value={overallStats.total_chains} label="Evidence Chains" />
 			</div>
 		{/if}
 
@@ -313,33 +296,6 @@
 		text-align: center;
 		padding: 3rem;
 		color: #9ca3af;
-	}
-
-	.overview-cards {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-		gap: 1rem;
-		margin-bottom: 2rem;
-	}
-
-	.overview-card {
-		padding: 1.25rem;
-		background-color: #16213e;
-		border-radius: 8px;
-		border: 1px solid #0f3460;
-		text-align: center;
-	}
-
-	.card-value {
-		font-size: 2rem;
-		font-weight: 700;
-		color: #e94560;
-	}
-
-	.card-label {
-		font-size: 0.875rem;
-		color: #9ca3af;
-		margin-top: 0.25rem;
 	}
 
 	.charts-grid {

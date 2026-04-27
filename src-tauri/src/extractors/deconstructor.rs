@@ -38,6 +38,11 @@ pub struct ExtractorConfig {
     pub whisper_model_path: Option<PathBuf>,
 }
 
+const DENIED_EXTENSIONS: &[&str] = &[
+    "exe", "bat", "cmd", "com", "scr", "msi", "vbs", "js", "ps1", "sh", "app", "dmg", "pkg", "deb",
+    "rpm", "dll", "so", "dylib",
+];
+
 pub struct Deconstructor {
     pdf: PdfExtractor,
     ocr: OcrExtractor,
@@ -69,6 +74,16 @@ impl Deconstructor {
             .and_then(|e| e.to_str())
             .map(|e| e.to_lowercase())
             .unwrap_or_default();
+
+        if DENIED_EXTENSIONS
+            .iter()
+            .any(|d| ext.eq_ignore_ascii_case(d))
+        {
+            warn!("Rejected dangerous file type: .{}", ext);
+            return Err(ExtractionError::UnsupportedType(format!(
+                "rejected dangerous file type: .{ext}"
+            )));
+        }
 
         let (text, file_type) = match ext.as_str() {
             "pdf" => {
