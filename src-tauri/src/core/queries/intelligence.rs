@@ -168,6 +168,22 @@ impl Database {
     /// Returns only non-deleted intelligence rows projected down to the
     /// fields the dedup engine actually needs.
 
+    /// Update the detected source language (ISO 639-3) for a single
+    /// intelligence row. Used by FR-LANG to populate the column after
+    /// extraction-time language detection. Returns the number of rows
+    /// affected (0 if the id doesn't exist).
+    pub fn update_intelligence_language(&self, id: i64, code: &str) -> Result<usize> {
+        let conn = self.intel_conn()?;
+        let affected = conn.execute(
+            "UPDATE intelligence SET source_language = ?1 WHERE id = ?2",
+            params![code, id],
+        )?;
+        if affected > 0 {
+            self.invalidate_cache();
+        }
+        Ok(affected)
+    }
+
     pub fn update_fact_verification(
         &self,
         id: i64,

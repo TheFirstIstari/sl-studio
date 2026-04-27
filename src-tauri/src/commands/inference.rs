@@ -204,6 +204,10 @@ pub async fn analyze_batch(
             }
         };
 
+        // FR-LANG: detect language once per file; tag every fact below.
+        let detected_language: Option<String> =
+            crate::extractors::language::detect_language(&text).map(String::from);
+
         // Run the LLM analysis on a blocking thread so the tokio runtime
         // stays free to service IPC traffic (cancel, progress polling).
         // Reasoner is already an Arc; cheap to clone into the closure.
@@ -245,7 +249,7 @@ pub async fn analyze_batch(
                         severity_score: fact.severity,
                         confidence: Some(fact.confidence as f64),
                         quality_score: Some(result.quality_score as f64),
-                        source_language: None,
+                        source_language: detected_language.clone(),
                         translated_quote: None,
                         pipeline_id: None,
                         pass_name: None,

@@ -210,6 +210,8 @@ pub fn run() {
             update_evidence_chain,
             delete_evidence_chain,
             get_evidence_chain_statistics,
+            // FR-LANG
+            detect_text_language,
         ])
         .setup(|_app| {
             info!("Tauri app setup complete");

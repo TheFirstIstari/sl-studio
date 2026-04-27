@@ -132,36 +132,35 @@ export async function initializeApp() {
 	error.set(null);
 
 	try {
-		// Load config
+		// Step 1: load config first — it gates project init.
 		const cfg = await invoke<AppConfig>('load_config');
 		config.set(cfg);
 
-		// Detect hardware
-		const hw = await invoke<HardwareStatus>('detect_hardware');
-		hardware.set(hw);
-
-		const hwInfo = await invoke<HardwareInfo>('get_recommended_settings');
-		hardwareInfo.set(hwInfo);
-
-		// Get project stats
-		const projectStats = await invoke<ProjectStats>('get_stats');
-		stats.set(projectStats);
-
-		// Check model loaded
-		const loaded = await invoke<boolean>('is_model_loaded');
-		modelLoaded.set(loaded);
-
-		// Initialize project if config exists
-		if (cfg && cfg.project?.evidence_root) {
+		// Step 2: initialize the project if we have an evidence root.
+		// Done before stats / workflow because both depend on it.
+		const hasProject = !!cfg?.project?.evidence_root;
+		if (hasProject) {
 			await invoke('init_project', { config: cfg });
 			projectInitialized.set(true);
-
-			// Get workflow state
-			const wf = await invoke<WorkflowState>('get_workflow_state');
-			workflow.set(wf);
 		}
 
-		// Setup event listeners for background tasks
+		// Step 3: fan out the remaining independent queries in parallel.
+		// Each is a separate Tauri IPC round-trip; running them
+		// concurrently cuts startup latency roughly to the slowest one.
+		const [hw, hwInfo, projectStats, loaded, wf] = await Promise.all([
+			invoke<HardwareStatus>('detect_hardware'),
+			invoke<HardwareInfo>('get_recommended_settings'),
+			invoke<ProjectStats>('get_stats'),
+			invoke<boolean>('is_model_loaded'),
+			hasProject ? invoke<WorkflowState>('get_workflow_state') : Promise.resolve(null)
+		]);
+		hardware.set(hw);
+		hardwareInfo.set(hwInfo);
+		stats.set(projectStats);
+		modelLoaded.set(loaded);
+		if (wf) workflow.set(wf);
+
+		// Step 4: setup event listeners for background tasks.
 		await setupEventListeners();
 	} catch (e) {
 		console.error('Failed to initialize app:', e);

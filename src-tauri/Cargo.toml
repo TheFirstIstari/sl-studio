@@ -65,6 +65,7 @@ zip = "2"
 llama_cpp = { version = "0.3", features = ["metal"] }
 rand = "0.8"
 mupdf = "0.6"
+whatlang = "0.16"
 
 [dev-dependencies]
 tempfile = "3"

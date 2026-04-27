@@ -1,6 +1,7 @@
 pub mod audio;
 pub mod deconstructor;
 pub mod document;
+pub mod language;
 pub mod ocr;
 pub mod pdf;
 

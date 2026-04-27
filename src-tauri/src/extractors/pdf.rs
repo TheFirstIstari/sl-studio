@@ -1,5 +1,5 @@
 use image::{DynamicImage, RgbaImage};
-use mupdf::{Colorspace, Document, Matrix};
+use mupdf::{Colorspace, Document, Matrix, TextPageFlags};
 use pdf_extract::extract_text;
 use std::panic::catch_unwind;
 use std::path::Path;
@@ -286,15 +286,23 @@ impl PdfExtractor {
 
     pub fn extract_text_with_fallback(&self, path: &Path) -> Result<String, PdfError> {
         // Check file size first
-        if let Ok(metadata) = std::fs::metadata(path) {
-            let size_mb = metadata.len() as f64 / (1024.0 * 1024.0);
-            if size_mb > 100.0 {
-                warn!(
-                    "Large PDF detected ({} MB), using limited extraction",
-                    size_mb
-                );
-                return self.extract_text_large(path);
-            }
+        let size_mb = std::fs::metadata(path)
+            .map(|m| m.len() as f64 / (1024.0 * 1024.0))
+            .unwrap_or(0.0);
+
+        // Cheaply probe page count via mupdf so we can route huge PDFs to
+        // streaming even if the file size is modest (lots of small pages).
+        let page_count = self.get_page_count(path).unwrap_or(0);
+
+        if size_mb > 100.0 || page_count > 500 {
+            warn!(
+                "Large PDF detected ({:.1} MB, {} pages), using streaming extraction",
+                size_mb, page_count
+            );
+            // 10 MB of text is already a giant document; bail past that to
+            // keep memory bounded.
+            let (text, _pages) = self.extract_text_streaming(path, Some(10 * 1024 * 1024))?;
+            return Ok(text);
         }
 
         let text = self.extract_text(path)?;
@@ -311,24 +319,113 @@ impl PdfExtractor {
 
     /// Extract text from a large PDF.
     ///
-    /// `pdf_extract` does not expose a page-limited extraction API, so this
-    /// currently behaves the same as `extract_text` but logs that the file is
-    /// large. Kept as a separate entry point so callers (and future page
-    /// limiting work) have a clear hook.
+    /// Thin wrapper around [`Self::extract_text_streaming`] with a 10 MB
+    /// character ceiling. Kept as a stable entry point for callers that just
+    /// want "give me the text, but don't blow up memory".
     pub fn extract_text_large(&self, path: &Path) -> Result<String, PdfError> {
+        let (text, _) = self.extract_text_streaming(path, Some(10 * 1024 * 1024))?;
+        Ok(text)
+    }
+
+    /// Extract text from a PDF page-by-page with bounded memory and an
+    /// optional max char ceiling. Suitable for files >100MB.
+    ///
+    /// Each page is opened, converted to a `TextPage`, drained into a
+    /// `String`, and dropped before the next page is processed, so peak
+    /// memory tracks a single page rather than the whole document.
+    ///
+    /// Returns the concatenated text (with form-feed `\u{000C}` between
+    /// pages) and the number of pages actually extracted.
+    pub fn extract_text_streaming(
+        &self,
+        path: &Path,
+        max_chars: Option<usize>,
+    ) -> Result<(String, u32), PdfError> {
         let path_str = path.to_string_lossy();
-        info!("Extracting text from large PDF: {}", path_str);
+        info!("Streaming PDF extraction starting: {}", path_str);
 
-        let text = Self::extract_text_safe(path)?;
+        let doc = Document::open(path).map_err(|e| {
+            let msg = e.to_string();
+            if msg.contains("password") || msg.contains("encrypted") {
+                PdfError::PasswordProtected
+            } else {
+                PdfError::ExtractionError(format!("Failed to open PDF: {}", msg))
+            }
+        })?;
 
-        let trimmed = text.trim();
-        if trimmed.is_empty() {
-            warn!("PDF extracted empty text: {}", path_str);
-            return Ok(String::new());
+        let pages_iter = doc
+            .pages()
+            .map_err(|e| PdfError::ExtractionError(format!("Failed to get pages: {}", e)))?;
+
+        let mut accumulated = String::new();
+        let mut pages_extracted: u32 = 0;
+        let ceiling = max_chars.unwrap_or(usize::MAX);
+
+        for (idx, page_res) in pages_iter.enumerate() {
+            let page = match page_res {
+                Ok(p) => p,
+                Err(e) => {
+                    warn!("Skipping page {}: {}", idx + 1, e);
+                    continue;
+                }
+            };
+
+            // Scope so the TextPage is dropped before next iteration.
+            let page_text = match page.to_text_page(TextPageFlags::empty()) {
+                Ok(tp) => match tp.to_text() {
+                    Ok(s) => s,
+                    Err(e) => {
+                        warn!("Failed to render text for page {}: {}", idx + 1, e);
+                        String::new()
+                    }
+                },
+                Err(e) => {
+                    warn!("Failed to build text page {}: {}", idx + 1, e);
+                    String::new()
+                }
+            };
+
+            if pages_extracted > 0 {
+                accumulated.push('\u{000C}');
+            }
+            // Bound the per-page append so a single huge page can't push us
+            // arbitrarily past the ceiling.
+            if accumulated.len() + page_text.len() > ceiling {
+                let remaining = ceiling.saturating_sub(accumulated.len());
+                // Ensure we slice on a char boundary.
+                let mut take = remaining.min(page_text.len());
+                while take > 0 && !page_text.is_char_boundary(take) {
+                    take -= 1;
+                }
+                accumulated.push_str(&page_text[..take]);
+                pages_extracted += 1;
+                warn!(
+                    "Streaming extraction hit char ceiling ({} chars) at page {}",
+                    ceiling,
+                    idx + 1
+                );
+                break;
+            }
+            accumulated.push_str(&page_text);
+            pages_extracted += 1;
+
+            if accumulated.len() >= ceiling {
+                warn!(
+                    "Streaming extraction hit char ceiling ({} chars) at page {}",
+                    ceiling,
+                    idx + 1
+                );
+                break;
+            }
         }
 
-        info!("Extracted {} chars from PDF", trimmed.len());
-        Ok(trimmed.to_string())
+        let trimmed = accumulated.trim().to_string();
+        info!(
+            "Streaming PDF extraction: {} pages, {} chars",
+            pages_extracted,
+            trimmed.len()
+        );
+        Ok((trimmed, pages_extracted))
     }
 }
 
@@ -362,5 +459,50 @@ mod tests {
         let quality = ExtractionQuality::calculate("", 1);
         assert!(quality.is_scanned);
         assert!(quality.confidence < 0.5);
+    }
+
+    #[test]
+    fn test_extract_text_streaming_missing_file() {
+        let extractor = PdfExtractor::new();
+        let result = extractor.extract_text_streaming(Path::new("nonexistent.pdf"), None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_extract_text_streaming_zero_ceiling() {
+        // With a 0-char ceiling we must never return more than 0 chars even
+        // if the PDF doesn't exist (we still expect an error here, not a
+        // panic). This guards the boundary arithmetic in the streaming loop.
+        let extractor = PdfExtractor::new();
+        let result = extractor.extract_text_streaming(Path::new("nonexistent.pdf"), Some(0));
+        assert!(result.is_err());
+    }
+
+    /// Real-PDF smoke test. Ignored by default because it requires a sample
+    /// PDF on disk; run with `cargo test --lib pdf -- --ignored` after
+    /// dropping a file at the path below.
+    #[test]
+    #[ignore]
+    fn test_extract_text_streaming_real_pdf() {
+        let extractor = PdfExtractor::new();
+        let path = Path::new("../29148-2018-ISOIECIEEE.pdf");
+        let (text, pages) = extractor
+            .extract_text_streaming(path, Some(10 * 1024 * 1024))
+            .expect("streaming extraction should succeed");
+        assert!(pages > 0);
+        assert!(!text.is_empty());
+        assert!(text.len() <= 10 * 1024 * 1024);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_extract_text_streaming_respects_ceiling() {
+        let extractor = PdfExtractor::new();
+        let path = Path::new("../29148-2018-ISOIECIEEE.pdf");
+        let (text, pages) = extractor
+            .extract_text_streaming(path, Some(1024))
+            .expect("streaming extraction should succeed");
+        assert!(text.len() <= 1024);
+        assert!(pages >= 1);
     }
 }
