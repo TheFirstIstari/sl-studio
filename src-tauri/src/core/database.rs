@@ -1,4 +1,6 @@
 use rusqlite::{params, Connection, Result};
+
+use crate::core::migrations::{intelligence_migrations, registry_migrations, run_migrations};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -107,7 +109,40 @@ impl Database {
         };
 
         db.init_schema()?;
+        db.run_migrations()?;
         Ok(db)
+    }
+
+    fn run_migrations(&self) -> Result<()> {
+        {
+            let mut conn = self.registry_conn.lock().unwrap();
+            run_migrations(&mut conn, &registry_migrations())?;
+        }
+        {
+            let mut conn = self.intelligence_conn.lock().unwrap();
+            run_migrations(&mut conn, &intelligence_migrations())?;
+        }
+        Ok(())
+    }
+
+    /// Returns the highest applied migration version across the registry
+    /// database's `schema_migrations` table. Returns 0 if no migrations have
+    /// been applied (or the table does not exist yet).
+    pub fn schema_version(&self) -> Result<i64> {
+        let conn = self.registry_conn.lock().unwrap();
+        let exists: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schema_migrations'",
+            [],
+            |row| row.get(0),
+        )?;
+        if exists == 0 {
+            return Ok(0);
+        }
+        conn.query_row(
+            "SELECT COALESCE(MAX(version), 0) FROM schema_migrations",
+            [],
+            |row| row.get(0),
+        )
     }
 
     fn init_schema(&self) -> Result<()> {
@@ -3186,24 +3221,6 @@ impl Database {
         *cache = Some(CacheEntry::new(result.clone(), Duration::from_secs(30)));
 
         Ok(result)
-    }
-
-    // Migration support
-    pub fn get_schema_version(&self) -> Result<i32> {
-        let conn = self.registry_conn.lock().unwrap();
-        conn.query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schema_version'",
-            [],
-            |_| Ok(0),
-        )
-        .or_else(|_| {
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY)",
-                [],
-            )?;
-            conn.execute("INSERT INTO schema_version (version) VALUES (1)", [])?;
-            Ok(1)
-        })
     }
 
     /// Get files that need text extraction (has_extracted_text = FALSE)

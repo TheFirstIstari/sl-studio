@@ -214,6 +214,19 @@ pub struct ProcessingStats {
 }
 
 #[tauri::command]
+fn get_schema_version(state: State<AppState>) -> Result<i64, String> {
+    let db_guard = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    if let Some(db) = db_guard.as_ref() {
+        db.schema_version().map_err(|e| e.to_string())
+    } else {
+        Ok(0)
+    }
+}
+
+#[tauri::command]
 fn get_processing_stats(state: State<AppState>) -> Result<ProcessingStats, String> {
     let db_guard = state
         .db
@@ -492,7 +505,10 @@ fn get_unprocessed_files(
     state: State<AppState>,
     limit: i64,
 ) -> Result<Vec<core::RegistryEntry>, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.get_unprocessed_files(limit).map_err(|e| e.to_string())
     } else {
@@ -502,7 +518,10 @@ fn get_unprocessed_files(
 
 #[tauri::command]
 fn mark_processed(state: State<AppState>, fingerprint: String) -> Result<(), String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.mark_processed(&fingerprint).map_err(|e| e.to_string())
     } else {
@@ -521,7 +540,10 @@ fn search_facts(
     query: String,
     limit: i64,
 ) -> Result<Vec<core::SearchResult>, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.search_facts(&query, limit).map_err(|e| e.to_string())
     } else {
@@ -536,7 +558,10 @@ fn update_fact_verification(
     status: String,
     review_notes: Option<String>,
 ) -> Result<(), String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.update_fact_verification(id, &status, review_notes.as_deref())
             .map_err(|e| e.to_string())
@@ -551,7 +576,10 @@ fn search_entities(
     query: String,
     limit: i64,
 ) -> Result<Vec<core::EntitySearchResult>, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.search_entities(&query, limit).map_err(|e| e.to_string())
     } else {
@@ -565,7 +593,10 @@ fn search_combined(
     query: String,
     limit: i64,
 ) -> Result<Vec<core::CombinedSearchResult>, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.search_combined(&query, limit).map_err(|e| e.to_string())
     } else {
@@ -580,7 +611,10 @@ fn get_timeline_events(
     end_date: Option<String>,
     limit: i64,
 ) -> Result<Vec<core::TimelineEvent>, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.get_timeline_events(start_date.as_deref(), end_date.as_deref(), limit)
             .map_err(|e| e.to_string())
@@ -591,7 +625,10 @@ fn get_timeline_events(
 
 #[tauri::command]
 fn get_overall_statistics(state: State<AppState>) -> Result<core::OverallStatistics, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.get_overall_statistics().map_err(|e| e.to_string())
     } else {
@@ -601,7 +638,10 @@ fn get_overall_statistics(state: State<AppState>) -> Result<core::OverallStatist
 
 #[tauri::command]
 fn get_category_distribution(state: State<AppState>) -> Result<Vec<core::CategoryStats>, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.get_category_distribution().map_err(|e| e.to_string())
     } else {
@@ -611,7 +651,10 @@ fn get_category_distribution(state: State<AppState>) -> Result<Vec<core::Categor
 
 #[tauri::command]
 fn get_severity_distribution(state: State<AppState>) -> Result<Vec<core::SeverityStats>, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.get_severity_distribution().map_err(|e| e.to_string())
     } else {
@@ -625,7 +668,10 @@ fn get_entity_centrality(
     entity_type: Option<String>,
     min_confidence: f64,
 ) -> Result<Vec<core::EntityCentrality>, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.get_entity_centrality(entity_type.as_deref(), min_confidence)
             .map_err(|e| e.to_string())
@@ -640,7 +686,10 @@ fn detect_anomalies(
     metric: String,
     threshold_std: f64,
 ) -> Result<Vec<core::Anomaly>, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.detect_anomalies(&metric, threshold_std)
             .map_err(|e| e.to_string())
@@ -655,7 +704,10 @@ fn get_weighted_evidence(
     min_weight: f64,
     limit: i64,
 ) -> Result<Vec<core::WeightedEvidence>, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.get_weighted_evidence(min_weight, limit)
             .map_err(|e| e.to_string())
@@ -670,7 +722,10 @@ fn get_entity_relationships(
     entity_id: Option<i64>,
     min_confidence: f64,
 ) -> Result<Vec<core::EntityRelationship>, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.get_entity_relationships(entity_id, min_confidence)
             .map_err(|e| e.to_string())
@@ -685,7 +740,10 @@ fn get_connected_entities(
     entity_id: i64,
     min_confidence: f64,
 ) -> Result<Vec<core::ConnectedEntity>, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.get_connected_entities(entity_id, 1, min_confidence)
             .map_err(|e| e.to_string())
@@ -696,7 +754,10 @@ fn get_connected_entities(
 
 #[tauri::command]
 fn add_tag(state: State<AppState>, intelligence_id: i64, tag: String) -> Result<(), String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.add_tag(intelligence_id, &tag).map_err(|e| e.to_string())
     } else {
@@ -706,7 +767,10 @@ fn add_tag(state: State<AppState>, intelligence_id: i64, tag: String) -> Result<
 
 #[tauri::command]
 fn remove_tag(state: State<AppState>, intelligence_id: i64, tag: String) -> Result<(), String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.remove_tag(intelligence_id, &tag)
             .map_err(|e| e.to_string())
@@ -717,7 +781,10 @@ fn remove_tag(state: State<AppState>, intelligence_id: i64, tag: String) -> Resu
 
 #[tauri::command]
 fn get_all_tags(state: State<AppState>) -> Result<Vec<String>, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.get_all_tags().map_err(|e| e.to_string())
     } else {
@@ -732,7 +799,10 @@ fn add_annotation(
     content: String,
     annotation_type: String,
 ) -> Result<i64, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.add_annotation(intelligence_id, &content, &annotation_type)
             .map_err(|e| e.to_string())
@@ -747,7 +817,10 @@ fn update_annotation(
     annotation_id: i64,
     content: String,
 ) -> Result<(), String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.update_annotation(annotation_id, &content)
             .map_err(|e| e.to_string())
@@ -758,7 +831,10 @@ fn update_annotation(
 
 #[tauri::command]
 fn delete_annotation(state: State<AppState>, annotation_id: i64) -> Result<(), String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.delete_annotation(annotation_id)
             .map_err(|e| e.to_string())
@@ -769,7 +845,10 @@ fn delete_annotation(state: State<AppState>, annotation_id: i64) -> Result<(), S
 
 #[tauri::command]
 fn delete_facts(state: State<AppState>, ids: Vec<i64>) -> Result<usize, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         let mut count = 0;
         for id in ids {
@@ -788,7 +867,10 @@ fn get_annotations(
     state: State<AppState>,
     intelligence_id: i64,
 ) -> Result<Vec<core::Annotation>, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.get_annotations(intelligence_id)
             .map_err(|e| e.to_string())
@@ -804,7 +886,10 @@ fn search_by_tags(
     match_all: bool,
     limit: i64,
 ) -> Result<Vec<core::SearchResult>, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.search_by_tags(&tags, match_all, limit)
             .map_err(|e| e.to_string())
@@ -818,7 +903,10 @@ fn get_location_entities(
     state: State<AppState>,
     min_confidence: f64,
 ) -> Result<Vec<core::LocationEntity>, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.get_location_entities(min_confidence)
             .map_err(|e| e.to_string())
@@ -836,7 +924,10 @@ fn export_facts_json(
     start_date: Option<String>,
     end_date: Option<String>,
 ) -> Result<String, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         let filters = core::ExportFilters {
             min_weight,
@@ -857,7 +948,10 @@ fn export_entities_csv(
     entity_type: Option<String>,
     min_confidence: f64,
 ) -> Result<String, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.export_entities_csv(entity_type.as_deref(), min_confidence)
             .map_err(|e| e.to_string())
@@ -872,7 +966,10 @@ fn export_timeline_json(
     start_date: Option<String>,
     end_date: Option<String>,
 ) -> Result<String, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         db.export_timeline_json(start_date.as_deref(), end_date.as_deref())
             .map_err(|e| e.to_string())
@@ -890,7 +987,10 @@ pub struct ExportReport {
 
 #[tauri::command]
 fn export_full_report_json(state: State<AppState>) -> Result<String, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         let facts = db
             .get_weighted_evidence(0.0, 10000)
@@ -911,7 +1011,10 @@ fn export_full_report_json(state: State<AppState>) -> Result<String, String> {
 
 #[tauri::command]
 fn export_facts_csv(state: State<AppState>, min_weight: f64, limit: i64) -> Result<String, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     if let Some(db) = db.as_ref() {
         let facts = db
             .get_weighted_evidence(min_weight, limit)
@@ -951,7 +1054,10 @@ fn export_pdf_report(state: State<AppState>) -> Result<Vec<u8>, String> {
     use printpdf::*;
     use std::io::BufWriter;
 
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     let db_ref = db.as_ref().ok_or("Database not initialized")?;
 
     let facts = db_ref
@@ -1084,7 +1190,10 @@ struct ExcelData {
 
 #[tauri::command]
 fn export_excel_data(state: State<AppState>) -> Result<String, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     let db_ref = db.as_ref().ok_or("Database not initialized")?;
 
     let facts = db_ref
@@ -1163,7 +1272,10 @@ fn compare_projects(
 ) -> Result<ProjectComparison, String> {
     // Extract data from state - need to hold lock during extraction
     let (entities1, timeline1, project1_name) = {
-        let db_guard = state.db.lock().unwrap();
+        let db_guard = state
+            .db
+            .lock()
+            .map_err(|e| format!("Database mutex poisoned: {e}"))?;
         let db = db_guard.as_ref().ok_or("Database not initialized")?;
 
         let entities1 = db
@@ -1173,7 +1285,10 @@ fn compare_projects(
             .get_timeline_events(None, None, 1000)
             .map_err(|e| e.to_string())?;
 
-        let config = state.config.lock().unwrap();
+        let config = state
+            .config
+            .lock()
+            .map_err(|e| format!("Config mutex poisoned: {e}"))?;
         let project1_name = config.project.name.clone();
 
         (entities1, timeline1, project1_name)
@@ -1302,7 +1417,10 @@ pub struct ProjectSummary {
 
 #[tauri::command]
 fn get_project_summary(state: State<AppState>) -> Result<ProjectSummary, String> {
-    let db = state.db.lock().unwrap();
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     let db_ref = db.as_ref().ok_or("Database not initialized")?;
 
     let stats = db_ref.get_overall_statistics().map_err(|e| e.to_string())?;
@@ -1310,7 +1428,10 @@ fn get_project_summary(state: State<AppState>) -> Result<ProjectSummary, String>
         .get_timeline_events(None, None, 1000)
         .map_err(|e| e.to_string())?;
 
-    let config = state.config.lock().unwrap();
+    let config = state
+        .config
+        .lock()
+        .map_err(|e| format!("Config mutex poisoned: {e}"))?;
 
     let project_path = std::path::Path::new(&config.project.registry_db)
         .parent()
@@ -1338,7 +1459,10 @@ pub struct BackupInfo {
 fn create_backup(state: State<AppState>, include_evidence: bool) -> Result<BackupInfo, String> {
     use std::io::Write;
 
-    let config = state.config.lock().unwrap();
+    let config = state
+        .config
+        .lock()
+        .map_err(|e| format!("Config mutex poisoned: {e}"))?;
     let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
     let backup_name = format!("slstudio_backup_{}.zip", timestamp);
 
@@ -1419,7 +1543,10 @@ fn restore_backup(state: State<AppState>, backup_path: String) -> Result<(), Str
     let mut archive = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
 
     let (registry_db, intelligence_db) = {
-        let config = state.config.lock().unwrap();
+        let config = state
+            .config
+            .lock()
+            .map_err(|e| format!("Config mutex poisoned: {e}"))?;
         (
             config.project.registry_db.clone(),
             config.project.intelligence_db.clone(),
@@ -1443,7 +1570,10 @@ fn restore_backup(state: State<AppState>, backup_path: String) -> Result<(), Str
             }
             n if n.starts_with("evidence/") => {
                 let rel_path = &n[9..];
-                let config = state.config.lock().unwrap();
+                let config = state
+                    .config
+                    .lock()
+                    .map_err(|e| format!("Config mutex poisoned: {e}"))?;
                 let dest = std::path::Path::new(&config.project.evidence_root).join(rel_path);
                 if let Some(parent) = dest.parent() {
                     std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -1458,7 +1588,10 @@ fn restore_backup(state: State<AppState>, backup_path: String) -> Result<(), Str
     // Reinitialize the database with restored files
     let db = Database::new(&registry_db, &intelligence_db)
         .map_err(|e| format!("Failed to reopen database: {}", e))?;
-    *state.db.lock().unwrap() = Some(db);
+    *state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))? = Some(db);
 
     info!("Backup restored from: {}", backup_path);
     Ok(())
@@ -1876,7 +2009,10 @@ fn init_reasoner(
 
     let reasoner = Reasoner::new(config).map_err(|e| e.to_string())?;
 
-    let mut cached = state.reasoner.lock().unwrap();
+    let mut cached = state
+        .reasoner
+        .lock()
+        .map_err(|e| format!("Reasoner mutex poisoned: {e}"))?;
     *cached = Some(Arc::new(reasoner));
 
     info!("Reasoner initialized and cached");
@@ -1886,7 +2022,10 @@ fn init_reasoner(
 #[tauri::command]
 fn analyze_file(state: State<AppState>, path: String) -> Result<inference::AnalysisResult, String> {
     let reasoner_arc = {
-        let cached = state.reasoner.lock().unwrap();
+        let cached = state
+            .reasoner
+            .lock()
+            .map_err(|e| format!("Reasoner mutex poisoned: {e}"))?;
         cached.clone()
     };
 
@@ -1923,7 +2062,10 @@ fn validate_model(_state: State<AppState>, model_path: String) -> Result<bool, S
 
 #[tauri::command]
 fn is_model_loaded(state: State<AppState>) -> bool {
-    let cached = state.reasoner.lock().unwrap();
+    // Treat lock poisoning as "not loaded" rather than panicking.
+    let Ok(cached) = state.reasoner.lock() else {
+        return false;
+    };
     cached
         .as_ref()
         .map(|r| r.is_model_loaded())
@@ -1932,7 +2074,7 @@ fn is_model_loaded(state: State<AppState>) -> bool {
 
 #[tauri::command]
 fn get_reasoner_config(state: State<AppState>) -> Option<ReasonerConfig> {
-    let cached = state.reasoner.lock().unwrap();
+    let cached = state.reasoner.lock().ok()?;
     cached.as_ref().map(|r| r.get_config())
 }
 
@@ -2043,6 +2185,7 @@ pub fn run() {
             create_backup,
             restore_backup,
             send_notification,
+            get_schema_version,
         ])
         .setup(|_app| {
             info!("Tauri app setup complete");
@@ -2116,7 +2259,11 @@ async fn extract_batch(
         if let Some(w) = cpu_workers {
             w as usize
         } else {
-            state.config.lock().unwrap().get_effective_workers() as usize
+            state
+                .config
+                .lock()
+                .map_err(|e| format!("Config mutex poisoned: {e}"))?
+                .get_effective_workers() as usize
         }
     };
 
@@ -2137,7 +2284,10 @@ async fn extract_batch(
     let total = fingerprints.len();
 
     // Phase 1: Pre-fetch ALL paths from DB BEFORE parallel (outside parallel)
-    let db_guard = state.db.lock().unwrap();
+    let db_guard = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     let db = db_guard.as_ref().ok_or("Database not initialized")?;
 
     let file_data: Vec<(String, String)> = fingerprints
@@ -2210,7 +2360,10 @@ async fn extract_batch(
     let success_results: Vec<ExtractionResult> =
         results.iter().filter(|r| r.success).cloned().collect();
 
-    let db_guard = state.db.lock().unwrap();
+    let db_guard = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     let db = db_guard.as_ref().ok_or("Database not initialized")?;
 
     for result in &success_results {
@@ -2267,7 +2420,10 @@ async fn analyze_batch(
     fingerprints: Vec<String>,
 ) -> Result<Vec<inference::AnalysisResult>, String> {
     let reasoner_arc = {
-        let cached = state.reasoner.lock().unwrap();
+        let cached = state
+            .reasoner
+            .lock()
+            .map_err(|e| format!("Reasoner mutex poisoned: {e}"))?;
         cached.clone()
     };
 
@@ -2286,7 +2442,10 @@ async fn analyze_batch(
     )
     .ok();
 
-    let db_guard = state.db.lock().unwrap();
+    let db_guard = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     let db = db_guard.as_ref().ok_or("Database not initialized")?;
     let mut results = Vec::new();
     let mut processed = 0;
@@ -2416,7 +2575,10 @@ fn get_extraction_queue(
     state: State<AppState>,
     limit: i64,
 ) -> Result<Vec<core::RegistryEntry>, String> {
-    let db_guard = state.db.lock().unwrap();
+    let db_guard = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     let db = db_guard.as_ref().ok_or("Database not initialized")?;
     db.get_extraction_queue(limit).map_err(|e| e.to_string())
 }
@@ -2426,7 +2588,10 @@ fn get_analysis_queue(
     state: State<AppState>,
     limit: i64,
 ) -> Result<Vec<core::RegistryEntry>, String> {
-    let db_guard = state.db.lock().unwrap();
+    let db_guard = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
     let db = db_guard.as_ref().ok_or("Database not initialized")?;
     db.get_analysis_queue(limit).map_err(|e| e.to_string())
 }
