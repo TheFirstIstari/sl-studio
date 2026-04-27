@@ -13,6 +13,7 @@
 		refreshWorkflow,
 		refreshStats
 	} from '$lib/stores/app';
+	import { PageHeader } from '$lib/components';
 
 	// Types
 	interface RegistryFile {
@@ -324,12 +325,11 @@
 	}
 </script>
 
-<div class="analysis-container">
-	<!-- Header -->
-	<header class="page-header">
-		<h1>Analysis Pipeline</h1>
-		<p class="subtitle">Process evidence files through extraction and LLM analysis stages</p>
-	</header>
+<div class="analysis-container page">
+	<PageHeader
+		title="Analysis Pipeline"
+		subtitle="Process evidence files through extraction and LLM analysis stages"
+	/>
 
 	<!-- Workflow Status Bar -->
 	{#if $workflow}
@@ -591,23 +591,6 @@
 	.analysis-container {
 		max-width: 1400px;
 		padding: 1.5rem;
-	}
-
-	/* Header */
-	.page-header {
-		margin-bottom: 1.5rem;
-	}
-
-	.page-header h1 {
-		font-size: 1.75rem;
-		font-weight: 600;
-		color: var(--color-text);
-		margin-bottom: 0.25rem;
-	}
-
-	.subtitle {
-		font-size: 0.875rem;
-		color: var(--color-text-muted);
 	}
 
 	/* Workflow Bar */

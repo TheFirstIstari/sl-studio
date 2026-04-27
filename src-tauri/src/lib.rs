@@ -698,6 +698,22 @@ fn detect_anomalies(
     }
 }
 
+/// FR-WEIGHT-001: per-fact weight calculation. Combines severity,
+/// confidence, source reliability, and corroboration signals already
+/// present in the intelligence DB into a single 0..1 score.
+#[tauri::command]
+fn get_evidence_weight(state: State<AppState>, intelligence_id: i64) -> Result<f64, String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    db.calculate_evidence_weight(intelligence_id)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn get_weighted_evidence(
     state: State<AppState>,
@@ -2567,6 +2583,8 @@ pub fn run() {
             // FR-DEDUP
             find_duplicate_facts,
             merge_duplicate_facts,
+            // FR-WEIGHT
+            get_evidence_weight,
             // FR-PLP
             list_pipelines,
             save_pipeline,

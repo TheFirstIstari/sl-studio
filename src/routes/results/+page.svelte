@@ -5,6 +5,7 @@
 
 	// Use shared stores
 	import { stats, workflow, refreshStats, refreshWorkflow } from '$lib/stores/app';
+	import { PageHeader, FilterBar } from '$lib/components';
 
 	interface Fact {
 		id: number;
@@ -316,53 +317,37 @@
 	}
 </script>
 
-<div class="results">
-	<div class="results-header">
-		<div class="header-top">
-			<h1>Results</h1>
+<div class="results page">
+	<PageHeader title="Results" subtitle="Browse, filter, and act on extracted facts">
+		{#snippet actions()}
+			<button class="btn ghost sm" onclick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">
+				← Undo
+			</button>
+			<button class="btn ghost sm" onclick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">
+				Redo →
+			</button>
 			{#if activeFilterCount > 0}
-				<button class="clear-filters-btn" onclick={clearAllFilters}>
+				<button class="btn sm danger" onclick={clearAllFilters}>
 					Clear {activeFilterCount} filter{activeFilterCount === 1 ? '' : 's'}
 				</button>
 			{/if}
+		{/snippet}
+	</PageHeader>
+
+	{#if error}
+		<div class="error-banner" role="alert">
+			<span>{error}</span>
 		</div>
+	{/if}
 
-		{#if error}
-			<div class="error-banner" role="alert">
-				<span>{error}</span>
-			</div>
-		{/if}
-
-		<div class="controls">
-			<div class="history-controls">
-				<button class="history-btn" onclick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M3 7v6h6" />
-						<path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
-					</svg>
-				</button>
-				<button class="history-btn" onclick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M21 7v6h-6" />
-						<path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
-					</svg>
-				</button>
-			</div>
-
-			<input
-				type="text"
-				placeholder="Filter facts..."
-				bind:value={filter}
-				oninput={onFilterChange}
-				class="filter-input"
-			/>
-
-			<select bind:value={sortBy} onchange={onSortChange} class="sort-select">
-				<option value="severity">Sort by Severity</option>
-				<option value="date">Sort by Date</option>
+	<FilterBar bind:search={filter} placeholder="Filter facts...">
+		{#snippet extras()}
+			<select bind:value={sortBy} onchange={onSortChange} class="filter-select">
+				<option value="severity">Sort by severity</option>
+				<option value="date">Sort by date</option>
 			</select>
-		</div>
-	</div>
+		{/snippet}
+	</FilterBar>
 
 	{#if loading}
 		<div class="loading">Loading facts...</div>
@@ -681,81 +666,16 @@
 		flex-direction: column;
 	}
 
-	.results-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 1.5rem;
-	}
+	/* Header, filter input, and sort select now come from PageHeader,
+	   FilterBar, and theme.css. Page-specific styles continue below. */
 
-	h1 {
-		font-size: 1.75rem;
-		color: #eaeaea;
-	}
-
-	.controls {
-		display: flex;
-		gap: 0.75rem;
-		align-items: center;
-	}
-
-	.history-controls {
-		display: flex;
-		gap: 0.25rem;
-		margin-right: 0.5rem;
-	}
-
-	.history-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 32px;
-		height: 32px;
-		background-color: #16213e;
-		border: 1px solid #0f3460;
-		border-radius: 6px;
-		color: #9ca3af;
-		cursor: pointer;
-		transition: all 0.2s;
-	}
-
-	.history-btn:hover:not(:disabled) {
-		border-color: #e94560;
-		color: #eaeaea;
-	}
-
-	.history-btn:disabled {
-		opacity: 0.4;
-		cursor: not-allowed;
-	}
-
-	.history-btn svg {
-		width: 16px;
-		height: 16px;
-	}
-
-	.filter-input {
-		padding: 0.5rem 0.75rem;
-		background-color: #16213e;
-		border: 1px solid #0f3460;
-		border-radius: 6px;
-		color: #eaeaea;
-		font-size: 0.875rem;
-		width: 200px;
-	}
-
-	.filter-input:focus {
-		outline: none;
-		border-color: #e94560;
-	}
-
-	.sort-select {
-		padding: 0.5rem 0.75rem;
-		background-color: #16213e;
-		border: 1px solid #0f3460;
-		border-radius: 6px;
-		color: #eaeaea;
-		font-size: 0.875rem;
+	.filter-select {
+		background: var(--color-bg-input);
+		border: 1px solid var(--color-border);
+		color: var(--color-text-primary);
+		padding: var(--space-2) var(--space-3);
+		border-radius: var(--radius-md);
+		font-size: var(--text-sm);
 	}
 
 	.loading,
@@ -1020,28 +940,7 @@
 		color: #6b7280;
 	}
 
-	/* Filter Panel Styles */
-	.header-top {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-	}
-
-	.clear-filters-btn {
-		padding: 0.375rem 0.75rem;
-		background-color: #e94560;
-		border: none;
-		border-radius: 4px;
-		color: white;
-		font-size: 0.75rem;
-		cursor: pointer;
-		transition: all 0.2s;
-	}
-
-	.clear-filters-btn:hover {
-		background-color: #ff6b8a;
-	}
-
+	/* Filter panel for facets (header buttons now come from PageHeader). */
 	.filters-panel {
 		background-color: #16213e;
 		border-radius: 8px;
