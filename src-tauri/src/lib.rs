@@ -924,6 +924,71 @@ fn merge_duplicate_facts(
 }
 
 // ----------------------------------------------------------------------------
+// FR-FACET-004: persisted filter/facet presets per page
+// ----------------------------------------------------------------------------
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct FacetPreset {
+    id: i64,
+    page: String,
+    name: String,
+    state_json: String,
+    updated_at: Option<String>,
+}
+
+#[tauri::command]
+fn save_facet_preset(
+    state: State<AppState>,
+    page: String,
+    name: String,
+    state_json: String,
+) -> Result<i64, String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    db.save_facet_preset(&page, &name, &state_json)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn list_facet_presets(state: State<AppState>, page: String) -> Result<Vec<FacetPreset>, String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    let rows = db.list_facet_presets(&page).map_err(|e| e.to_string())?;
+    Ok(rows
+        .into_iter()
+        .map(|(id, page, name, state_json, updated_at)| FacetPreset {
+            id,
+            page,
+            name,
+            state_json,
+            updated_at,
+        })
+        .collect())
+}
+
+#[tauri::command]
+fn delete_facet_preset(state: State<AppState>, preset_id: i64) -> Result<(), String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    db.delete_facet_preset(preset_id).map_err(|e| e.to_string())
+}
+
+// ----------------------------------------------------------------------------
 // FR-PLP: persisted user-defined pipelines
 // ----------------------------------------------------------------------------
 
@@ -1100,6 +1165,80 @@ fn resolve_entity_alias(
         return Err("Database not initialized".to_string());
     };
     db.resolve_entity(&alias).map_err(|e| e.to_string())
+}
+
+// ----------------------------------------------------------------------------
+// FR-NET: entity network analysis (community detection, betweenness, clustering)
+// ----------------------------------------------------------------------------
+
+#[tauri::command]
+fn detect_entity_communities(
+    state: State<AppState>,
+    min_cooccurrence: Option<i32>,
+) -> Result<Vec<inference::network::EntityCommunity>, String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    if let Some(db) = db.as_ref() {
+        let (nodes, edges) = db
+            .get_entity_graph(min_cooccurrence.unwrap_or(2))
+            .map_err(|e| e.to_string())?;
+        Ok(inference::network::detect_communities(
+            &edges,
+            nodes.len(),
+            &nodes,
+        ))
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn compute_betweenness_centrality(
+    state: State<AppState>,
+    min_cooccurrence: Option<i32>,
+    top_k: Option<usize>,
+) -> Result<Vec<inference::network::EntityBetweenness>, String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    if let Some(db) = db.as_ref() {
+        let (nodes, edges) = db
+            .get_entity_graph(min_cooccurrence.unwrap_or(2))
+            .map_err(|e| e.to_string())?;
+        let mut bc = inference::network::betweenness_centrality(&edges, &nodes);
+        bc.sort_by(|a, b| {
+            b.betweenness
+                .partial_cmp(&a.betweenness)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        let k = top_k.unwrap_or(100);
+        bc.truncate(k);
+        Ok(bc)
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+fn compute_clustering_coefficients(
+    state: State<AppState>,
+    min_cooccurrence: Option<i32>,
+) -> Result<Vec<(i64, f64)>, String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    if let Some(db) = db.as_ref() {
+        let (nodes, edges) = db
+            .get_entity_graph(min_cooccurrence.unwrap_or(2))
+            .map_err(|e| e.to_string())?;
+        Ok(inference::network::clustering_coefficient(&edges, &nodes))
+    } else {
+        Err("Database not initialized".to_string())
+    }
 }
 
 // ----------------------------------------------------------------------------
@@ -2585,6 +2724,10 @@ pub fn run() {
             merge_duplicate_facts,
             // FR-WEIGHT
             get_evidence_weight,
+            // FR-FACET-004
+            save_facet_preset,
+            list_facet_presets,
+            delete_facet_preset,
             // FR-PLP
             list_pipelines,
             save_pipeline,
@@ -2594,6 +2737,10 @@ pub fn run() {
             suggest_entity_matches,
             add_entity_alias,
             resolve_entity_alias,
+            // FR-NET
+            detect_entity_communities,
+            compute_betweenness_centrality,
+            compute_clustering_coefficients,
             // FR-CHAIN
             create_evidence_chain,
             list_evidence_chains,

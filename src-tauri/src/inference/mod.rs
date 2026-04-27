@@ -1,4 +1,5 @@
 pub mod llama;
+pub mod network;
 pub mod pipeline;
 pub mod quality;
 pub mod reasoner;

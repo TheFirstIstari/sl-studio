@@ -5,7 +5,7 @@
 
 	// Use shared stores
 	import { stats, workflow, refreshStats, refreshWorkflow } from '$lib/stores/app';
-	import { PageHeader, FilterBar } from '$lib/components';
+	import { PageHeader, FilterBar, Modal } from '$lib/components';
 
 	interface Fact {
 		id: number;
@@ -55,6 +55,84 @@
 	let historyIndex = $state(-1);
 	let canUndo = $derived(historyIndex > 0);
 	let canRedo = $derived(historyIndex < history.length - 1);
+
+	// FR-FACET-004: saved facet presets
+	interface FacetPreset {
+		id: number;
+		page: string;
+		name: string;
+		state_json: string;
+		updated_at: string | null;
+	}
+	let presets = $state<FacetPreset[]>([]);
+	let showSavePreset = $state(false);
+	let newPresetName = $state('');
+
+	async function loadPresets() {
+		try {
+			presets = await invoke<FacetPreset[]>('list_facet_presets', { page: 'results' });
+		} catch (e) {
+			console.error('Failed to load presets:', e);
+		}
+	}
+
+	async function savePreset() {
+		const name = newPresetName.trim();
+		if (!name) return;
+		try {
+			const state: HistoryState = {
+				filter,
+				sortBy,
+				selectedIds: [],
+				categories: selectedCategories,
+				minSeverity,
+				maxSeverity,
+				startDate,
+				endDate,
+				minConfidence
+			};
+			await invoke('save_facet_preset', {
+				page: 'results',
+				name,
+				stateJson: JSON.stringify(state)
+			});
+			newPresetName = '';
+			showSavePreset = false;
+			await loadPresets();
+		} catch (e) {
+			console.error('Save preset failed:', e);
+			error = String(e);
+		}
+	}
+
+	function applyPreset(p: FacetPreset) {
+		try {
+			const s: HistoryState = JSON.parse(p.state_json);
+			filter = s.filter ?? '';
+			sortBy = s.sortBy ?? 'severity';
+			selectedCategories = s.categories ?? [];
+			minSeverity = s.minSeverity ?? 0;
+			maxSeverity = s.maxSeverity ?? 10;
+			startDate = s.startDate ?? '';
+			endDate = s.endDate ?? '';
+			minConfidence = s.minConfidence ?? 0;
+			saveToHistory();
+		} catch (e) {
+			console.error('Apply preset failed:', e);
+			error = String(e);
+		}
+	}
+
+	async function deletePreset(id: number) {
+		if (!confirm('Delete this preset?')) return;
+		try {
+			await invoke('delete_facet_preset', { presetId: id });
+			await loadPresets();
+		} catch (e) {
+			console.error('Delete preset failed:', e);
+			error = String(e);
+		}
+	}
 
 	let activeFilterCount = $derived.by(() => {
 		let count = 0;
@@ -172,6 +250,7 @@
 
 	onMount(async () => {
 		initialize();
+		await loadPresets();
 		window.addEventListener('keydown', handleKeydown);
 
 		// Use stores for workflow - refresh periodically
@@ -346,8 +425,64 @@
 				<option value="severity">Sort by severity</option>
 				<option value="date">Sort by date</option>
 			</select>
+			<button
+				class="btn sm"
+				onclick={() => (showSavePreset = true)}
+				disabled={activeFilterCount === 0}
+				title="Save current filters as a preset"
+			>
+				Save preset
+			</button>
 		{/snippet}
 	</FilterBar>
+
+	{#if presets.length > 0}
+		<div class="preset-bar">
+			<span class="preset-label">Presets:</span>
+			{#each presets as p (p.id)}
+				<div class="preset-chip">
+					<button class="preset-apply" onclick={() => applyPreset(p)} title="Apply preset">
+						{p.name}
+					</button>
+					<button
+						class="preset-delete"
+						onclick={() => deletePreset(p.id)}
+						aria-label="Delete preset"
+						title="Delete preset"
+					>
+						×
+					</button>
+				</div>
+			{/each}
+		</div>
+	{/if}
+
+	<Modal
+		open={showSavePreset}
+		title="Save filter preset"
+		size="sm"
+		onclose={() => (showSavePreset = false)}
+	>
+		{#snippet body()}
+			<label class="form-label">
+				Preset name
+				<input
+					type="text"
+					bind:value={newPresetName}
+					placeholder="e.g. High-severity financial"
+					class="form-input"
+					autofocus
+				/>
+			</label>
+			<p class="form-hint">Existing presets with the same name will be overwritten.</p>
+		{/snippet}
+		{#snippet footer()}
+			<button class="btn ghost" onclick={() => (showSavePreset = false)}>Cancel</button>
+			<button class="btn primary" onclick={savePreset} disabled={!newPresetName.trim()}>
+				Save
+			</button>
+		{/snippet}
+	</Modal>
 
 	{#if loading}
 		<div class="loading">Loading facts...</div>
@@ -676,6 +811,87 @@
 		padding: var(--space-2) var(--space-3);
 		border-radius: var(--radius-md);
 		font-size: var(--text-sm);
+	}
+
+	/* FR-FACET-004 preset bar */
+	.preset-bar {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-2);
+		margin-bottom: var(--space-4);
+	}
+
+	.preset-label {
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+		margin-right: var(--space-1);
+	}
+
+	.preset-chip {
+		display: inline-flex;
+		align-items: stretch;
+		background: var(--color-bg-elevated);
+		border: 1px solid var(--color-border);
+		border-radius: 999px;
+		overflow: hidden;
+	}
+
+	.preset-apply {
+		background: transparent;
+		border: none;
+		color: var(--color-text-primary);
+		padding: var(--space-1) var(--space-3);
+		font-size: var(--text-sm);
+		cursor: pointer;
+	}
+
+	.preset-apply:hover {
+		background: var(--color-accent);
+		color: white;
+	}
+
+	.preset-delete {
+		background: transparent;
+		border: none;
+		border-left: 1px solid var(--color-border);
+		color: var(--color-text-muted);
+		padding: var(--space-1) var(--space-3);
+		font-size: var(--text-base);
+		cursor: pointer;
+		line-height: 1;
+	}
+
+	.preset-delete:hover {
+		color: var(--color-severity-high);
+	}
+
+	.form-label {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		font-size: var(--text-sm);
+		color: var(--color-text-secondary);
+	}
+
+	.form-input {
+		background: var(--color-bg-input);
+		border: 1px solid var(--color-border);
+		color: var(--color-text-primary);
+		padding: var(--space-2) var(--space-3);
+		border-radius: var(--radius-md);
+		font-size: var(--text-sm);
+	}
+
+	.form-input:focus {
+		outline: none;
+		border-color: var(--color-accent);
+	}
+
+	.form-hint {
+		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		margin: var(--space-2) 0 0;
 	}
 
 	.loading,

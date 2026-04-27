@@ -33,6 +33,21 @@ pub fn intelligence_migrations() -> Vec<Migration> {
             );
             CREATE INDEX IF NOT EXISTS idx_pipelines_builtin ON pipelines(is_builtin);",
         },
+        // FR-FACET-004: persist saved filter/facet presets per page.
+        Migration {
+            version: 3,
+            name: "create_facet_presets_table",
+            up_sql: "CREATE TABLE IF NOT EXISTS facet_presets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                page TEXT NOT NULL,
+                name TEXT NOT NULL,
+                state_json TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (page, name)
+            );
+            CREATE INDEX IF NOT EXISTS idx_facet_presets_page ON facet_presets(page);",
+        },
     ]
 }
 
@@ -150,8 +165,8 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        // Highest intelligence migration version (currently 2: pipelines table).
-        assert!(max >= 2);
+        // Highest intelligence migration version (currently 3: facet_presets).
+        assert!(max >= 3);
 
         let mut reg_conn = Connection::open_in_memory().unwrap();
         run_migrations(&mut reg_conn, &registry_migrations()).unwrap();

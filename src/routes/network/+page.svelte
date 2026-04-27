@@ -44,6 +44,46 @@
 	let avgConnections = $state(0);
 	let selectedNodeDegree = $state(0);
 
+	// FR-NET-005: communities + betweenness
+	interface EntityCommunity {
+		community_id: number;
+		entity_ids: number[];
+		size: number;
+	}
+	interface EntityBetweenness {
+		entity_id: number;
+		betweenness: number;
+	}
+	let communities = $state<EntityCommunity[]>([]);
+	let betweenness = $state<EntityBetweenness[]>([]);
+	let analyzingNet = $state(false);
+
+	async function analyzeNetwork() {
+		analyzingNet = true;
+		try {
+			const [c, b] = await Promise.all([
+				invoke<EntityCommunity[]>('detect_entity_communities', { minCooccurrence: 2 }),
+				invoke<EntityBetweenness[]>('compute_betweenness_centrality', {
+					minCooccurrence: 2,
+					topK: 10
+				})
+			]);
+			communities = c;
+			betweenness = b;
+		} catch (e) {
+			console.error('Network analysis failed:', e);
+		} finally {
+			analyzingNet = false;
+		}
+	}
+
+	function entityLabel(id: number): string {
+		// Build a label from the relationships data we already have.
+		const rel = relationships.find((r) => r.entity1_id === id || r.entity2_id === id);
+		if (!rel) return `#${id}`;
+		return rel.entity1_id === id ? rel.entity1_value : rel.entity2_value;
+	}
+
 	onMount(async () => {
 		await loadRelationships();
 		initGraph();
@@ -356,6 +396,9 @@
 					/>
 				</svg>
 			</button>
+			<button class="btn sm primary" onclick={analyzeNetwork} disabled={analyzingNet}>
+				{analyzingNet ? 'Analyzing...' : 'Analyze structure'}
+			</button>
 		{/snippet}
 	</PageHeader>
 
@@ -391,7 +434,53 @@
 					<span class="stat-value">{avgConnections.toFixed(1)}</span>
 					<span class="stat-label">Avg Connections</span>
 				</div>
+				{#if communities.length > 0}
+					<div class="stat-item">
+						<span class="stat-value">{communities.length}</span>
+						<span class="stat-label">Communities</span>
+					</div>
+				{/if}
 			</div>
+
+			{#if communities.length > 0 || betweenness.length > 0}
+				<div class="analysis-grid">
+					{#if communities.length > 0}
+						<div class="analysis-card">
+							<h3>Communities</h3>
+							<p class="analysis-hint">Connected subgraphs in the entity network.</p>
+							<ul class="analysis-list">
+								{#each communities.slice(0, 8) as c (c.community_id)}
+									<li>
+										<span class="rank">#{c.community_id}</span>
+										<span>{c.size} entities</span>
+										<span class="muted">
+											{c.entity_ids.slice(0, 3).map(entityLabel).join(', ')}{c.entity_ids.length > 3
+												? '…'
+												: ''}
+										</span>
+									</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
+					{#if betweenness.length > 0}
+						<div class="analysis-card">
+							<h3>Top betweenness centrality</h3>
+							<p class="analysis-hint">
+								Entities that bridge otherwise-disconnected parts of the network.
+							</p>
+							<ul class="analysis-list">
+								{#each betweenness as b (b.entity_id)}
+									<li>
+										<span>{entityLabel(b.entity_id)}</span>
+										<span class="muted">{b.betweenness.toFixed(2)}</span>
+									</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
+				</div>
+			{/if}
 
 			<div class="graph-container" bind:this={cyContainer}></div>
 
@@ -721,6 +810,61 @@
 	.stat-label {
 		font-size: 0.75rem;
 		color: #9ca3af;
+	}
+
+	/* FR-NET-005 analysis grid */
+	.analysis-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+		gap: var(--space-3);
+		padding: var(--space-3) var(--space-4);
+		background: var(--color-bg-card);
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.analysis-card h3 {
+		margin: 0 0 var(--space-1);
+		font-size: var(--text-base);
+		color: var(--color-text-primary);
+	}
+
+	.analysis-hint {
+		margin: 0 0 var(--space-2);
+		font-size: var(--text-xs);
+		color: var(--color-text-muted);
+	}
+
+	.analysis-list {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+
+	.analysis-list li {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		font-size: var(--text-sm);
+	}
+
+	.analysis-list .rank {
+		font-family: ui-monospace, SFMono-Regular, monospace;
+		font-size: var(--text-xs);
+		color: var(--color-status-info);
+		min-width: 2rem;
+	}
+
+	.analysis-list .muted {
+		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		flex: 1;
+		text-align: right;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.degree-info {

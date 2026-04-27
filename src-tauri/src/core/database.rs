@@ -1703,6 +1703,58 @@ impl Database {
         Ok(())
     }
 
+    // ----------------------------------------------------------------------
+    // FR-FACET-004: persisted filter/facet presets per page
+    // ----------------------------------------------------------------------
+
+    /// Persist a preset (upsert by `(page, name)` unique key). Returns the
+    /// row id of the saved preset.
+    pub fn save_facet_preset(&self, page: &str, name: &str, state_json: &str) -> Result<i64> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO facet_presets (page, name, state_json) VALUES (?1, ?2, ?3)
+             ON CONFLICT(page, name) DO UPDATE SET
+                state_json = excluded.state_json,
+                updated_at = CURRENT_TIMESTAMP",
+            params![page, name, state_json],
+        )?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    /// Returns (id, page, name, state_json, updated_at) tuples sorted by
+    /// most-recently-updated first.
+    pub fn list_facet_presets(
+        &self,
+        page: &str,
+    ) -> Result<Vec<(i64, String, String, String, Option<String>)>> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, page, name, state_json, updated_at
+               FROM facet_presets
+              WHERE page = ?1
+              ORDER BY updated_at DESC",
+        )?;
+        let rows = stmt.query_map(params![page], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, Option<String>>(4)?,
+            ))
+        })?;
+        rows.collect()
+    }
+
+    pub fn delete_facet_preset(&self, id: i64) -> Result<()> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        let n = conn.execute("DELETE FROM facet_presets WHERE id = ?1", params![id])?;
+        if n == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        Ok(())
+    }
+
     /// Build a deduped list of (id, type, value) entity tuples for the
     /// resolution scanner. Distinct by (entity_type, lower(value)) so we
     /// don't churn on per-document duplicates that already exist by design.
@@ -2275,6 +2327,48 @@ impl Database {
         })?;
 
         entries.collect()
+    }
+
+    /// FR-NET-005: build an undirected entity co-occurrence graph from the
+    /// `entities` / `intelligence` tables. Returns the distinct node ids and
+    /// the edge list (weight = co-occurrence count) for edges where the
+    /// co-occurrence is at least `min_cooccurrence`.
+    pub fn get_entity_graph(
+        &self,
+        min_cooccurrence: i32,
+    ) -> Result<(Vec<i64>, Vec<crate::inference::network::GraphEdge>)> {
+        let conn = self.intelligence_conn.lock().unwrap();
+
+        let sql = "SELECT e1.id, e2.id, COUNT(*) as cooccurrence
+                   FROM entities e1
+                   JOIN entities e2 ON e1.fingerprint = e2.fingerprint AND e1.id < e2.id
+                   JOIN intelligence i ON e1.fingerprint = i.fingerprint
+                   WHERE i.is_deleted = FALSE
+                   GROUP BY e1.id, e2.id
+                   HAVING cooccurrence >= ?1";
+
+        let mut stmt = conn.prepare(sql)?;
+        let rows = stmt.query_map(params![min_cooccurrence], |row| {
+            let a: i64 = row.get(0)?;
+            let b: i64 = row.get(1)?;
+            let c: i64 = row.get(2)?;
+            Ok((a, b, c))
+        })?;
+
+        let mut edges: Vec<crate::inference::network::GraphEdge> = Vec::new();
+        let mut node_set: std::collections::BTreeSet<i64> = std::collections::BTreeSet::new();
+        for r in rows {
+            let (a, b, c) = r?;
+            node_set.insert(a);
+            node_set.insert(b);
+            edges.push(crate::inference::network::GraphEdge {
+                a,
+                b,
+                weight: c as f64,
+            });
+        }
+        let nodes: Vec<i64> = node_set.into_iter().collect();
+        Ok((nodes, edges))
     }
 
     pub fn get_entity_centrality(
