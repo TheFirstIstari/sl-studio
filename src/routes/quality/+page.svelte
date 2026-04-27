@@ -133,12 +133,35 @@
 		}
 	}
 
-	// Reset cross-validation when selectedFact changes.
+	// FR-WEIGHT: per-fact evidence weight (auto-loaded on selection)
+	let evidenceWeight = $state<number | null>(null);
+	let weightForFactId = $state<number | null>(null);
+
+	async function loadEvidenceWeight(factId: number) {
+		try {
+			evidenceWeight = await invoke<number>('get_evidence_weight', {
+				intelligenceId: factId
+			});
+			weightForFactId = factId;
+		} catch (e) {
+			console.error('Load evidence weight failed:', e);
+			evidenceWeight = null;
+		}
+	}
+
+	// Reset cross-validation + auto-load weight when selectedFact changes.
 	$effect(() => {
 		if (!selectedFact) {
 			crossValidation = null;
-		} else if (crossValidation && crossValidation.intelligence_id !== selectedFact.id) {
+			evidenceWeight = null;
+			weightForFactId = null;
+			return;
+		}
+		if (crossValidation && crossValidation.intelligence_id !== selectedFact.id) {
 			crossValidation = null;
+		}
+		if (weightForFactId !== selectedFact.id) {
+			loadEvidenceWeight(selectedFact.id);
 		}
 	});
 
@@ -320,7 +343,7 @@
 				<input type="checkbox" bind:checked={dedupRequireSameCategory} disabled={dedupRunning} />
 				Require same category
 			</label>
-			<button class="primary" onclick={findDuplicates} disabled={dedupRunning}>
+			<button class="btn primary" onclick={findDuplicates} disabled={dedupRunning}>
 				{dedupRunning ? 'Scanning...' : 'Find Duplicates'}
 			</button>
 		</div>
@@ -459,6 +482,26 @@
 					<h3>Source</h3>
 					<p>{selectedFact.filename}</p>
 				</div>
+
+				{#if evidenceWeight !== null}
+					<div class="detail-section">
+						<h3>Evidence weight</h3>
+						<div class="weight-row">
+							<div class="weight-bar">
+								<div
+									class="weight-fill"
+									class:strong={evidenceWeight >= 0.7}
+									class:weak={evidenceWeight < 0.4}
+									style="width: {Math.round(Math.min(evidenceWeight, 1) * 100)}%"
+								></div>
+							</div>
+							<span class="weight-value">{(evidenceWeight * 100).toFixed(0)}%</span>
+						</div>
+						<p class="weight-hint">
+							Combines severity, confidence, source reliability, and corroboration.
+						</p>
+					</div>
+				{/if}
 
 				<div class="detail-section">
 					<h3>Category</h3>
@@ -1069,5 +1112,47 @@
 		font-variant-numeric: tabular-nums;
 		color: var(--color-text-muted);
 		font-size: var(--text-xs);
+	}
+
+	/* FR-WEIGHT inline display */
+	.weight-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+
+	.weight-bar {
+		flex: 1;
+		height: 8px;
+		background: var(--color-bg-elevated);
+		border-radius: 999px;
+		overflow: hidden;
+	}
+
+	.weight-fill {
+		height: 100%;
+		background: var(--color-status-info);
+		transition: width 0.2s;
+	}
+
+	.weight-fill.strong {
+		background: var(--color-status-confirmed);
+	}
+
+	.weight-fill.weak {
+		background: var(--color-severity-high);
+	}
+
+	.weight-value {
+		font-variant-numeric: tabular-nums;
+		font-size: var(--text-sm);
+		min-width: 3rem;
+		text-align: right;
+	}
+
+	.weight-hint {
+		margin: var(--space-1) 0 0;
+		font-size: var(--text-xs);
+		color: var(--color-text-muted);
 	}
 </style>
