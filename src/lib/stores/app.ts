@@ -96,44 +96,43 @@ let unlistenWorkflow: UnlistenFn | null = null;
 
 // Initialize all stores - called once in layout
 export async function initializeApp() {
-	if ( typeof window === 'undefined') return; // SSR guard
-	
+	if (typeof window === 'undefined') return; // SSR guard
+
 	isLoading.set(true);
 	error.set(null);
-	
+
 	try {
 		// Load config
 		const cfg = await invoke<AppConfig>('load_config');
 		config.set(cfg);
-		
+
 		// Detect hardware
 		const hw = await invoke<HardwareStatus>('detect_hardware');
 		hardware.set(hw);
-		
+
 		const hwInfo = await invoke<HardwareInfo>('get_recommended_settings');
 		hardwareInfo.set(hwInfo);
-		
+
 		// Get project stats
 		const projectStats = await invoke<ProjectStats>('get_stats');
 		stats.set(projectStats);
-		
+
 		// Check model loaded
 		const loaded = await invoke<boolean>('is_model_loaded');
 		modelLoaded.set(loaded);
-		
+
 		// Initialize project if config exists
 		if (cfg && cfg.evidence_root) {
 			await invoke('init_project', { config: cfg });
 			projectInitialized.set(true);
-			
+
 			// Get workflow state
 			const wf = await invoke<WorkflowState>('get_workflow_state');
 			workflow.set(wf);
 		}
-		
+
 		// Setup event listeners for background tasks
 		await setupEventListeners();
-		
 	} catch (e) {
 		console.error('Failed to initialize app:', e);
 		error.set(String(e));
@@ -145,16 +144,16 @@ export async function initializeApp() {
 // Setup event listeners for background processing
 export async function setupEventListeners() {
 	if (typeof window === 'undefined') return;
-	
+
 	// Cleanup existing listeners
 	await cleanupEventListeners();
-	
+
 	try {
 		// Listen for extraction progress
 		unlistenExtraction = await listen<ProcessingProgress>('extraction_progress', (event) => {
 			const prog = event.payload;
 			// Update workflow with progress
-			workflow.update(w => {
+			workflow.update((w) => {
 				if (!w) return createDefaultWorkflow();
 				return {
 					...w,
@@ -163,9 +162,9 @@ export async function setupEventListeners() {
 					extract_progress: prog.total > 0 ? (prog.processed / prog.total) * 100 : 0
 				};
 			});
-			
+
 			// Update stats
-			stats.update(s => {
+			stats.update((s) => {
 				if (!s) return null;
 				return {
 					...s,
@@ -173,11 +172,11 @@ export async function setupEventListeners() {
 				};
 			});
 		});
-		
+
 		// Listen for analysis progress
 		unlistenAnalysis = await listen<ProcessingProgress>('analysis_progress', (event) => {
 			const prog = event.payload;
-			workflow.update(w => {
+			workflow.update((w) => {
 				if (!w) return createDefaultWorkflow();
 				return {
 					...w,
@@ -187,12 +186,11 @@ export async function setupEventListeners() {
 				};
 			});
 		});
-		
+
 		// Listen for workflow state changes
 		unlistenWorkflow = await listen<WorkflowState>('workflow_state', (event) => {
 			workflow.set(event.payload);
 		});
-		
 	} catch (e) {
 		console.error('Failed to setup event listeners:', e);
 	}
@@ -256,10 +254,13 @@ export async function refreshWorkflow() {
 // Derived stores for convenience
 export const isProcessing: Readable<boolean> = derived(
 	workflow,
-	$workflow => $workflow?.is_scanning === true || $workflow?.is_extracting === true || $workflow?.is_analyzing === true
+	($workflow) =>
+		$workflow?.is_scanning === true ||
+		$workflow?.is_extracting === true ||
+		$workflow?.is_analyzing === true
 );
 
 export const hasProject: Readable<boolean> = derived(
 	config,
-	$config => $config?.evidence_root !== null && $config?.evidence_root !== ''
+	($config) => $config?.evidence_root !== null && $config?.evidence_root !== ''
 );

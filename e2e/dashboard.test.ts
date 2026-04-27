@@ -35,7 +35,7 @@ test.describe('Dashboard', () => {
 
 	// 4. Hardware Status section
 	test('should display hardware status section', async ({ page }) => {
-		const hasSection = await page.locator('.info-section, .hardware-section').count() > 0;
+		const hasSection = (await page.locator('.info-section, .hardware-section').count()) > 0;
 		const hasText = await page.content();
 		expect(hasSection || hasText).toBeTruthy();
 	});
@@ -48,7 +48,7 @@ test.describe('Dashboard', () => {
 
 	// 6. Error banner (if present)
 	test('should have error banner or no error', async ({ page }) => {
-		const hasError = await page.locator('.error-banner').count() > 0;
+		const hasError = (await page.locator('.error-banner').count()) > 0;
 		if (hasError) {
 			await expect(page.locator('.error-banner')).toBeVisible();
 		}

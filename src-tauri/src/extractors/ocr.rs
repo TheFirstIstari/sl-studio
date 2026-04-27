@@ -296,11 +296,6 @@ impl OcrExtractor {
 
         Ok(trimmed.to_string())
     }
-
-    #[allow(unused_variables)]
-    pub fn is_multipage_tiff(path: &Path) -> bool {
-        false
-    }
 }
 
 impl Default for OcrExtractor {

@@ -50,12 +50,13 @@
 	// Stats
 	let stats = $derived.by(() => ({
 		total: facts.length,
-		lowConfidence: facts.filter(f => (f.confidence ?? 0) < 0.5).length,
-		mediumConfidence: facts.filter(f => (f.confidence ?? 0) >= 0.5 && (f.confidence ?? 0) < 0.7).length,
-		highConfidence: facts.filter(f => (f.confidence ?? 0) >= 0.7).length,
-		unverified: facts.filter(f => f.verification_status === 'unverified').length,
-		confirmed: facts.filter(f => f.verification_status === 'confirmed').length,
-		disputed: facts.filter(f => f.verification_status === 'disputed').length,
+		lowConfidence: facts.filter((f) => (f.confidence ?? 0) < 0.5).length,
+		mediumConfidence: facts.filter((f) => (f.confidence ?? 0) >= 0.5 && (f.confidence ?? 0) < 0.7)
+			.length,
+		highConfidence: facts.filter((f) => (f.confidence ?? 0) >= 0.7).length,
+		unverified: facts.filter((f) => f.verification_status === 'unverified').length,
+		confirmed: facts.filter((f) => f.verification_status === 'confirmed').length,
+		disputed: facts.filter((f) => f.verification_status === 'disputed').length
 	}));
 
 	let filteredFacts = $derived(
@@ -97,12 +98,22 @@
 		error = '';
 		try {
 			// Get facts with low confidence for review
-			const results = await invoke<{ id: number; fingerprint: string; filename: string; summary: string; category: string | null; severity: number; confidence: number | null; }[]>('search_facts', {
+			const results = await invoke<
+				{
+					id: number;
+					fingerprint: string;
+					filename: string;
+					summary: string;
+					category: string | null;
+					severity: number;
+					confidence: number | null;
+				}[]
+			>('search_facts', {
 				query: '',
 				limit: 1000
 			});
 
-			facts = results.map(r => ({
+			facts = results.map((r) => ({
 				id: r.id,
 				fingerprint: r.fingerprint,
 				filename: r.filename,
@@ -132,9 +143,7 @@
 			});
 
 			// Update local state
-			facts = facts.map(f =>
-				f.id === id ? { ...f, verification_status: status } : f
-			);
+			facts = facts.map((f) => (f.id === id ? { ...f, verification_status: status } : f));
 
 			if (selectedFact?.id === id) {
 				selectedFact = { ...selectedFact, verification_status: status };
@@ -146,7 +155,7 @@
 	}
 
 	function exportReviewReport() {
-		const reviewed = facts.filter(f => f.verification_status !== 'unverified');
+		const reviewed = facts.filter((f) => f.verification_status !== 'unverified');
 		const report = {
 			generated_at: new Date().toISOString(),
 			summary: {
@@ -156,7 +165,7 @@
 				disputed: stats.disputed,
 				unverified: stats.unverified
 			},
-			facts: reviewed.map(f => ({
+			facts: reviewed.map((f) => ({
 				id: f.id,
 				filename: f.filename,
 				summary: f.fact_summary,
@@ -224,12 +233,7 @@
 
 	<!-- Filters -->
 	<div class="filters">
-		<input
-			type="text"
-			placeholder="Filter facts..."
-			bind:value={filter}
-			class="filter-input"
-		/>
+		<input type="text" placeholder="Filter facts..." bind:value={filter} class="filter-input" />
 		<select bind:value={showVerified} class="filter-select">
 			<option value="low">Low Confidence First</option>
 			<option value="all">All Facts</option>
@@ -255,7 +259,7 @@
 					<button
 						class="fact-item"
 						class:selected={selectedFact?.id === fact.id}
-						onclick={() => selectedFact = fact}
+						onclick={() => (selectedFact = fact)}
 					>
 						<div class="fact-header">
 							<span
@@ -282,7 +286,9 @@
 						</div>
 						<div class="fact-summary">{fact.fact_summary}</div>
 						<div class="fact-meta">
-							<span class="category">{getCategoryIcon(fact.category)} {fact.category ?? 'Unknown'}</span>
+							<span class="category"
+								>{getCategoryIcon(fact.category)} {fact.category ?? 'Unknown'}</span
+							>
 							<span class="filename">{fact.filename}</span>
 						</div>
 					</button>
@@ -355,10 +361,16 @@
 
 				<!-- Review Actions -->
 				<div class="review-actions">
-					<button class="action-btn" onclick={() => updateVerificationStatus(selectedFact.id, 'confirmed')}>
+					<button
+						class="action-btn"
+						onclick={() => updateVerificationStatus(selectedFact.id, 'confirmed')}
+					>
 						Mark as Reviewed
 					</button>
-					<button class="action-btn flag" onclick={() => updateVerificationStatus(selectedFact.id, 'disputed')}>
+					<button
+						class="action-btn flag"
+						onclick={() => updateVerificationStatus(selectedFact.id, 'disputed')}
+					>
 						Flag for Follow-up
 					</button>
 				</div>
@@ -368,9 +380,7 @@
 
 	<!-- Export Button -->
 	<div class="export-bar">
-		<button class="export-btn" onclick={exportReviewReport}>
-			Export Review Report
-		</button>
+		<button class="export-btn" onclick={exportReviewReport}> Export Review Report </button>
 	</div>
 </div>
 

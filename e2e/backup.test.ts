@@ -23,7 +23,9 @@ test.describe('Backup & Restore Page', () => {
 	});
 
 	test('should have checkbox hint text', async ({ page }) => {
-		await expect(page.locator('.hint')).toContainText('Warning: Including evidence may result in large backup files');
+		await expect(page.locator('.hint')).toContainText(
+			'Warning: Including evidence may result in large backup files'
+		);
 	});
 
 	test('should have Create Backup button', async ({ page }) => {

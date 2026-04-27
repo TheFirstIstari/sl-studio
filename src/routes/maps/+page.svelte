@@ -53,9 +53,7 @@
 
 	// Derived state for filtered locations based on severity range
 	function getFilteredLocations(): LocationEntity[] {
-		return locations.filter(
-			(loc) => loc.severity >= minSeverity && loc.severity <= maxSeverity
-		);
+		return locations.filter((loc) => loc.severity >= minSeverity && loc.severity <= maxSeverity);
 	}
 
 	function initMap() {

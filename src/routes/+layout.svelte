@@ -3,13 +3,13 @@
 	import { page } from '$app/stores';
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { 
-		initializeApp, 
+	import {
+		initializeApp,
 		cleanupEventListeners,
-		config, 
-		hardware, 
-		stats, 
-		workflow, 
+		config,
+		hardware,
+		stats,
+		workflow,
 		modelLoaded,
 		projectInitialized,
 		isLoading,
@@ -76,11 +76,11 @@
 
 	onMount(async () => {
 		window.addEventListener('keydown', handleKeydown);
-		
+
 		// Initialize app stores ONCE
 		await initializeApp();
 		initialized = true;
-		
+
 		// Setup periodic refresh for stats (every 10 seconds)
 		refreshInterval = setInterval(async () => {
 			await refreshWorkflow();
@@ -128,8 +128,8 @@
 
 	<nav class="nav">
 		{#each navItems as item}
-			<a 
-				href={item.href} 
+			<a
+				href={item.href}
 				class="nav-item"
 				class:active={$page.url.pathname === item.href}
 				title="{item.label} ({item.shortcut})"
@@ -302,12 +302,19 @@
 	}
 
 	@keyframes spin {
-		to { transform: rotate(360deg); }
+		to {
+			transform: rotate(360deg);
+		}
 	}
 
 	@keyframes pulse {
-		0%, 100% { opacity: 1; }
-		50% { opacity: 0.5; }
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.5;
+		}
 	}
 
 	.error {
@@ -317,7 +324,7 @@
 	.shortcuts-overlay {
 		position: fixed;
 		inset: 0;
-		background: rgba(0,0,0,0.5);
+		background: rgba(0, 0, 0, 0.5);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -368,7 +375,7 @@
 
 	.stage {
 		padding: 0.25rem 0.5rem;
-		background: rgba(255,255,255,0.1);
+		background: rgba(255, 255, 255, 0.1);
 		border-radius: 0.25rem;
 	}
 

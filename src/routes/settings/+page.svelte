@@ -105,7 +105,19 @@
 
 	async function updateSystemMonitor() {
 		try {
-			systemMonitor = await invoke<SystemMonitor>('get_system_monitor');
+			const next = await invoke<SystemMonitor>('get_system_monitor');
+			// Skip the reactive update when nothing has changed so consumers of
+			// `systemMonitor` don't re-run every 2s for identical values.
+			if (
+				systemMonitor &&
+				next.cpu_usage_percent === systemMonitor.cpu_usage_percent &&
+				next.memory_percent === systemMonitor.memory_percent &&
+				next.memory_used_gb === systemMonitor.memory_used_gb &&
+				next.memory_available_gb === systemMonitor.memory_available_gb
+			) {
+				return;
+			}
+			systemMonitor = next;
 		} catch (e) {
 			console.error('Failed to get system monitor:', e);
 		}

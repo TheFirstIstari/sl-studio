@@ -293,7 +293,7 @@ impl PdfExtractor {
                     "Large PDF detected ({} MB), using limited extraction",
                     size_mb
                 );
-                return self.extract_text_limited(path, 100);
+                return self.extract_text_large(path);
             }
         }
 
@@ -309,11 +309,15 @@ impl PdfExtractor {
         Ok(text)
     }
 
-    pub fn extract_text_limited(&self, path: &Path, _max_pages: usize) -> Result<String, PdfError> {
-        // Note: pdf_extract doesn't easily allow page-limited extraction
-        // This extracts all text - for true page-limited we'd need a different crate
+    /// Extract text from a large PDF.
+    ///
+    /// `pdf_extract` does not expose a page-limited extraction API, so this
+    /// currently behaves the same as `extract_text` but logs that the file is
+    /// large. Kept as a separate entry point so callers (and future page
+    /// limiting work) have a clear hook.
+    pub fn extract_text_large(&self, path: &Path) -> Result<String, PdfError> {
         let path_str = path.to_string_lossy();
-        info!("Extracting text from PDF: {}", path_str);
+        info!("Extracting text from large PDF: {}", path_str);
 
         let text = Self::extract_text_safe(path)?;
 
@@ -325,14 +329,6 @@ impl PdfExtractor {
 
         info!("Extracted {} chars from PDF", trimmed.len());
         Ok(trimmed.to_string())
-    }
-
-    /// Extract text from rendered page image (for OCR fallback)
-    pub fn extract_text_from_image(&self, img: &DynamicImage) -> Result<String, PdfError> {
-        let rgb = img.to_rgb8();
-        let (_width, _height) = rgb.dimensions();
-
-        Ok(String::new()) // Placeholder - actual OCR will be done by OcrExtractor
     }
 }
 

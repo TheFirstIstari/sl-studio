@@ -18,7 +18,7 @@ test.describe('Results Faceted Filters', () => {
 	test('should have category filter checkboxes when facts exist', async ({ page }) => {
 		const filtersPanel = page.locator('.filters-panel');
 		const panelCount = await filtersPanel.count();
-		
+
 		// Only test if filters panel exists (which means there are facts)
 		if (panelCount > 0) {
 			const categoryCheckboxes = page.locator('.filter-option input[type="checkbox"]');
@@ -82,7 +82,9 @@ test.describe('Results Faceted Filters', () => {
 	});
 
 	test('should display confidence filter label', async ({ page }) => {
-		const confidenceSection = page.locator('.filter-section h3').filter({ hasText: 'Min Confidence' });
+		const confidenceSection = page
+			.locator('.filter-section h3')
+			.filter({ hasText: 'Min Confidence' });
 		const count = await confidenceSection.count();
 		if (count > 0) {
 			await expect(confidenceSection).toBeVisible();
@@ -130,10 +132,10 @@ test.describe('Results Faceted Filters', () => {
 			if (checkCount > 0) {
 				await checkbox.check();
 				await expect(checkbox).toBeChecked();
-				
+
 				// Then clear
 				await clearBtn.click();
-				
+
 				// Checkbox should be unchecked
 				await expect(checkbox).not.toBeChecked();
 			}
@@ -154,10 +156,10 @@ test.describe('Results Faceted Filters', () => {
 
 	test('should work combined with facet filters', async ({ page }) => {
 		const searchInput = page.locator('.filter-input');
-		
+
 		// Add text filter
 		await searchInput.fill('financial');
-		
+
 		// Check search input has correct value
 		await expect(searchInput).toHaveValue('financial');
 	});

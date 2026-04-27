@@ -4,7 +4,15 @@
 	import { onMount, onDestroy } from 'svelte';
 
 	// Use shared stores for config, hardware, workflow, and model state
-	import { config, hardware, hardwareInfo, modelLoaded, workflow, refreshWorkflow, refreshStats } from '$lib/stores/app';
+	import {
+		config,
+		hardware,
+		hardwareInfo,
+		modelLoaded,
+		workflow,
+		refreshWorkflow,
+		refreshStats
+	} from '$lib/stores/app';
 
 	// Types
 	interface RegistryFile {

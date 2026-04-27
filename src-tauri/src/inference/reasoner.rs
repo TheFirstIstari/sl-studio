@@ -44,16 +44,16 @@ pub enum ReasonerError {
 /// Matches SPEC.md intelligence table schema
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Fact {
-    pub source: String,              // Source filename (required)
-    pub source_quote: String,       // Exact supporting quote from document (required per FR-EVD-001)
-    pub date: Option<String>,        // Associated date/time (optional)
-    pub location: Option<String>,    // Location mentioned in fact (optional)
-    pub people: Vec<String>,         // Related people/entities (optional)
-    pub summary: String,             // Fact summary (required)
-    pub category: String,            // Category: legal, financial, temporal, relationship, etc.
-    pub identified_crime: Option<String>,  // Potential crime type if applicable
-    pub severity: i32,               // Severity 1-5 (1=low, 5=critical)
-    pub confidence: f32,             // Extraction confidence 0.0-1.0 (per FR-QUAL-001)
+    pub source: String,                   // Source filename (required)
+    pub source_quote: String, // Exact supporting quote from document (required per FR-EVD-001)
+    pub date: Option<String>, // Associated date/time (optional)
+    pub location: Option<String>, // Location mentioned in fact (optional)
+    pub people: Vec<String>,  // Related people/entities (optional)
+    pub summary: String,      // Fact summary (required)
+    pub category: String,     // Category: legal, financial, temporal, relationship, etc.
+    pub identified_crime: Option<String>, // Potential crime type if applicable
+    pub severity: i32,        // Severity 1-5 (1=low, 5=critical)
+    pub confidence: f32,      // Extraction confidence 0.0-1.0 (per FR-QUAL-001)
 }
 
 /// Result from LLM analysis
@@ -64,9 +64,9 @@ pub struct AnalysisResult {
     pub facts: Vec<Fact>,
     pub raw_response: String,
     pub tokens_used: i32,
-    pub quality_score: f32,          // Overall extraction quality 0.0-1.0
-    pub entity_count: i32,           // Number of entities detected
-    pub quote_coverage: f32,        // Percentage of facts with source quotes
+    pub quality_score: f32,  // Overall extraction quality 0.0-1.0
+    pub entity_count: i32,   // Number of entities detected
+    pub quote_coverage: f32, // Percentage of facts with source quotes
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,8 +80,8 @@ pub struct ReasonerConfig {
     pub chunk_overlap: usize,
     pub batch_size: usize,
     pub n_threads: u32,
-    pub n_threads_batch: Option<u32>,  // For batch processing parallelism
-    pub model_family: ModelFamily,      // For prompt format selection
+    pub n_threads_batch: Option<u32>, // For batch processing parallelism
+    pub model_family: ModelFamily,    // For prompt format selection
 }
 
 impl Default for ReasonerConfig {
@@ -91,10 +91,10 @@ impl Default for ReasonerConfig {
             model_path: String::new(),
             context_size: 4096,
             gpu_layers: 32,
-            temperature: 0.7,    // Recommended by model author
-            max_tokens: 256,       // Keep output short to avoid quality issues
+            temperature: 0.7, // Recommended by model author
+            max_tokens: 256,  // Keep output short to avoid quality issues
             // Max chars = ~700 tokens (4096 - 2000 for prompt - 1000 for output buffer)
-            max_chars_per_chunk: 2000,  
+            max_chars_per_chunk: 2000,
             chunk_overlap: 150,
             batch_size: 4,
             n_threads: 4,
@@ -152,7 +152,7 @@ impl Reasoner {
         );
 
         let model_family = ModelFamily::from_filename(&config.model_path);
-        
+
         Ok(Reasoner {
             deconstructor,
             model,
@@ -177,7 +177,10 @@ impl Reasoner {
             use_kv_cache: true,
             prompt_cache: None,
             n_threads: self.config.n_threads,
-            n_threads_batch: self.config.n_threads_batch.unwrap_or(self.config.n_threads * 2),
+            n_threads_batch: self
+                .config
+                .n_threads_batch
+                .unwrap_or(self.config.n_threads * 2),
         };
 
         let mut model = LlamaModel::new(llama_config);
@@ -292,7 +295,11 @@ impl Reasoner {
         let quote_coverage = if unique_facts.is_empty() {
             0.0
         } else {
-            unique_facts.iter().filter(|f| !f.source_quote.is_empty()).count() as f32 / unique_facts.len() as f32
+            unique_facts
+                .iter()
+                .filter(|f| !f.source_quote.is_empty())
+                .count() as f32
+                / unique_facts.len() as f32
         };
 
         Ok(AnalysisResult {
@@ -441,7 +448,10 @@ impl Reasoner {
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
             severity: json.get("severity").and_then(|v| v.as_i64()).unwrap_or(1) as i32,
-            confidence: json.get("confidence").and_then(|v| v.as_f64()).unwrap_or(0.5) as f32,
+            confidence: json
+                .get("confidence")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.5) as f32,
         })
     }
 
@@ -503,7 +513,7 @@ Extract facts from this document. Output JSON only: [/INST]"#.to_string()
     fn extract_json_objects(text: &str) -> Vec<String> {
         let text = text.trim();
         let mut results = Vec::new();
-        
+
         // First, try to parse as a JSON array
         if let Ok(arr) = serde_json::from_str::<serde_json::Value>(text) {
             if let Some(items) = arr.as_array() {
@@ -531,7 +541,7 @@ Extract facts from this document. Output JSON only: [/INST]"#.to_string()
                 }
             }
         }
-        
+
         // Fall back to extracting individual objects using depth tracking
         let mut depth = 0;
         let mut start = None;
@@ -654,7 +664,11 @@ Extract facts from this document. Output JSON only: [/INST]"#.to_string()
         let quote_coverage = if unique_facts.is_empty() {
             0.0
         } else {
-            unique_facts.iter().filter(|f| !f.source_quote.is_empty()).count() as f32 / unique_facts.len() as f32
+            unique_facts
+                .iter()
+                .filter(|f| !f.source_quote.is_empty())
+                .count() as f32
+                / unique_facts.len() as f32
         };
 
         Ok(AnalysisResult {
@@ -680,8 +694,8 @@ mod tests {
     #[test]
     fn test_reasoner_config_default() {
         let config = ReasonerConfig::default();
-        assert_eq!(config.max_chars_per_chunk, 20000);
-        assert_eq!(config.chunk_overlap, 2000);
+        assert_eq!(config.max_chars_per_chunk, 2000);
+        assert_eq!(config.chunk_overlap, 150);
     }
 
     #[test]

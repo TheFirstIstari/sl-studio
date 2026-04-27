@@ -66,14 +66,14 @@ test.describe('Timeline Filters', () => {
 	test('should clear filters when clicked', async ({ page }) => {
 		const clearBtn = page.locator('.clear-filters-btn');
 		const categoryBtn = page.locator('.category-btn').first();
-		
+
 		// Activate a category filter first
 		await categoryBtn.click();
 		await expect(categoryBtn).toHaveClass(/active/);
-		
+
 		// Clear filters
 		await clearBtn.click();
-		
+
 		// Category should no longer be active
 		await expect(categoryBtn).not.toHaveClass(/active/);
 	});
@@ -87,7 +87,7 @@ test.describe('Timeline Filters', () => {
 	test('should show list items when list view selected', async ({ page }) => {
 		const listBtn = page.locator('.view-btn').filter({ hasText: 'List' });
 		await listBtn.click();
-		
+
 		const listItems = page.locator('.list-item');
 		const count = await listItems.count();
 		if (count > 0) {

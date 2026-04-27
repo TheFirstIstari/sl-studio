@@ -381,17 +381,17 @@ The system automatically detects hardware and scales processing accordingly:
 
 ### Implementation Status (v0.3.0)
 
-| Feature Area | Status | Details |
-|--------------|--------|---------|
-| **Timeline** | ✅ Implemented | Date range filtering, category filters, severity filters, zoom controls (Day/Week/Month/Year), entity text filter |
-| **Results** | ✅ Implemented | Faceted search with category, severity, date, confidence filters; facet counts; combined AND logic; active filter tracking |
-| **Quality Review** | ✅ Implemented | Low-confidence review queue (confidence < 0.5), verification workflow (unverified/confirmed/disputed), quality badges (green/yellow/red), export report |
-| **Maps** | ✅ Implemented | Severity filter (min/max range), confidence filter, marker count display |
-| **Network** | ✅ Implemented | Degree centrality display, top hubs section, network stats (nodes/edges/avg), node sizing by degree |
-| **Shared Stores** | ✅ Implemented | Centralized Svelte stores for config, stats, hardware, workflow; 10-second auto-refresh; event listeners for progress |
-| **Results Export/Delete** | ✅ Implemented | Export button downloads JSON; Delete button removes facts via `delete_facts` command |
-| **Background Tasks** | ✅ Implemented | Event listeners for `extraction_progress`, `analysis_progress`, `registry_progress` |
-| **E2E Tests** | ✅ Implemented | 18 test files, ~386 tests covering all pages and new features |
+| Feature Area              | Status         | Details                                                                                                                                                 |
+| ------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Timeline**              | ✅ Implemented | Date range filtering, category filters, severity filters, zoom controls (Day/Week/Month/Year), entity text filter                                       |
+| **Results**               | ✅ Implemented | Faceted search with category, severity, date, confidence filters; facet counts; combined AND logic; active filter tracking                              |
+| **Quality Review**        | ✅ Implemented | Low-confidence review queue (confidence < 0.5), verification workflow (unverified/confirmed/disputed), quality badges (green/yellow/red), export report |
+| **Maps**                  | ✅ Implemented | Severity filter (min/max range), confidence filter, marker count display                                                                                |
+| **Network**               | ✅ Implemented | Degree centrality display, top hubs section, network stats (nodes/edges/avg), node sizing by degree                                                     |
+| **Shared Stores**         | ✅ Implemented | Centralized Svelte stores for config, stats, hardware, workflow; 10-second auto-refresh; event listeners for progress                                   |
+| **Results Export/Delete** | ✅ Implemented | Export button downloads JSON; Delete button removes facts via `delete_facts` command                                                                    |
+| **Background Tasks**      | ✅ Implemented | Event listeners for `extraction_progress`, `analysis_progress`, `registry_progress`                                                                     |
+| **E2E Tests**             | ✅ Implemented | 18 test files, ~386 tests covering all pages and new features                                                                                           |
 
 #### Pipeline {#fr-plp}
 
@@ -3296,8 +3296,8 @@ This section tracks issues identified during code review. Issues are organized b
 | BE-004 | `src-tauri/src/lib.rs`              | 106-107   | Hardcoded GPU stats (returns 0.0)                    | GPU monitoring shows incorrect data             | **FIXED** |
 | BE-005 | `src-tauri/src/lib.rs`              | 1014-1016 | `path` field incorrectly set to project name         | Data corruption, wrong paths stored             | **FIXED** |
 | BE-006 | `src-tauri/src/lib.rs`              | 876-1011  | Database leak in `compare_projects` (db2 not closed) | Resource leak, potential crashes                | **FIXED** |
-| BE-007 | `src-tauri/src/extractors/audio.rs` | 52-78     | Audio transcription completely stubbed               | No audio processing capability                  | -         |
-| BE-008 | `src-tauri/src/inference/llama.rs`  | 48-74     | LLM returns hardcoded responses                      | No actual LLM inference                         | -         |
+| BE-007 | `src-tauri/src/extractors/audio.rs` | 52-78     | Audio transcription completely stubbed               | No audio processing capability                  | **FIXED** |
+| BE-008 | `src-tauri/src/inference/llama.rs`  | 48-74     | LLM returns hardcoded responses                      | No actual LLM inference                         | **FIXED** |
 
 #### Configuration
 
@@ -3317,7 +3317,7 @@ This section tracks issues identified during code review. Issues are organized b
 | ID     | File                            | Line    | Description                                          | Status    |
 | ------ | ------------------------------- | ------- | ---------------------------------------------------- | --------- |
 | FE-005 | Multiple pages                  | -       | No user-facing error handling (only `console.error`) | **FIXED** |
-| FE-006 | `src/routes/stats/+page.svelte` | 33-40   | SSR-incompatible: `window.performance.memory`        | -         |
+| FE-006 | `src/routes/stats/+page.svelte` | 33-40   | SSR-incompatible: `window.performance.memory`        | **FIXED** |
 | FE-009 | `src/routes/stats/+page.svelte` | 51-53   | Chart.js instances never destroyed (memory leak)     | **FIXED** |
 | FE-010 | `src/routes/maps/+page.svelte`  | 106-111 | Race condition in map reload                         | **FIXED** |
 
@@ -3335,10 +3335,10 @@ This section tracks issues identified during code review. Issues are organized b
 
 #### Configuration
 
-| ID      | File                                | Line | Description                                         | Status |
-| ------- | ----------------------------------- | ---- | --------------------------------------------------- | ------ |
-| CFG-004 | `tauri.conf.json` vs `package.json` | -    | Version mismatch (0.2.0 vs 0.1.0)                   | -      |
-| CFG-005 | `package.json`                      | -    | Missing `@tauri-apps/plugin-fs` frontend dependency | -      |
+| ID      | File                                | Line | Description                                         | Status                   |
+| ------- | ----------------------------------- | ---- | --------------------------------------------------- | ------------------------ |
+| CFG-004 | `tauri.conf.json` vs `package.json` | -    | Version mismatch (0.2.0 vs 0.1.0)                   | **FIXED** (all at 0.3.0) |
+| CFG-005 | `package.json`                      | -    | Missing `@tauri-apps/plugin-fs` frontend dependency | **FIXED**                |
 
 ---
 
@@ -3346,33 +3346,33 @@ This section tracks issues identified during code review. Issues are organized b
 
 #### Frontend
 
-| ID     | File                               | Line         | Description                                        |
-| ------ | ---------------------------------- | ------------ | -------------------------------------------------- |
-| FE-012 | `src/routes/results/+page.svelte`  | 103-111      | Inefficient SvelteSet recreation on toggle         |
-| FE-013 | `src/routes/timeline/+page.svelte` | 57           | Incorrect `$derived` usage (returns function)      |
-| FE-014 | `src/routes/stats/+page.svelte`    | 88, 121, 147 | Hardcoded chart colors (not theme-consistent)      |
-| FE-015 | `src/routes/+layout.svelte`        | 158-194      | Modal lacks keyboard handling for outside click    |
-| FE-016 | `src/routes/settings/+page.svelte` | 137          | System monitor causes full re-render every 2s      |
-| FE-017 | Multiple files                     | -            | Missing return type annotations on async functions |
+| ID     | File                               | Line         | Description                                        | Status    |
+| ------ | ---------------------------------- | ------------ | -------------------------------------------------- | --------- |
+| FE-012 | `src/routes/results/+page.svelte`  | 205-214      | Inefficient SvelteSet recreation on toggle         | **FIXED** |
+| FE-013 | `src/routes/timeline/+page.svelte` | 107          | Incorrect `$derived` usage (returns function)      | **FIXED** |
+| FE-014 | `src/routes/stats/+page.svelte`    | 88, 121, 147 | Hardcoded chart colors (not theme-consistent)      | -         |
+| FE-015 | `src/routes/+layout.svelte`        | 158-194      | Modal lacks keyboard handling for outside click    | **FIXED** |
+| FE-016 | `src/routes/settings/+page.svelte` | 106-124      | System monitor causes full re-render every 2s      | **FIXED** |
+| FE-017 | Multiple files                     | -            | Missing return type annotations on async functions | -         |
 
 #### Backend
 
-| ID     | File                              | Line      | Description                                                  |
-| ------ | --------------------------------- | --------- | ------------------------------------------------------------ |
-| BE-017 | `src-tauri/src/extractors/pdf.rs` | 299-301   | Unused `max_pages` parameter in `extract_text_limited`       |
-| BE-018 | `src-tauri/src/extractors/ocr.rs` | 296-299   | `is_multipage_tiff` always returns false (stub)              |
-| BE-019 | `src-tauri/src/extractors/pdf.rs` | 317-323   | `extract_text_from_image` returns empty string (placeholder) |
-| BE-020 | `src-tauri/src/core/database.rs`  | 1338-1398 | Incomplete query parser edge case handling                   |
-| BE-021 | `src-tauri/src/lib.rs`            | 54-58     | Unwrap on Option in `load_config`                            |
-| BE-022 | `src-tauri/src/lib.rs`            | 1229-1267 | Blocking HTTP client in potentially async contexts           |
+| ID     | File                              | Line      | Description                                                  | Status                                                       |
+| ------ | --------------------------------- | --------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| BE-017 | `src-tauri/src/extractors/pdf.rs` | 299-301   | Unused `max_pages` parameter in `extract_text_limited`       | **FIXED** (renamed `extract_text_large`, parameter removed)  |
+| BE-018 | `src-tauri/src/extractors/ocr.rs` | 296-299   | `is_multipage_tiff` always returns false (stub)              | **FIXED** (removed dead code)                                |
+| BE-019 | `src-tauri/src/extractors/pdf.rs` | 317-323   | `extract_text_from_image` returns empty string (placeholder) | **FIXED** (removed dead code; OCR handled by `OcrExtractor`) |
+| BE-020 | `src-tauri/src/core/database.rs`  | 1338-1398 | Incomplete query parser edge case handling                   | **FIXED**                                                    |
+| BE-021 | `src-tauri/src/lib.rs`            | 54-58     | Unwrap on Option in `load_config`                            | **FIXED**                                                    |
+| BE-022 | `src-tauri/src/lib.rs`            | 1229-1267 | Blocking HTTP client in potentially async contexts           | **FIXED**                                                    |
 
 #### Configuration
 
-| ID      | File           | Description                                  |
-| ------- | -------------- | -------------------------------------------- |
-| CFG-007 | `package.json` | Empty description field                      |
-| CFG-008 | `.gitignore`   | Incorrect path pattern `src-tauri/~/.rustup` |
-| CFG-009 | Project root   | No `.env.example` template                   |
+| ID      | File           | Description                                  | Status                                          |
+| ------- | -------------- | -------------------------------------------- | ----------------------------------------------- |
+| CFG-007 | `package.json` | Empty description field                      | **FIXED**                                       |
+| CFG-008 | `.gitignore`   | Incorrect path pattern `src-tauri/~/.rustup` | **N/A** (literal `$HOME`/`~` dirs really exist) |
+| CFG-009 | Project root   | No `.env.example` template                   | **FIXED** (added `.env.example`)                |
 
 ---
 
@@ -3388,10 +3388,10 @@ This section tracks issues identified during code review. Issues are organized b
 - [x] BE-009, BE-010: Fix SQL injection vulnerabilities
 - [x] BE-005: Fix incorrect path assignment bug
 
-#### Phase 2: Core Functionality - IN PROGRESS
+#### Phase 2: Core Functionality - COMPLETED
 
-- [ ] BE-007: Implement audio transcription (stub - placeholder only)
-- [ ] BE-008: Implement LLM inference (stub - hardcoded JSON)
+- [x] BE-007: Implement audio transcription (whisper CLI integration)
+- [x] BE-008: Implement LLM inference (llama_cpp 0.3 with GGUF support)
 - [x] BE-004: Fix hardcoded GPU statistics
 - [x] BE-006: Fix database leak
 - [x] BE-015: Reload database after restore_backup
@@ -3417,13 +3417,11 @@ This section tracks issues identified during code review. Issues are organized b
 
 #### Remaining Issues
 
-| Priority | Issue   | Description                                               |
-| -------- | ------- | --------------------------------------------------------- |
-| Medium   | CFG-004 | Version mismatch (package.json 0.1.0 vs Cargo.toml 0.2.0) |
-| Medium   | CFG-007 | Empty description in package.json                         |
-| Low      | BE-007  | Audio transcription stub (placeholder)                    |
-| Low      | BE-008  | LLM inference stub (hardcoded JSON)                       |
-| Low      | BE-003  | Many `.unwrap()` on mutexes (~225 instances, low risk)    |
+| Priority | Issue  | Description                                                      |
+| -------- | ------ | ---------------------------------------------------------------- |
+| Low      | BE-003 | `.unwrap()` on mutex locks in `lib.rs` (~51 instances, low risk) |
+| Low      | FE-014 | Hardcoded chart colors in stats page (could move to CSS vars)    |
+| Low      | FE-017 | Missing return type annotations on async functions               |
 
 # ================================================================================
 

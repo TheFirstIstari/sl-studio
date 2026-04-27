@@ -56,18 +56,17 @@
 
 		// Filter by category
 		if (categoryFilters.length > 0) {
-			filtered = filtered.filter(e => e.category && categoryFilters.includes(e.category));
+			filtered = filtered.filter((e) => e.category && categoryFilters.includes(e.category));
 		}
 
 		// Filter by severity range
-		filtered = filtered.filter(e => e.severity >= severityMin && e.severity <= severityMax);
+		filtered = filtered.filter((e) => e.severity >= severityMin && e.severity <= severityMax);
 
 		// Filter by entity mention (search in summary and filename)
 		if (entityFilter.trim()) {
 			const search = entityFilter.toLowerCase();
-			filtered = filtered.filter(e =>
-				e.summary.toLowerCase().includes(search) ||
-				e.filename.toLowerCase().includes(search)
+			filtered = filtered.filter(
+				(e) => e.summary.toLowerCase().includes(search) || e.filename.toLowerCase().includes(search)
 			);
 		}
 
@@ -76,7 +75,7 @@
 
 	function toggleCategory(category: string) {
 		if (categoryFilters.includes(category)) {
-			categoryFilters = categoryFilters.filter(c => c !== category);
+			categoryFilters = categoryFilters.filter((c) => c !== category);
 		} else {
 			categoryFilters = [...categoryFilters, category];
 		}
@@ -104,7 +103,7 @@
 
 	let filteredEvents = $derived(applyFilters());
 
-	let groupedByMonth = $derived(() => {
+	let groupedByMonth = $derived.by(() => {
 		const groups: Record<string, TimelineEvent[]> = {};
 		for (const event of filteredEvents) {
 			const month = event.date.substring(0, 7);
@@ -158,26 +157,20 @@
 		<div class="filter-section">
 			<label class="filter-label">Zoom</label>
 			<div class="zoom-controls">
-				<button
-					class="zoom-btn"
-					class:active={zoomLevel === 'day'}
-					onclick={() => setZoom('day')}
-				>Day</button>
-				<button
-					class="zoom-btn"
-					class:active={zoomLevel === 'week'}
-					onclick={() => setZoom('week')}
-				>Week</button>
+				<button class="zoom-btn" class:active={zoomLevel === 'day'} onclick={() => setZoom('day')}
+					>Day</button
+				>
+				<button class="zoom-btn" class:active={zoomLevel === 'week'} onclick={() => setZoom('week')}
+					>Week</button
+				>
 				<button
 					class="zoom-btn"
 					class:active={zoomLevel === 'month'}
-					onclick={() => setZoom('month')}
-				>Month</button>
-				<button
-					class="zoom-btn"
-					class:active={zoomLevel === 'year'}
-					onclick={() => setZoom('year')}
-				>Year</button>
+					onclick={() => setZoom('month')}>Month</button
+				>
+				<button class="zoom-btn" class:active={zoomLevel === 'year'} onclick={() => setZoom('year')}
+					>Year</button
+				>
 			</div>
 		</div>
 
@@ -218,20 +211,8 @@
 		<div class="filter-section">
 			<label class="filter-label">Severity: {severityMin} - {severityMax}</label>
 			<div class="severity-range">
-				<input
-					type="range"
-					class="severity-slider"
-					min="0"
-					max="10"
-					bind:value={severityMin}
-				/>
-				<input
-					type="range"
-					class="severity-slider"
-					min="0"
-					max="10"
-					bind:value={severityMax}
-				/>
+				<input type="range" class="severity-slider" min="0" max="10" bind:value={severityMin} />
+				<input type="range" class="severity-slider" min="0" max="10" bind:value={severityMax} />
 			</div>
 		</div>
 
@@ -245,9 +226,7 @@
 			/>
 		</div>
 
-		<button class="clear-filters-btn" onclick={clearFilters}>
-			Clear Filters
-		</button>
+		<button class="clear-filters-btn" onclick={clearFilters}> Clear Filters </button>
 	</div>
 
 	{#if loading}
@@ -269,7 +248,7 @@
 		</div>
 	{:else if viewMode === 'timeline'}
 		<div class="timeline-container">
-			{#each groupedByMonth() as [month, monthEvents]}
+			{#each groupedByMonth as [month, monthEvents]}
 				<div class="month-group">
 					<div class="month-header">
 						<span class="month-label">{month}</span>

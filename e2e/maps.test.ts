@@ -56,7 +56,7 @@ test.describe('Geographic Locations Page', () => {
 
 	test('should have locations panel when data exists', async ({ page }) => {
 		const locationsPanel = page.locator('.locations-panel');
-		const panelExists = await locationsPanel.count() > 0;
+		const panelExists = (await locationsPanel.count()) > 0;
 
 		if (panelExists) {
 			await expect(locationsPanel).toBeVisible();
@@ -66,7 +66,7 @@ test.describe('Geographic Locations Page', () => {
 
 	test('should have locations list with items', async ({ page }) => {
 		const locationsList = page.locator('.locations-list');
-		const listExists = await locationsList.count() > 0;
+		const listExists = (await locationsList.count()) > 0;
 
 		if (listExists) {
 			await expect(locationsList).toBeVisible();
@@ -107,7 +107,7 @@ test.describe('Geographic Locations Page', () => {
 
 	test('should have detail panel for selected location', async ({ page }) => {
 		const detailPanel = page.locator('.detail-panel');
-		const panelExists = await detailPanel.count() > 0;
+		const panelExists = (await detailPanel.count()) > 0;
 
 		if (panelExists) {
 			await expect(detailPanel).toBeVisible();
@@ -211,7 +211,7 @@ test.describe('Geographic Locations Page', () => {
 	test('should have map container layout', async ({ page }) => {
 		// Map container only exists when there are locations
 		const emptyState = page.locator('.empty');
-		const hasEmpty = await emptyState.count() > 0;
+		const hasEmpty = (await emptyState.count()) > 0;
 		const mapContainer = page.locator('.map-container');
 
 		if (!hasEmpty) {
@@ -249,7 +249,7 @@ test.describe('Geographic Locations Page', () => {
 
 	test('should display locations count in panel header', async ({ page }) => {
 		const locationsPanel = page.locator('.locations-panel');
-		const panelExists = await locationsPanel.count() > 0;
+		const panelExists = (await locationsPanel.count()) > 0;
 
 		if (panelExists) {
 			const h2 = locationsPanel.locator('h2');
@@ -261,11 +261,11 @@ test.describe('Geographic Locations Page', () => {
 
 	test('should handle empty state with hint message', async ({ page }) => {
 		const empty = page.locator('.empty');
-		const emptyExists = await empty.count() > 0;
+		const emptyExists = (await empty.count()) > 0;
 
 		if (emptyExists) {
 			const hint = page.locator('.empty-hint');
-			const hintExists = await hint.count() > 0;
+			const hintExists = (await hint.count()) > 0;
 			if (hintExists) {
 				await expect(hint).toContainText('Run analysis');
 			}

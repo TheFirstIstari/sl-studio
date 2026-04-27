@@ -12,7 +12,7 @@ test.describe('Statistics Page', () => {
 
 	test('should have overview cards section', async ({ page }) => {
 		const overviewCards = page.locator('.overview-cards');
-		const cardsExist = await overviewCards.count() > 0;
+		const cardsExist = (await overviewCards.count()) > 0;
 		if (cardsExist) {
 			await expect(overviewCards).toBeVisible();
 		}
@@ -129,7 +129,7 @@ test.describe('Statistics Page', () => {
 
 	test('should display Category Details table', async ({ page }) => {
 		const tableCard = page.locator('.table-card');
-		const tableExists = await tableCard.count() > 0;
+		const tableExists = (await tableCard.count()) > 0;
 
 		if (tableExists) {
 			await expect(tableCard).toBeVisible();
@@ -139,7 +139,7 @@ test.describe('Statistics Page', () => {
 
 	test('should have table with proper headers', async ({ page }) => {
 		const tableCard = page.locator('.table-card');
-		const tableExists = await tableCard.count() > 0;
+		const tableExists = (await tableCard.count()) > 0;
 
 		if (tableExists) {
 			const table = tableCard.locator('.data-table');
@@ -152,7 +152,7 @@ test.describe('Statistics Page', () => {
 
 	test('should have table with data rows', async ({ page }) => {
 		const tableCard = page.locator('.table-card');
-		const tableExists = await tableCard.count() > 0;
+		const tableExists = (await tableCard.count()) > 0;
 
 		if (tableExists) {
 			const tbody = tableCard.locator('tbody');
@@ -222,7 +222,7 @@ test.describe('Statistics Page', () => {
 
 		if (count > 0) {
 			const confidenceCard = cards.filter({ hasText: 'Avg Confidence' });
-			if (await confidenceCard.count() > 0) {
+			if ((await confidenceCard.count()) > 0) {
 				const value = await confidenceCard.locator('.card-value').textContent();
 				expect(value).toContain('%');
 			}
@@ -240,7 +240,7 @@ test.describe('Statistics Page', () => {
 
 	test('table should show category statistics data', async ({ page }) => {
 		const tableCard = page.locator('.table-card');
-		const tableExists = await tableCard.count() > 0;
+		const tableExists = (await tableCard.count()) > 0;
 
 		if (tableExists) {
 			const tbody = tableCard.locator('tbody');

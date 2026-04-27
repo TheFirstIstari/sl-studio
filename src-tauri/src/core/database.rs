@@ -1781,6 +1781,25 @@ impl Database {
         Ok(())
     }
 
+    /// Soft-delete an intelligence row.
+    ///
+    /// Per NFR-FOR-006, database operations MUST use soft deletes — set
+    /// `is_deleted = TRUE` and stamp `deleted_at` rather than removing the row.
+    pub fn delete_intelligence(&self, id: i64) -> Result<()> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        let affected = conn.execute(
+            "UPDATE intelligence
+                SET is_deleted = TRUE,
+                    deleted_at = CURRENT_TIMESTAMP
+              WHERE id = ?1 AND is_deleted = FALSE",
+            params![id],
+        )?;
+        if affected == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        Ok(())
+    }
+
     pub fn delete_chain(&self, chain_id: i64) -> Result<()> {
         let conn = self.intelligence_conn.lock().unwrap();
         conn.execute(

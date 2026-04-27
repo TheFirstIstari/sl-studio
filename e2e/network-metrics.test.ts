@@ -94,10 +94,10 @@ test.describe('Network Metrics', () => {
 	test('should have degree info section in side panel', async ({ page }) => {
 		// Wait for loading to complete
 		await page.waitForTimeout(1000);
-		
+
 		const emptyState = page.locator('.empty');
-		const hasEmpty = await emptyState.count() > 0;
-		
+		const hasEmpty = (await emptyState.count()) > 0;
+
 		if (!hasEmpty) {
 			const sidePanel = page.locator('.side-panel');
 			const panelCount = await sidePanel.count();
@@ -115,10 +115,10 @@ test.describe('Network Metrics', () => {
 	test('should have hub list section', async ({ page }) => {
 		// Wait for loading to complete
 		await page.waitForTimeout(1000);
-		
+
 		const emptyState = page.locator('.empty');
-		const hasEmpty = await emptyState.count() > 0;
-		
+		const hasEmpty = (await emptyState.count()) > 0;
+
 		if (!hasEmpty) {
 			const hubList = page.locator('.hub-list');
 			const hubCount = await hubList.count();
@@ -131,10 +131,10 @@ test.describe('Network Metrics', () => {
 	test('should display top hubs header', async ({ page }) => {
 		// Wait for loading to complete
 		await page.waitForTimeout(1000);
-		
+
 		const emptyState = page.locator('.empty');
-		const hasEmpty = await emptyState.count() > 0;
-		
+		const hasEmpty = (await emptyState.count()) > 0;
+
 		if (!hasEmpty) {
 			const hubList = page.locator('.hub-list');
 			const hubCount = await hubList.count();
@@ -147,10 +147,10 @@ test.describe('Network Metrics', () => {
 	test('should display hub items', async ({ page }) => {
 		// Wait for loading to complete
 		await page.waitForTimeout(1000);
-		
+
 		const emptyState = page.locator('.empty');
-		const hasEmpty = await emptyState.count() > 0;
-		
+		const hasEmpty = (await emptyState.count()) > 0;
+
 		if (!hasEmpty) {
 			const hubItems = page.locator('.hub-item');
 			const itemCount = await hubItems.count();
@@ -163,10 +163,10 @@ test.describe('Network Metrics', () => {
 	test('should display hub ranking', async ({ page }) => {
 		// Wait for loading to complete
 		await page.waitForTimeout(1000);
-		
+
 		const emptyState = page.locator('.empty');
-		const hasEmpty = await emptyState.count() > 0;
-		
+		const hasEmpty = (await emptyState.count()) > 0;
+
 		if (!hasEmpty) {
 			const hubItems = page.locator('.hub-item');
 			const itemCount = await hubItems.count();
@@ -182,10 +182,10 @@ test.describe('Network Metrics', () => {
 	test('should display hub degree in hub item', async ({ page }) => {
 		// Wait for loading to complete
 		await page.waitForTimeout(1000);
-		
+
 		const emptyState = page.locator('.empty');
-		const hasEmpty = await emptyState.count() > 0;
-		
+		const hasEmpty = (await emptyState.count()) > 0;
+
 		if (!hasEmpty) {
 			const hubItems = page.locator('.hub-item');
 			const itemCount = await hubItems.count();
@@ -226,8 +226,8 @@ test.describe('Network Metrics', () => {
 
 	test('should have network container layout', async ({ page }) => {
 		const emptyState = page.locator('.empty');
-		const hasEmpty = await emptyState.count() > 0;
-		
+		const hasEmpty = (await emptyState.count()) > 0;
+
 		if (!hasEmpty) {
 			const networkContainer = page.locator('.network-container');
 			await expect(networkContainer).toBeVisible();
@@ -246,13 +246,13 @@ test.describe('Network Metrics', () => {
 
 	test('should have zoom controls', async ({ page }) => {
 		const emptyState = page.locator('.empty');
-		const hasEmpty = await emptyState.count() > 0;
-		
+		const hasEmpty = (await emptyState.count()) > 0;
+
 		if (!hasEmpty) {
 			const zoomIn = page.locator('button[title="Zoom In"]');
 			const zoomOut = page.locator('button[title="Zoom Out"]');
 			const fitView = page.locator('button[title="Fit View"]');
-			
+
 			await expect(zoomIn).toBeVisible();
 			await expect(zoomOut).toBeVisible();
 			await expect(fitView).toBeVisible();

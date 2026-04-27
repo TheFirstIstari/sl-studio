@@ -13,9 +13,9 @@ use inference::{Reasoner, ReasonerConfig};
 pub use models::{ModelManager, Quantization};
 
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Emitter, State};
 
 static GLOBAL_THREAD_POOL: OnceLock<rayon::ThreadPool> = OnceLock::new();
@@ -101,7 +101,6 @@ pub struct WorkflowState {
     pub processed_count: i64,
     pub total_count: i64,
 }
-
 
 // Processing state for tracking active operations
 #[derive(Debug, Clone, Default)]
@@ -242,9 +241,15 @@ async fn init_project(
 ) -> Result<bool, String> {
     // Check if project is already initialized (both config name AND database exist)
     {
-        let config_guard = state.config.lock().map_err(|e| format!("Failed to lock config: {}", e))?;
-        let db_guard = state.db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
-        
+        let config_guard = state
+            .config
+            .lock()
+            .map_err(|e| format!("Failed to lock config: {}", e))?;
+        let db_guard = state
+            .db
+            .lock()
+            .map_err(|e| format!("Failed to lock database: {}", e))?;
+
         if config_guard.project.name == config.project.name && db_guard.is_some() {
             info!("Project already initialized: {}", config_guard.project.name);
             return Ok(true); // Already initialized, skip
@@ -368,17 +373,35 @@ fn update_processing_state(
     total: Option<i64>,
 ) -> Result<(), String> {
     let mut proc = state.processing.lock().map_err(|e| e.to_string())?;
-    if let Some(v) = is_scanning { proc.is_scanning = v; }
-    if let Some(v) = is_extracting { proc.is_extracting = v; }
-    if let Some(v) = is_analyzing { proc.is_analyzing = v; }
-    if let Some(v) = progress {
-        if proc.is_scanning { proc.scan_progress = v; }
-        if proc.is_extracting { proc.extract_progress = v; }
-        if proc.is_analyzing { proc.analyze_progress = v; }
+    if let Some(v) = is_scanning {
+        proc.is_scanning = v;
     }
-    if let Some(v) = current_file { proc.current_file = v; }
-    if let Some(v) = processed { proc.processed_count = v; }
-    if let Some(v) = total { proc.total_count = v; }
+    if let Some(v) = is_extracting {
+        proc.is_extracting = v;
+    }
+    if let Some(v) = is_analyzing {
+        proc.is_analyzing = v;
+    }
+    if let Some(v) = progress {
+        if proc.is_scanning {
+            proc.scan_progress = v;
+        }
+        if proc.is_extracting {
+            proc.extract_progress = v;
+        }
+        if proc.is_analyzing {
+            proc.analyze_progress = v;
+        }
+    }
+    if let Some(v) = current_file {
+        proc.current_file = v;
+    }
+    if let Some(v) = processed {
+        proc.processed_count = v;
+    }
+    if let Some(v) = total {
+        proc.total_count = v;
+    }
     Ok(())
 }
 
@@ -386,11 +409,20 @@ fn update_processing_state(
 fn get_workflow_state(state: State<AppState>) -> Result<WorkflowState, String> {
     // Get database state
     let (db_state, processing) = {
-        let db_guard = state.db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
-        let proc_guard = state.processing.lock().map_err(|e| format!("Failed to lock processing: {}", e))?;
-        (db_guard.as_ref().map(|db| db.get_workflow_state()), proc_guard.clone())
+        let db_guard = state
+            .db
+            .lock()
+            .map_err(|e| format!("Failed to lock database: {}", e))?;
+        let proc_guard = state
+            .processing
+            .lock()
+            .map_err(|e| format!("Failed to lock processing: {}", e))?;
+        (
+            db_guard.as_ref().map(|db| db.get_workflow_state()),
+            proc_guard.clone(),
+        )
     };
-    
+
     let mut workflow = match db_state {
         Some(Ok(w)) => w,
         _ => WorkflowState {
@@ -410,9 +442,9 @@ fn get_workflow_state(state: State<AppState>) -> Result<WorkflowState, String> {
             current_file: String::new(),
             processed_count: 0,
             total_count: 0,
-        }
+        },
     };
-    
+
     // Merge in-memory processing state
     workflow.is_scanning = processing.is_scanning;
     workflow.is_extracting = processing.is_extracting;
@@ -423,7 +455,7 @@ fn get_workflow_state(state: State<AppState>) -> Result<WorkflowState, String> {
     workflow.current_file = processing.current_file;
     workflow.processed_count = processing.processed_count;
     workflow.total_count = processing.total_count;
-    
+
     Ok(workflow)
 }
 
@@ -1865,10 +1897,10 @@ fn analyze_file(state: State<AppState>, path: String) -> Result<inference::Analy
 }
 
 #[tauri::command]
-fn validate_model(state: State<AppState>, model_path: String) -> Result<bool, String> {
+fn validate_model(_state: State<AppState>, model_path: String) -> Result<bool, String> {
     use inference::Reasoner;
     use inference::ReasonerConfig;
-    
+
     let config = ReasonerConfig {
         model_path: model_path.clone(),
         context_size: 2048,
@@ -1876,7 +1908,7 @@ fn validate_model(state: State<AppState>, model_path: String) -> Result<bool, St
         temperature: 0.1,
         ..Default::default()
     };
-    
+
     match Reasoner::new(config) {
         Ok(_reasoner) => {
             info!("Model validation successful: {}", model_path);
@@ -2243,12 +2275,16 @@ async fn analyze_batch(
 
     // Emit initial progress
     let total = fingerprints.len();
-    app.emit("analysis_progress", AnalysisProgress {
-        total,
-        processed: 0,
-        current_file: "Starting analysis...".to_string(),
-        phase: "Initializing".to_string(),
-    }).ok();
+    app.emit(
+        "analysis_progress",
+        AnalysisProgress {
+            total,
+            processed: 0,
+            current_file: "Starting analysis...".to_string(),
+            phase: "Initializing".to_string(),
+        },
+    )
+    .ok();
 
     let db_guard = state.db.lock().unwrap();
     let db = db_guard.as_ref().ok_or("Database not initialized")?;
@@ -2261,7 +2297,7 @@ async fn analyze_batch(
             info!("Analysis cancelled by user");
             break;
         }
-        
+
         // Get registry entry to find file path
         let entry = match db.get_registry_entry(fingerprint) {
             Ok(e) => e,
@@ -2272,12 +2308,16 @@ async fn analyze_batch(
         };
 
         // Emit progress for current file
-        app.emit("analysis_progress", AnalysisProgress {
-            total,
-            processed,
-            current_file: entry.file_name.clone(),
-            phase: "Analyzing".to_string(),
-        }).ok();
+        app.emit(
+            "analysis_progress",
+            AnalysisProgress {
+                total,
+                processed,
+                current_file: entry.file_name.clone(),
+                phase: "Analyzing".to_string(),
+            },
+        )
+        .ok();
 
         // Get extracted text from cache
         let text = match db.get_extracted_text(fingerprint) {
@@ -2332,7 +2372,7 @@ async fn analyze_batch(
                         processing_time_ms: None,
                         created_at: None,
                     };
-                    
+
                     if let Err(e) = db.insert_intelligence(&intel_entry) {
                         error!("Failed to save fact for {}: {}", fingerprint, e);
                     }
@@ -2340,24 +2380,32 @@ async fn analyze_batch(
 
                 // Mark as processed
                 let _ = db.mark_processed(fingerprint);
-                info!("Saved {} facts from {}", result.facts.len(), entry.file_name);
+                info!(
+                    "Saved {} facts from {}",
+                    result.facts.len(),
+                    entry.file_name
+                );
                 results.push(result);
             }
             Err(e) => {
                 error!("Analysis failed for {}: {}", fingerprint, e);
             }
         }
-        
+
         processed += 1;
     }
 
     // Emit completion progress
-    app.emit("analysis_progress", AnalysisProgress {
-        total,
-        processed,
-        current_file: String::new(),
-        phase: "Complete".to_string(),
-    }).ok();
+    app.emit(
+        "analysis_progress",
+        AnalysisProgress {
+            total,
+            processed,
+            current_file: String::new(),
+            phase: "Complete".to_string(),
+        },
+    )
+    .ok();
 
     info!("Analysis complete: {} files processed", results.len());
     Ok(results)

@@ -37,7 +37,7 @@ test.describe('Entity Network Page', () => {
 		// Graph container only shows when there are relationships
 		// Check if we have data or empty state
 		const emptyState = page.locator('.empty');
-		const hasEmpty = await emptyState.count() > 0;
+		const hasEmpty = (await emptyState.count()) > 0;
 		const graphContainer = page.locator('.graph-container');
 
 		if (!hasEmpty) {
@@ -80,7 +80,10 @@ test.describe('Entity Network Page', () => {
 	});
 
 	test('should display legend items with correct colors', async ({ page }) => {
-		const legendVisible = await page.locator('.legend').isVisible().catch(() => false);
+		const legendVisible = await page
+			.locator('.legend')
+			.isVisible()
+			.catch(() => false);
 
 		if (legendVisible) {
 			const legendItems = page.locator('.legend-item');
@@ -93,7 +96,7 @@ test.describe('Entity Network Page', () => {
 		// Side panel shows when a node is selected (but we can't simulate cytoscape clicks easily)
 		// So we test that the panel structure exists
 		const sidePanel = page.locator('.side-panel');
-		const panelExists = await sidePanel.count() > 0;
+		const panelExists = (await sidePanel.count()) > 0;
 
 		if (panelExists) {
 			await expect(page.locator('.panel-header h2')).toContainText('Selection');
@@ -103,7 +106,7 @@ test.describe('Entity Network Page', () => {
 
 	test('should display connected entities section when node selected', async ({ page }) => {
 		const connectedList = page.locator('.connected-list');
-		const connectedExists = await connectedList.count() > 0;
+		const connectedExists = (await connectedList.count()) > 0;
 
 		if (connectedExists) {
 			await expect(connectedList.locator('h3')).toContainText('Connected Entities');
@@ -121,7 +124,7 @@ test.describe('Entity Network Page', () => {
 	test('should have network container layout', async ({ page }) => {
 		// Container exists when data exists, empty state shows otherwise
 		const emptyState = page.locator('.empty');
-		const hasEmpty = await emptyState.count() > 0;
+		const hasEmpty = (await emptyState.count()) > 0;
 		const networkContainer = page.locator('.network-container');
 
 		if (!hasEmpty) {
@@ -183,7 +186,7 @@ test.describe('Entity Network Page', () => {
 		// Check that the cytoscape container can accept interactions
 		// At minimum verify the container exists and is ready
 		const emptyState = page.locator('.empty');
-		const hasEmpty = await emptyState.count() > 0;
+		const hasEmpty = (await emptyState.count()) > 0;
 		const graphContainer = page.locator('.graph-container');
 
 		if (!hasEmpty) {
@@ -193,11 +196,11 @@ test.describe('Entity Network Page', () => {
 
 	test('should handle empty state with hint message', async ({ page }) => {
 		const empty = page.locator('.empty');
-		const emptyExists = await empty.count() > 0;
+		const emptyExists = (await empty.count()) > 0;
 
 		if (emptyExists) {
 			const hint = page.locator('.empty-hint');
-			const hintExists = await hint.count() > 0;
+			const hintExists = (await hint.count()) > 0;
 			if (hintExists) {
 				await expect(hint).toContainText('Run analysis');
 			}

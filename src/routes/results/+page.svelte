@@ -203,13 +203,13 @@
 	}
 
 	function toggleSelect(id: number) {
-		const newSet = new Set(selectedIds);
-		if (newSet.has(id)) {
-			newSet.delete(id);
+		// Svelte 5 reactive state on a Set tracks mutations directly,
+		// so no need to allocate a new Set on every toggle.
+		if (selectedIds.has(id)) {
+			selectedIds.delete(id);
 		} else {
-			newSet.add(id);
+			selectedIds.add(id);
 		}
-		selectedIds = newSet;
 		saveToHistory();
 	}
 
@@ -248,7 +248,7 @@
 		return 'file';
 	}
 
-let filteredFacts = $derived(
+	let filteredFacts = $derived(
 		facts
 			.filter((f) => {
 				// Text filter
@@ -312,11 +312,11 @@ let filteredFacts = $derived(
 		startDate = '';
 		endDate = '';
 		minConfidence = 0;
-saveToHistory();
+		saveToHistory();
 	}
-	</script>
+</script>
 
-	<div class="results">
+<div class="results">
 	<div class="results-header">
 		<div class="header-top">
 			<h1>Results</h1>
@@ -451,12 +451,7 @@ saveToHistory();
 					</label>
 					<label class="date-field">
 						<span>To</span>
-						<input
-							type="date"
-							bind:value={endDate}
-							onchange={onFilterChange}
-							class="date-input"
-						/>
+						<input type="date" bind:value={endDate} onchange={onFilterChange} class="date-input" />
 					</label>
 				</div>
 			</div>
@@ -490,45 +485,51 @@ saveToHistory();
 					</label>
 					{#if selectedIds.size > 0}
 						<div class="bulk-actions">
-							<button class="bulk-btn" onclick={async () => {
-								if (selectedIds.size === 0) return;
-								try {
-									const ids = Array.from(selectedIds);
-									const result = await invoke<string>('export_facts_json', {
-										minWeight: 0.0,
-										limit: ids.length,
-										categories: null,
-										startDate: null,
-										endDate: null
-									});
-									// Create download
-									const blob = new Blob([result], { type: 'application/json' });
-									const url = URL.createObjectURL(blob);
-									const a = document.createElement('a');
-									a.href = url;
-									a.download = `facts-export-${Date.now()}.json`;
-									a.click();
-									URL.revokeObjectURL(url);
-								} catch (e) {
-									console.error('Export failed:', e);
-								}
-							}}>
+							<button
+								class="bulk-btn"
+								onclick={async () => {
+									if (selectedIds.size === 0) return;
+									try {
+										const ids = Array.from(selectedIds);
+										const result = await invoke<string>('export_facts_json', {
+											minWeight: 0.0,
+											limit: ids.length,
+											categories: null,
+											startDate: null,
+											endDate: null
+										});
+										// Create download
+										const blob = new Blob([result], { type: 'application/json' });
+										const url = URL.createObjectURL(blob);
+										const a = document.createElement('a');
+										a.href = url;
+										a.download = `facts-export-${Date.now()}.json`;
+										a.click();
+										URL.revokeObjectURL(url);
+									} catch (e) {
+										console.error('Export failed:', e);
+									}
+								}}
+							>
 								Export
 							</button>
-							<button class="bulk-btn danger" onclick={async () => {
-								if (selectedIds.size === 0) return;
-								if (!confirm(`Delete ${selectedIds.size} selected fact(s)?`)) return;
-								try {
-									const ids = Array.from(selectedIds);
-									const count = await invoke<number>('delete_facts', { ids });
-									// Refresh facts
-									await loadFacts();
-									selectedIds = new Set();
-									selectAll = false;
-								} catch (e) {
-									console.error('Delete failed:', e);
-								}
-							}}>
+							<button
+								class="bulk-btn danger"
+								onclick={async () => {
+									if (selectedIds.size === 0) return;
+									if (!confirm(`Delete ${selectedIds.size} selected fact(s)?`)) return;
+									try {
+										const ids = Array.from(selectedIds);
+										const count = await invoke<number>('delete_facts', { ids });
+										// Refresh facts
+										await loadFacts();
+										selectedIds = new Set();
+										selectAll = false;
+									} catch (e) {
+										console.error('Delete failed:', e);
+									}
+								}}
+							>
 								Delete
 							</button>
 						</div>

@@ -175,7 +175,7 @@ test.describe('Quality Review Queue', () => {
 		const emptyState = page.locator('.empty-state');
 		const listCount = await factsList.count();
 		const emptyCount = await emptyState.count();
-		
+
 		if (listCount > 0) {
 			await expect(factsList).toBeVisible();
 		} else if (emptyCount > 0) {

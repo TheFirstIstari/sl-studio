@@ -58,12 +58,24 @@ pub struct HardwareConfig {
     pub whisper_size: String,
 }
 
-fn default_gpu_backend() -> GpuBackend { GpuBackend::Metal }
-fn default_gpu_memory_fraction() -> f32 { 0.8 }
-fn default_cpu_workers() -> u32 { 4 }
-fn default_batch_size() -> u32 { 6 }
-fn default_ocr_provider() -> String { "onnx".to_string() }
-fn default_whisper_size() -> String { "base".to_string() }
+fn default_gpu_backend() -> GpuBackend {
+    GpuBackend::Metal
+}
+fn default_gpu_memory_fraction() -> f32 {
+    0.8
+}
+fn default_cpu_workers() -> u32 {
+    4
+}
+fn default_batch_size() -> u32 {
+    6
+}
+fn default_ocr_provider() -> String {
+    "onnx".to_string()
+}
+fn default_whisper_size() -> String {
+    "base".to_string()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HardwareInfo {

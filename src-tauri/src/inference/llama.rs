@@ -39,15 +39,15 @@ impl Default for LlamaConfig {
         let n_threads = (num_cpus::get() / 2).max(4) as u32;
         LlamaConfig {
             model_path: String::new(),
-            context_size: 4096,  // Must match model's native context
+            context_size: 4096, // Must match model's native context
             gpu_layers: 0,
-            temperature: 0.7,  // Higher for more diverse output
+            temperature: 0.7, // Higher for more diverse output
             max_tokens: 1024,
             repeat_penalty: 1.1,
             use_kv_cache: true,
             prompt_cache: None,
             n_threads,
-            n_threads_batch: n_threads * 2,  // Batch can use more threads
+            n_threads_batch: n_threads * 2, // Batch can use more threads
         }
     }
 }
@@ -172,7 +172,7 @@ impl LlamaModel {
         let session_params = llama_cpp::SessionParams {
             n_ctx: self.config.context_size,
             n_threads: self.config.n_threads,
-            n_threads_batch: self.config.n_threads * 2,  // More threads for batch processing
+            n_threads_batch: self.config.n_threads * 2, // More threads for batch processing
             ..Default::default()
         };
 
@@ -330,7 +330,7 @@ mod tests {
         let config = LlamaConfig::default();
         assert_eq!(config.context_size, 4096);
         assert_eq!(config.max_tokens, 1024);
-        assert_eq!(config.temperature, 0.1);
+        assert_eq!(config.temperature, 0.7);
     }
 
     #[test]

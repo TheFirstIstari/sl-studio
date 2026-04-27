@@ -23,7 +23,13 @@
 	{#if $isLoading}
 		<div class="cards">
 			<div class="card">
-				<svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<svg
+					class="card-icon"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+				>
 					<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
 				</svg>
 				<div class="card-content">
@@ -33,7 +39,13 @@
 			</div>
 
 			<div class="card">
-				<svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<svg
+					class="card-icon"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+				>
 					<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
 					<polyline points="22 4 12 14.01 9 11.01" />
 				</svg>
@@ -44,7 +56,13 @@
 			</div>
 
 			<div class="card">
-				<svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<svg
+					class="card-icon"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+				>
 					<rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
 					<rect x="9" y="9" width="6" height="6" />
 					<line x1="9" y1="1" x2="9" y2="4" />
@@ -65,7 +83,13 @@
 	{:else}
 		<div class="cards">
 			<div class="card">
-				<svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<svg
+					class="card-icon"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+				>
 					<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
 				</svg>
 				<div class="card-content">
@@ -75,7 +99,13 @@
 			</div>
 
 			<div class="card">
-				<svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<svg
+					class="card-icon"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+				>
 					<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
 					<polyline points="22 4 12 14.01 9 11.01" />
 				</svg>
@@ -86,7 +116,13 @@
 			</div>
 
 			<div class="card">
-				<svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<svg
+					class="card-icon"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+				>
 					<rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
 					<rect x="9" y="9" width="6" height="6" />
 					<line x1="9" y1="1" x2="9" y2="4" />
@@ -116,11 +152,15 @@
 				</div>
 				<div class="info-card">
 					<span class="info-label">Memory</span>
-					<span class="info-value">{($hardware.total_memory / 1024 / 1024 / 1024).toFixed(1)} GB total</span>
+					<span class="info-value"
+						>{($hardware.total_memory / 1024 / 1024 / 1024).toFixed(1)} GB total</span
+					>
 				</div>
 				<div class="info-card">
 					<span class="info-label">Available</span>
-					<span class="info-value">{($hardware.available_memory / 1024 / 1024 / 1024).toFixed(1)} GB</span>
+					<span class="info-value"
+						>{($hardware.available_memory / 1024 / 1024 / 1024).toFixed(1)} GB</span
+					>
 				</div>
 				<div class="info-card">
 					<span class="info-label">Backend</span>

@@ -63,7 +63,10 @@
 			});
 
 			// Calculate degree centrality metrics
-			const degreeMap = new Map<string, { id: string; value: string; type: string; degree: number }>();
+			const degreeMap = new Map<
+				string,
+				{ id: string; value: string; type: string; degree: number }
+			>();
 
 			for (const rel of relationships) {
 				const id1 = `node-${rel.entity1_id}`;
@@ -71,22 +74,31 @@
 
 				// Initialize or increment degree for entity1
 				if (!degreeMap.has(id1)) {
-					degreeMap.set(id1, { id: id1, value: rel.entity1_value, type: rel.entity1_type, degree: 0 });
+					degreeMap.set(id1, {
+						id: id1,
+						value: rel.entity1_value,
+						type: rel.entity1_type,
+						degree: 0
+					});
 				}
 				const node1 = degreeMap.get(id1)!;
 				node1.degree++;
 
 				// Initialize or increment degree for entity2
 				if (!degreeMap.has(id2)) {
-					degreeMap.set(id2, { id: id2, value: rel.entity2_value, type: rel.entity2_type, degree: 0 });
+					degreeMap.set(id2, {
+						id: id2,
+						value: rel.entity2_value,
+						type: rel.entity2_type,
+						degree: 0
+					});
 				}
 				const node2 = degreeMap.get(id2)!;
 				node2.degree++;
 			}
 
 			// Convert to array and sort by degree (descending)
-			nodeDegrees = Array.from(degreeMap.values())
-				.sort((a, b) => b.degree - a.degree);
+			nodeDegrees = Array.from(degreeMap.values()).sort((a, b) => b.degree - a.degree);
 
 			// Calculate network summary stats
 			totalNodes = degreeMap.size;
@@ -251,7 +263,7 @@
 			const nodeIdNum = parseInt(nodeId.replace('node-', ''));
 
 			// Find degree for selected node
-			const nodeDegreeData = nodeDegrees.find(n => n.id === nodeId);
+			const nodeDegreeData = nodeDegrees.find((n) => n.id === nodeId);
 			selectedNodeDegree = nodeDegreeData ? nodeDegreeData.degree : 0;
 
 			selectedNode = nodeId;

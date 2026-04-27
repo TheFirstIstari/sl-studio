@@ -59,26 +59,26 @@ test.describe('Maps Severity Filter', () => {
 		if (panelCount > 0) {
 			let initialText = await locationsPanel.locator('h2').textContent();
 			const initialMatch = initialText.match(/Locations \((\d+) of (\d+)\)/);
-			
+
 			if (initialMatch) {
 				const filteredCount = parseInt(initialMatch[1]);
 				const totalCount = parseInt(initialMatch[2]);
-				
+
 				// Apply severity filter
 				const minSeverityInput = page.locator('#min-sev');
 				await minSeverityInput.fill('7');
-				
+
 				// Click refresh to apply filter
 				const refreshBtn = page.locator('.refresh-btn');
 				await refreshBtn.click();
-				
+
 				// Wait for update
 				await page.waitForTimeout(500);
-				
+
 				// Check updated count
 				const updatedText = await locationsPanel.locator('h2').textContent();
 				const updatedMatch = updatedText.match(/Locations \((\d+) of (\d+)\)/);
-				
+
 				if (updatedMatch) {
 					const newFilteredCount = parseInt(updatedMatch[1]);
 					// With higher severity filter, filtered count should be <= total
@@ -116,8 +116,8 @@ test.describe('Maps Severity Filter', () => {
 	// Additional tests
 	test('should have map container', async ({ page }) => {
 		const emptyState = page.locator('.empty');
-		const hasEmpty = await emptyState.count() > 0;
-		
+		const hasEmpty = (await emptyState.count()) > 0;
+
 		if (!hasEmpty) {
 			const mapContainer = page.locator('.map-container');
 			await expect(mapContainer).toBeVisible();

@@ -1,87 +1,87 @@
 /* SL Studio Theme Variables */
 :root {
-  /* Backgrounds */
-  --color-bg-card: #16213e;
-  --color-bg-input: #1a1a2e;
-  --color-bg-elevated: #0f3460;
-  --color-bg-page: #0d1b2a;
-  
-  /* Borders */
-  --color-border: #0f3460;
-  --color-border-focus: #e94560;
-  
-  /* Text */
-  --color-text-primary: #eaeaea;
-  --color-text-secondary: #9ca3af;
-  --color-text-muted: #6b7280;
-  
-  /* Accent */
-  --color-accent: #e94560;
-  --color-accent-hover: #d63a52;
-  
-  /* Severity */
-  --color-severity-high: #ef4444;
-  --color-severity-medium-high: #f97316;
-  --color-severity-medium: #eab308;
-  --color-severity-low: #4ade80;
-  
-  /* Quality */
-  --color-quality-high: #4ade80;
-  --color-quality-medium: #eab308;
-  --color-quality-low: #ef4444;
-  
-  /* Entity Types */
-  --color-entity-person: #3b82f6;
-  --color-entity-org: #10b981;
-  --color-entity-location: #f59e0b;
-  --color-entity-date: #8b5cf6;
-  --color-entity-other: #e94560;
+	/* Backgrounds */
+	--color-bg-card: #16213e;
+	--color-bg-input: #1a1a2e;
+	--color-bg-elevated: #0f3460;
+	--color-bg-page: #0d1b2a;
+
+	/* Borders */
+	--color-border: #0f3460;
+	--color-border-focus: #e94560;
+
+	/* Text */
+	--color-text-primary: #eaeaea;
+	--color-text-secondary: #9ca3af;
+	--color-text-muted: #6b7280;
+
+	/* Accent */
+	--color-accent: #e94560;
+	--color-accent-hover: #d63a52;
+
+	/* Severity */
+	--color-severity-high: #ef4444;
+	--color-severity-medium-high: #f97316;
+	--color-severity-medium: #eab308;
+	--color-severity-low: #4ade80;
+
+	/* Quality */
+	--color-quality-high: #4ade80;
+	--color-quality-medium: #eab308;
+	--color-quality-low: #ef4444;
+
+	/* Entity Types */
+	--color-entity-person: #3b82f6;
+	--color-entity-org: #10b981;
+	--color-entity-location: #f59e0b;
+	--color-entity-date: #8b5cf6;
+	--color-entity-other: #e94560;
 }
 
 /* Base styles */
 body {
-  background-color: var(--color-bg-page);
-  color: var(--color-text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+	background-color: var(--color-bg-page);
+	color: var(--color-text-primary);
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
 }
 
 /* Shared component styles */
 .card {
-  background-color: var(--color-bg-card);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
+	background-color: var(--color-bg-card);
+	border: 1px solid var(--color-border);
+	border-radius: 8px;
 }
 
 .input {
-  background-color: var(--color-bg-input);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-primary);
+	background-color: var(--color-bg-input);
+	border: 1px solid var(--color-border);
+	color: var(--color-text-primary);
 }
 
 .input:focus {
-  border-color: var(--color-border-focus);
-  outline: none;
+	border-color: var(--color-border-focus);
+	outline: none;
 }
 
 .btn {
-  background-color: var(--color-bg-card);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all 0.2s;
+	background-color: var(--color-bg-card);
+	border: 1px solid var(--color-border);
+	color: var(--color-text-secondary);
+	cursor: pointer;
+	transition: all 0.2s;
 }
 
 .btn:hover {
-  border-color: var(--color-accent);
-  color: var(--color-text-primary);
+	border-color: var(--color-accent);
+	color: var(--color-text-primary);
 }
 
 .btn-primary {
-  background-color: var(--color-accent);
-  border-color: var(--color-accent);
-  color: white;
+	background-color: var(--color-accent);
+	border-color: var(--color-accent);
+	color: white;
 }
 
 .btn-primary:hover {
-  background-color: var(--color-accent-hover);
+	background-color: var(--color-accent-hover);
 }
