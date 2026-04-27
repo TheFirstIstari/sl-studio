@@ -78,10 +78,21 @@ pub struct ReasonerConfig {
     pub max_tokens: u32,
     pub max_chars_per_chunk: usize,
     pub chunk_overlap: usize,
+    /// **Currently unused.** Reserved for future LLM-level chunk batching.
+    /// Real batching requires either multiple model instances (RAM-heavy)
+    /// or llama_cpp's continuous-batching API (not exposed by the 0.3
+    /// binding). For now, chunk processing is sequential. Kept on the
+    /// struct so existing serialized configs (.sls project files) load
+    /// without errors.
+    #[serde(default = "default_batch_size")]
     pub batch_size: usize,
     pub n_threads: u32,
     pub n_threads_batch: Option<u32>, // For batch processing parallelism
     pub model_family: ModelFamily,    // For prompt format selection
+}
+
+fn default_batch_size() -> usize {
+    1
 }
 
 impl Default for ReasonerConfig {
@@ -96,7 +107,7 @@ impl Default for ReasonerConfig {
             // Max chars = ~700 tokens (4096 - 2000 for prompt - 1000 for output buffer)
             max_chars_per_chunk: 2000,
             chunk_overlap: 150,
-            batch_size: 4,
+            batch_size: default_batch_size(),
             n_threads: 4,
             n_threads_batch: Some(8),
             model_family: ModelFamily::default(),

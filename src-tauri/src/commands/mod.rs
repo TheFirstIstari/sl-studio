@@ -20,6 +20,7 @@ pub mod project;
 pub mod quality;
 pub mod registry;
 pub mod search;
+pub mod structured;
 pub mod workflow;
 
 pub use analytics::*;
@@ -44,4 +45,5 @@ pub use project::*;
 pub use quality::*;
 pub use registry::*;
 pub use search::*;
+pub use structured::*;
 pub use workflow::*;

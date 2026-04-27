@@ -212,6 +212,9 @@ pub fn run() {
             get_evidence_chain_statistics,
             // FR-LANG
             detect_text_language,
+            // FR-STRUCT
+            extract_pdf_form_fields,
+            extract_key_value_pairs,
         ])
         .setup(|_app| {
             info!("Tauri app setup complete");

@@ -168,11 +168,13 @@ impl LlamaModel {
             .map_err(|e| LlamaError::InferenceError(format!("Failed to tokenize: {}", e)))?;
         let prompt_tokens = tokens.len() as u32;
 
-        // Create session params - optimized for Metal
+        // Create session params. Honour the configured n_threads_batch so
+        // tuning the LlamaConfig actually affects the session — previously
+        // hardcoded to n_threads * 2 which silently ignored the field.
         let session_params = llama_cpp::SessionParams {
             n_ctx: self.config.context_size,
             n_threads: self.config.n_threads,
-            n_threads_batch: self.config.n_threads * 2, // More threads for batch processing
+            n_threads_batch: self.config.n_threads_batch,
             ..Default::default()
         };
 
