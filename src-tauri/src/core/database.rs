@@ -1,4 +1,6 @@
-use rusqlite::{params, Connection, Result};
+use r2d2::Pool;
+use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::{params, Result};
 
 use crate::core::migrations::{intelligence_migrations, registry_migrations, run_migrations};
 use serde::{Deserialize, Serialize};
@@ -7,6 +9,33 @@ use std::path::Path;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tracing::info;
+
+pub type DbPool = Pool<SqliteConnectionManager>;
+pub type PooledConn = r2d2::PooledConnection<SqliteConnectionManager>;
+
+fn pool_err(e: r2d2::Error) -> rusqlite::Error {
+    rusqlite::Error::SqliteFailure(
+        rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
+        Some(format!("connection pool exhausted: {e}")),
+    )
+}
+
+fn build_pool(path: &str) -> Result<DbPool> {
+    let manager = SqliteConnectionManager::file(path).with_init(|c| {
+        c.execute_batch(
+            "PRAGMA journal_mode = WAL;\n\
+             PRAGMA synchronous = NORMAL;\n\
+             PRAGMA busy_timeout = 5000;\n\
+             PRAGMA foreign_keys = ON;",
+        )
+    });
+    Pool::builder().max_size(8).build(manager).map_err(|e| {
+        rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
+            Some(format!("failed to build connection pool: {e}")),
+        )
+    })
+}
 
 use crate::WorkflowState;
 
@@ -88,8 +117,8 @@ pub struct ExtractionStatistics {
 }
 
 pub struct Database {
-    registry_conn: Mutex<Connection>,
-    intelligence_conn: Mutex<Connection>,
+    registry_pool: DbPool,
+    intelligence_pool: DbPool,
     category_cache: Mutex<Option<CacheEntry<Vec<CategoryStats>>>>,
     severity_cache: Mutex<Option<CacheEntry<Vec<SeverityStats>>>>,
     overall_stats_cache: Mutex<Option<CacheEntry<OverallStatistics>>>,
@@ -97,12 +126,12 @@ pub struct Database {
 
 impl Database {
     pub fn new(registry_path: &str, intelligence_path: &str) -> Result<Self> {
-        let reg_conn = Connection::open(registry_path)?;
-        let intel_conn = Connection::open(intelligence_path)?;
+        let registry_pool = build_pool(registry_path)?;
+        let intelligence_pool = build_pool(intelligence_path)?;
 
         let db = Database {
-            registry_conn: Mutex::new(reg_conn),
-            intelligence_conn: Mutex::new(intel_conn),
+            registry_pool,
+            intelligence_pool,
             category_cache: Mutex::new(None),
             severity_cache: Mutex::new(None),
             overall_stats_cache: Mutex::new(None),
@@ -113,14 +142,22 @@ impl Database {
         Ok(db)
     }
 
+    fn reg_conn(&self) -> Result<PooledConn> {
+        self.registry_pool.get().map_err(pool_err)
+    }
+
+    fn intel_conn(&self) -> Result<PooledConn> {
+        self.intelligence_pool.get().map_err(pool_err)
+    }
+
     fn run_migrations(&self) -> Result<()> {
         {
-            let mut conn = self.registry_conn.lock().unwrap();
-            run_migrations(&mut conn, &registry_migrations())?;
+            let mut conn = self.reg_conn()?;
+            run_migrations(&mut *conn, &registry_migrations())?;
         }
         {
-            let mut conn = self.intelligence_conn.lock().unwrap();
-            run_migrations(&mut conn, &intelligence_migrations())?;
+            let mut conn = self.intel_conn()?;
+            run_migrations(&mut *conn, &intelligence_migrations())?;
         }
         Ok(())
     }
@@ -129,7 +166,7 @@ impl Database {
     /// database's `schema_migrations` table. Returns 0 if no migrations have
     /// been applied (or the table does not exist yet).
     pub fn schema_version(&self) -> Result<i64> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         let exists: i64 = conn.query_row(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schema_migrations'",
             [],
@@ -146,8 +183,8 @@ impl Database {
     }
 
     fn init_schema(&self) -> Result<()> {
-        let reg_conn = self.registry_conn.lock().unwrap();
-        let intel_conn = self.intelligence_conn.lock().unwrap();
+        let reg_conn = self.reg_conn()?;
+        let intel_conn = self.intel_conn()?;
 
         // Registry schema - optimized for fingerprint lookup and file tracking
         reg_conn.execute(
@@ -557,7 +594,7 @@ impl Database {
         file_size: i64,
         file_name: &str,
     ) -> Result<i64> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         conn.execute(
             "INSERT OR IGNORE INTO registry (fingerprint, path, file_type, file_size, file_name, last_modified, last_hash_check) VALUES (?1, ?2, ?3, ?4, ?5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
             params![fingerprint, path, file_type, file_size, file_name],
@@ -569,7 +606,7 @@ impl Database {
         &self,
         entries: &[(String, String, String, i64, String)],
     ) -> Result<usize> {
-        let mut conn = self.registry_conn.lock().unwrap();
+        let mut conn = self.reg_conn()?;
         let tx = conn.transaction()?;
         let mut count = 0;
 
@@ -593,7 +630,7 @@ impl Database {
     }
 
     pub fn get_all_fingerprints(&self) -> Result<std::collections::HashSet<String>> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         let mut stmt = conn.prepare("SELECT fingerprint FROM registry")?;
         let fingerprints = stmt.query_map([], |row| row.get(0))?;
 
@@ -605,7 +642,7 @@ impl Database {
     }
 
     pub fn mark_processed(&self, fingerprint: &str) -> Result<()> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         conn.execute(
             "UPDATE registry SET processed = 1, processed_at = CURRENT_TIMESTAMP WHERE fingerprint = ?1",
             params![fingerprint],
@@ -622,7 +659,7 @@ impl Database {
         priority: i32,
         quality: Option<f64>,
     ) -> Result<()> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         conn.execute(
             "UPDATE registry SET
                 has_extracted_text = ?2,
@@ -639,7 +676,7 @@ impl Database {
 
     /// Get files ordered by processing priority for incremental processing
     pub fn get_priority_queue(&self, limit: i64) -> Result<Vec<RegistryEntry>> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, fingerprint, path, file_size, file_type, file_name,
                     last_modified, last_hash_check, has_extracted_text,
@@ -682,7 +719,7 @@ impl Database {
         use std::fs::{self, metadata};
         use std::time::SystemTime;
 
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         let mut changes = Vec::new();
 
         // Get existing fingerprints
@@ -812,7 +849,7 @@ impl Database {
     }
 
     pub fn get_unprocessed_files(&self, limit: i64) -> Result<Vec<RegistryEntry>> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, fingerprint, path, file_size, file_type, file_name,
                     last_modified, last_hash_check, has_extracted_text,
@@ -855,7 +892,7 @@ impl Database {
     }
 
     pub fn insert_intelligence(&self, entry: &IntelligenceEntry) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         conn.execute(
             "INSERT OR REPLACE INTO intelligence
              (registry_id, fingerprint, filename, source_quote, page_number, evidence_full, evidence_hash,
@@ -898,7 +935,7 @@ impl Database {
     }
 
     pub fn get_intelligence(&self, limit: i64, offset: i64) -> Result<Vec<IntelligenceEntry>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, registry_id, fingerprint, filename, source_quote, page_number, evidence_full, evidence_hash,
                     associated_date, location, people, fact_summary, category, identified_crime, severity_score, 
@@ -944,7 +981,7 @@ impl Database {
     }
 
     pub fn checkpoint_start(&self, job_type: &str, job_id: &str) -> Result<i64> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         conn.execute(
             "INSERT INTO checkpoints (job_type, job_id, status) VALUES (?1, ?2, 'running')",
             params![job_type, job_id],
@@ -958,7 +995,7 @@ impl Database {
         last_fingerprint: &str,
         total_processed: i64,
     ) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         conn.execute(
             "UPDATE checkpoints SET last_fingerprint = ?1, total_processed = ?2, updated_at = CURRENT_TIMESTAMP WHERE job_id = ?3",
             params![last_fingerprint, total_processed, job_id],
@@ -967,7 +1004,7 @@ impl Database {
     }
 
     pub fn checkpoint_complete(&self, job_id: &str) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         conn.execute(
             "UPDATE checkpoints SET status = 'completed', completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE job_id = ?1",
             params![job_id],
@@ -976,7 +1013,7 @@ impl Database {
     }
 
     pub fn get_active_checkpoint(&self, job_type: &str) -> Result<Option<JobCheckpoint>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, job_type, job_id, last_fingerprint, total_processed, status
              FROM checkpoints
@@ -1001,7 +1038,7 @@ impl Database {
     }
 
     pub fn log_audit(&self, action: &str, details: &str, duration_ms: Option<i64>) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         conn.execute(
             "INSERT INTO audit_log (action, details, duration_ms) VALUES (?1, ?2, ?3)",
             params![action, details, duration_ms],
@@ -1010,12 +1047,12 @@ impl Database {
     }
 
     pub fn get_registry_count(&self) -> Result<i64> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         conn.query_row("SELECT COUNT(*) FROM registry", [], |row| row.get(0))
     }
 
     pub fn get_processed_count(&self) -> Result<i64> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         conn.query_row(
             "SELECT COUNT(*) FROM registry WHERE processed = 1",
             [],
@@ -1024,13 +1061,13 @@ impl Database {
     }
 
     pub fn get_intelligence_count(&self) -> Result<i64> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         conn.query_row("SELECT COUNT(*) FROM intelligence", [], |row| row.get(0))
     }
 
     pub fn get_all_counts(&self) -> Result<AllCounts> {
-        let reg_conn = self.registry_conn.lock().unwrap();
-        let intel_conn = self.intelligence_conn.lock().unwrap();
+        let reg_conn = self.reg_conn()?;
+        let intel_conn = self.intel_conn()?;
 
         let registry_count: i64 =
             reg_conn.query_row("SELECT COUNT(*) FROM registry", [], |row| row.get(0))?;
@@ -1059,7 +1096,7 @@ impl Database {
         extraction_time_ms: i64,
         quality_score: f64,
     ) -> Result<()> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         conn.execute(
             "INSERT OR REPLACE INTO text_cache (fingerprint, file_name, extracted_text, text_hash, extraction_time_ms, quality_score, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, CURRENT_TIMESTAMP)",
@@ -1069,7 +1106,7 @@ impl Database {
     }
 
     pub fn get_text_cache(&self, fingerprint: &str) -> Result<Option<TextCacheEntry>> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, fingerprint, file_name, extracted_text, text_hash, extraction_time_ms, quality_score
              FROM text_cache WHERE fingerprint = ?1"
@@ -1092,12 +1129,12 @@ impl Database {
     }
 
     pub fn get_text_cache_count(&self) -> Result<i64> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         conn.query_row("SELECT COUNT(*) FROM text_cache", [], |row| row.get(0))
     }
 
     pub fn get_workflow_state(&self) -> Result<WorkflowState> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
 
         let total: i64 = conn.query_row("SELECT COUNT(*) FROM registry", [], |r| r.get(0))?;
         let extracted: i64 = conn.query_row(
@@ -1162,7 +1199,7 @@ impl Database {
     }
 
     pub fn get_extraction_statistics(&self) -> Result<ExtractionStatistics> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
 
         let total_files: i64 =
             conn.query_row("SELECT COUNT(*) FROM text_cache", [], |row| row.get(0))?;
@@ -1222,7 +1259,7 @@ impl Database {
         metadata_type: &str,
         metadata_json: &str,
     ) -> Result<()> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         conn.execute(
             "INSERT OR REPLACE INTO metadata_cache (fingerprint, metadata_type, metadata_json)
              VALUES (?1, ?2, ?3)",
@@ -1236,7 +1273,7 @@ impl Database {
         fingerprint: &str,
         metadata_type: &str,
     ) -> Result<Option<MetadataCacheEntry>> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, fingerprint, metadata_type, metadata_json
              FROM metadata_cache WHERE fingerprint = ?1 AND metadata_type = ?2",
@@ -1263,7 +1300,7 @@ impl Database {
         error_message: &str,
         error_details: &str,
     ) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         conn.execute(
             "INSERT INTO error_queue (fingerprint, job_type, error_message, error_details, next_attempt)
              VALUES (?1, ?2, ?3, ?4, datetime('now'))",
@@ -1273,7 +1310,7 @@ impl Database {
     }
 
     pub fn get_pending_errors(&self, limit: i64) -> Result<Vec<ErrorQueueEntry>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, fingerprint, job_type, error_message, error_details, retry_count, max_retries, last_attempt, next_attempt, resolved, resolution, created_at
              FROM error_queue
@@ -1309,7 +1346,7 @@ impl Database {
         error_message: &str,
         next_attempt: Option<String>,
     ) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         let mut stmt = conn.prepare(
             "UPDATE error_queue SET
                  retry_count = ?2,
@@ -1324,7 +1361,7 @@ impl Database {
     }
 
     pub fn resolve_error(&self, error_id: i64, resolution: &str, resolved_by: &str) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         conn.execute(
             "UPDATE error_queue SET
                  resolved = 1,
@@ -1351,7 +1388,7 @@ impl Database {
         start_date: Option<&str>,
         end_date: Option<&str>,
     ) -> Result<Vec<SearchResult>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let fts_query = Self::parse_search_query(query);
 
@@ -1449,7 +1486,7 @@ impl Database {
         entity_types: Option<&[String]>,
         min_confidence: Option<f64>,
     ) -> Result<Vec<EntitySearchResult>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let fts_query = Self::parse_search_query(query);
 
@@ -1639,7 +1676,7 @@ impl Database {
         passes_json: &str,
         is_builtin: bool,
     ) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         conn.execute(
             "INSERT INTO pipelines (id, name, description, passes_json, is_builtin)
              VALUES (?1, ?2, ?3, ?4, ?5)
@@ -1657,7 +1694,7 @@ impl Database {
     /// Returns (id, name, description, passes_json, is_builtin) for every
     /// stored pipeline, newest-updated first.
     pub fn list_pipelines(&self) -> Result<Vec<(String, String, String, String, bool)>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, name, description, passes_json, is_builtin
                FROM pipelines
@@ -1677,7 +1714,7 @@ impl Database {
     }
 
     pub fn get_pipeline(&self, id: &str) -> Result<Option<(String, String, String, String, bool)>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, name, description, passes_json, is_builtin
                FROM pipelines WHERE id = ?1",
@@ -1698,7 +1735,7 @@ impl Database {
     }
 
     pub fn delete_pipeline(&self, id: &str) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         conn.execute("DELETE FROM pipelines WHERE id = ?1", params![id])?;
         Ok(())
     }
@@ -1710,7 +1747,7 @@ impl Database {
     /// Persist a preset (upsert by `(page, name)` unique key). Returns the
     /// row id of the saved preset.
     pub fn save_facet_preset(&self, page: &str, name: &str, state_json: &str) -> Result<i64> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         conn.execute(
             "INSERT INTO facet_presets (page, name, state_json) VALUES (?1, ?2, ?3)
              ON CONFLICT(page, name) DO UPDATE SET
@@ -1727,7 +1764,7 @@ impl Database {
         &self,
         page: &str,
     ) -> Result<Vec<(i64, String, String, String, Option<String>)>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, page, name, state_json, updated_at
                FROM facet_presets
@@ -1747,7 +1784,7 @@ impl Database {
     }
 
     pub fn delete_facet_preset(&self, id: i64) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         let n = conn.execute("DELETE FROM facet_presets WHERE id = ?1", params![id])?;
         if n == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
@@ -1768,7 +1805,7 @@ impl Database {
         &self,
         intelligence_id: i64,
     ) -> Result<(String, String, Vec<(i64, String, String, Option<String>)>)> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         let (filename, fact_summary, category): (String, String, Option<String>) = conn.query_row(
             "SELECT filename, fact_summary, category
                    FROM intelligence
@@ -1805,7 +1842,7 @@ impl Database {
     /// resolution scanner. Distinct by (entity_type, lower(value)) so we
     /// don't churn on per-document duplicates that already exist by design.
     pub fn list_distinct_entities(&self, limit: i64) -> Result<Vec<(i64, String, String)>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         let mut stmt = conn.prepare(
             "SELECT MIN(id) AS id, entity_type, value
                FROM entities
@@ -1828,7 +1865,7 @@ impl Database {
         alias_type: &str,
         confidence: f64,
     ) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         conn.execute(
             "INSERT INTO entity_aliases (canonical_entity_id, alias_value, alias_type, confidence) VALUES (?1, ?2, ?3, ?4)",
             params![canonical_id, alias, alias_type, confidence],
@@ -1837,7 +1874,7 @@ impl Database {
     }
 
     pub fn resolve_entity(&self, alias: &str) -> Result<Vec<ResolvedEntity>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         let mut stmt = conn.prepare(
             "SELECT e.id, e.entity_type, e.value, e.normalized_value, e.fingerprint, a.confidence
              FROM entity_aliases a
@@ -1868,7 +1905,7 @@ impl Database {
         description: &str,
         created_by: &str,
     ) -> Result<i64> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         conn.execute(
             "INSERT INTO evidence_chains (chain_name, chain_type, description, created_by) VALUES (?1, ?2, ?3, ?4)",
             params![name, chain_type, description, created_by],
@@ -1885,7 +1922,7 @@ impl Database {
         notes: &str,
         linked_by: &str,
     ) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         conn.execute(
             "INSERT INTO evidence_chain_links (chain_id, intelligence_id, relationship_type, relationship_strength, notes, linked_by)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -1895,7 +1932,7 @@ impl Database {
     }
 
     pub fn get_chain(&self, chain_id: i64) -> Result<Option<EvidenceChain>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, chain_name, chain_type, description, created_by, created_at, updated_at
              FROM evidence_chains WHERE id = ?1",
@@ -1919,7 +1956,7 @@ impl Database {
     }
 
     pub fn get_chain_items(&self, chain_id: i64) -> Result<Vec<ChainItem>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         let mut stmt = conn.prepare(
             "SELECT l.id, l.intelligence_id, l.relationship_type, l.relationship_strength, l.notes, l.linked_by, l.linked_at,
                     i.filename, i.fact_summary, i.category
@@ -1948,7 +1985,7 @@ impl Database {
     }
 
     pub fn get_all_chains(&self, limit: i64, offset: i64) -> Result<Vec<ChainSummary>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         let mut stmt = conn.prepare(
             "SELECT c.id, c.chain_name, c.chain_type, c.description, c.created_by, c.created_at, c.updated_at,
                     COUNT(l.id) as item_count,
@@ -1983,7 +2020,7 @@ impl Database {
         name: Option<&str>,
         description: Option<&str>,
     ) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         if let Some(n) = name {
             conn.execute(
@@ -2003,7 +2040,7 @@ impl Database {
     }
 
     pub fn remove_from_chain(&self, chain_id: i64, intelligence_id: i64) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         conn.execute(
             "DELETE FROM evidence_chain_links WHERE chain_id = ?1 AND intelligence_id = ?2",
             params![chain_id, intelligence_id],
@@ -2016,7 +2053,7 @@ impl Database {
     /// Per NFR-FOR-006, database operations MUST use soft deletes — set
     /// `is_deleted = TRUE` and stamp `deleted_at` rather than removing the row.
     pub fn delete_intelligence(&self, id: i64) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         let affected = conn.execute(
             "UPDATE intelligence
                 SET is_deleted = TRUE,
@@ -2035,7 +2072,7 @@ impl Database {
     /// Returns only non-deleted intelligence rows projected down to the
     /// fields the dedup engine actually needs.
     pub fn get_dedup_candidates(&self) -> Result<Vec<crate::inference::quality::DedupCandidate>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, fact_summary, category, associated_date, severity_score, confidence
              FROM intelligence
@@ -2058,7 +2095,7 @@ impl Database {
     /// keeper and (optionally) annotate the keeper with the merge.
     /// Returns the number of rows soft-deleted.
     pub fn merge_duplicate_facts(&self, keeper_id: i64, member_ids: &[i64]) -> Result<usize> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         let mut deleted = 0usize;
         for id in member_ids {
             if *id == keeper_id {
@@ -2077,7 +2114,7 @@ impl Database {
     }
 
     pub fn delete_chain(&self, chain_id: i64) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         conn.execute(
             "DELETE FROM evidence_chain_links WHERE chain_id = ?1",
             params![chain_id],
@@ -2090,7 +2127,7 @@ impl Database {
     }
 
     pub fn get_chain_statistics(&self, chain_id: i64) -> Result<ChainStatistics> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let total: (i32, f64, i32, i32) = conn.query_row(
             "SELECT COUNT(*), AVG(severity_score), MAX(severity_score), MIN(severity_score)
@@ -2136,7 +2173,7 @@ impl Database {
     }
 
     pub fn search_chain(&self, chain_id: i64, query: &str) -> Result<Vec<ChainItem>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         let search_pattern = format!("%{}%", query);
 
         let mut stmt = conn.prepare(
@@ -2173,7 +2210,7 @@ impl Database {
         end_date: Option<&str>,
         limit: i64,
     ) -> Result<Vec<TimelineEvent>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let mut sql = String::from(
             "SELECT id, fingerprint, filename, fact_summary, category, associated_date, severity_score, confidence
@@ -2216,7 +2253,7 @@ impl Database {
     }
 
     pub fn get_date_distribution(&self) -> Result<Vec<DateDistribution>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let mut stmt = conn.prepare(
             "SELECT 
@@ -2242,7 +2279,7 @@ impl Database {
     }
 
     pub fn get_temporal_clusters(&self, time_window_days: i32) -> Result<Vec<TemporalCluster>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let mut stmt = conn.prepare(
             "SELECT 
@@ -2328,7 +2365,7 @@ impl Database {
         entity_id: Option<i64>,
         min_confidence: f64,
     ) -> Result<Vec<EntityRelationship>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let sql = if let Some(eid) = entity_id {
             format!(
@@ -2383,7 +2420,7 @@ impl Database {
         &self,
         min_cooccurrence: i32,
     ) -> Result<(Vec<i64>, Vec<crate::inference::network::GraphEdge>)> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let sql = "SELECT e1.id, e2.id, COUNT(*) as cooccurrence
                    FROM entities e1
@@ -2422,7 +2459,7 @@ impl Database {
         entity_type: Option<&str>,
         min_confidence: f64,
     ) -> Result<Vec<EntityCentrality>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let type_filter = if let Some(et) = entity_type {
             format!("AND e.entity_type = '{}'", et)
@@ -2485,7 +2522,7 @@ impl Database {
         #[allow(unused)] depth: i32,
         min_confidence: f64,
     ) -> Result<Vec<ConnectedEntity>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let mut stmt = conn.prepare(
             "SELECT DISTINCT e2.id, e2.entity_type, e2.value, e2.confidence, i.filename
@@ -2511,7 +2548,7 @@ impl Database {
 
     // Anomaly detection methods
     pub fn detect_anomalies(&self, metric: &str, threshold_std: f64) -> Result<Vec<Anomaly>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         match metric {
             "severity" => {
@@ -2673,7 +2710,7 @@ impl Database {
         window_days: i32,
         severity_threshold: i32,
     ) -> Result<Vec<TemporalAnomaly>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let mut stmt = conn.prepare(
             "SELECT 
@@ -2730,7 +2767,7 @@ impl Database {
 
     // Evidence weighting methods
     pub fn calculate_evidence_weight(&self, intelligence_id: i64) -> Result<f64> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let mut stmt = conn.prepare(
             "SELECT severity_score, confidence, quality_score, created_at
@@ -2754,7 +2791,7 @@ impl Database {
         min_weight: f64,
         limit: i64,
     ) -> Result<Vec<WeightedEvidence>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let mut stmt = conn.prepare(
             "SELECT i.id, i.fingerprint, i.filename, i.fact_summary, i.category, 
@@ -2799,7 +2836,7 @@ impl Database {
             return Ok(Vec::new());
         }
 
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let fetch_start = std::time::Instant::now();
 
@@ -2913,7 +2950,7 @@ impl Database {
         entity_values: &[String],
         min_occurrences: i32,
     ) -> Result<Vec<EntityChain>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let placeholders: Vec<String> = entity_values.iter().map(|_| "?".to_string()).collect();
         let sql = format!(
@@ -2958,7 +2995,7 @@ impl Database {
         intelligence_id: i64,
         similarity_threshold: f64,
     ) -> Result<Vec<ChainSuggestion>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let mut stmt = conn.prepare(
             "SELECT fingerprint, fact_summary, category, severity_score FROM intelligence WHERE id = ?1"
@@ -3039,7 +3076,7 @@ impl Database {
 
     // Tags and annotations methods
     pub fn add_tag(&self, intelligence_id: i64, tag: &str) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let current_tags: Option<String> = conn.query_row(
             "SELECT tags FROM intelligence WHERE id = ?1",
@@ -3071,7 +3108,7 @@ impl Database {
     }
 
     pub fn remove_tag(&self, intelligence_id: i64, tag: &str) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let current_tags: Option<String> = conn.query_row(
             "SELECT tags FROM intelligence WHERE id = ?1",
@@ -3101,7 +3138,7 @@ impl Database {
     }
 
     pub fn get_all_tags(&self) -> Result<Vec<String>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let mut stmt = conn.prepare(
             "SELECT DISTINCT tags FROM intelligence WHERE tags IS NOT NULL AND tags != ''",
@@ -3135,7 +3172,7 @@ impl Database {
         content: &str,
         annotation_type: &str,
     ) -> Result<i64> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         conn.execute(
             "INSERT INTO annotations (intelligence_id, content, annotation_type) VALUES (?1, ?2, ?3)",
@@ -3146,7 +3183,7 @@ impl Database {
     }
 
     pub fn update_annotation(&self, annotation_id: i64, content: &str) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         conn.execute(
             "UPDATE annotations SET content = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
@@ -3157,7 +3194,7 @@ impl Database {
     }
 
     pub fn delete_annotation(&self, annotation_id: i64) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         conn.execute("DELETE FROM annotations WHERE id = ?1", [annotation_id])?;
 
@@ -3165,7 +3202,7 @@ impl Database {
     }
 
     pub fn get_annotations(&self, intelligence_id: i64) -> Result<Vec<Annotation>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let mut stmt = conn.prepare(
             "SELECT id, content, annotation_type, created_at, updated_at
@@ -3193,7 +3230,7 @@ impl Database {
         status: &str,
         review_notes: Option<&str>,
     ) -> Result<()> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
         conn.execute(
             "UPDATE intelligence SET verification_status = ?1, review_notes = ?2 WHERE id = ?3",
             params![status, review_notes, id],
@@ -3207,7 +3244,7 @@ impl Database {
         match_all: bool,
         limit: i64,
     ) -> Result<Vec<SearchResult>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         if tags.is_empty() {
             return Ok(Vec::new());
@@ -3255,7 +3292,7 @@ impl Database {
     }
 
     pub fn get_location_entities(&self, min_confidence: f64) -> Result<Vec<LocationEntity>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let mut stmt = conn.prepare(
             "SELECT e.id, e.value, e.normalized_value, e.confidence, i.fingerprint, i.filename, i.fact_summary, i.severity_score
@@ -3382,7 +3419,7 @@ impl Database {
             }
         }
 
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let mut stmt = conn.prepare(
             "SELECT category, COUNT(*) as count, AVG(severity_score) as avg_severity, AVG(confidence) as avg_confidence
@@ -3413,7 +3450,7 @@ impl Database {
     }
 
     pub fn get_severity_distribution(&self) -> Result<Vec<SeverityStats>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let mut stmt = conn.prepare(
             "SELECT severity_score, COUNT(*) as count
@@ -3434,7 +3471,7 @@ impl Database {
     }
 
     pub fn get_entity_type_distribution(&self) -> Result<Vec<EntityTypeStats>> {
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let mut stmt = conn.prepare(
             "SELECT entity_type, COUNT(DISTINCT value) as unique_count, COUNT(*) as total_count
@@ -3466,7 +3503,7 @@ impl Database {
             }
         }
 
-        let conn = self.intelligence_conn.lock().unwrap();
+        let conn = self.intel_conn()?;
 
         let (total_facts, avg_severity, avg_confidence, avg_quality): (i64, f64, f64, f64) = conn
             .query_row(
@@ -3508,7 +3545,7 @@ impl Database {
 
     /// Get files that need text extraction (has_extracted_text = FALSE)
     pub fn get_extraction_queue(&self, limit: i64) -> Result<Vec<RegistryEntry>> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, fingerprint, path, file_size, file_type, file_name,
                     last_modified, last_hash_check, has_extracted_text,
@@ -3546,7 +3583,7 @@ impl Database {
 
     /// Get files that have extracted text but haven't been analyzed
     pub fn get_analysis_queue(&self, limit: i64) -> Result<Vec<RegistryEntry>> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, fingerprint, path, file_size, file_type, file_name,
                     last_modified, last_hash_check, has_extracted_text,
@@ -3584,7 +3621,7 @@ impl Database {
 
     /// Mark a file as having extracted text
     pub fn mark_extracted(&self, fingerprint: &str, is_partial: bool) -> Result<()> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         conn.execute(
             "UPDATE registry SET 
                 has_extracted_text = 1,
@@ -3598,7 +3635,7 @@ impl Database {
 
     /// Get extracted text from text_cache
     pub fn get_extracted_text(&self, fingerprint: &str) -> Result<Option<String>> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         let mut stmt =
             conn.prepare("SELECT extracted_text FROM text_cache WHERE fingerprint = ?1")?;
 
@@ -3612,7 +3649,7 @@ impl Database {
 
     /// Get registry entry by fingerprint
     pub fn get_registry_entry(&self, fingerprint: &str) -> Result<RegistryEntry> {
-        let conn = self.registry_conn.lock().unwrap();
+        let conn = self.reg_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, fingerprint, path, file_size, file_type, file_name,
                     last_modified, last_hash_check, has_extracted_text,
