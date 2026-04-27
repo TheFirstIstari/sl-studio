@@ -1755,6 +1755,52 @@ impl Database {
         Ok(())
     }
 
+    // ----------------------------------------------------------------------
+    // FR-VERIF: cross-validation across sources
+    // ----------------------------------------------------------------------
+
+    /// Return non-deleted intelligence rows that share the same category as
+    /// `intelligence_id` but come from a different source file. Caller is
+    /// expected to apply Jaccard similarity on top of this set to derive
+    /// the actual "corroborating" facts. We do the SQL-side filtering here
+    /// to keep the candidate pool bounded.
+    pub fn get_corroboration_candidates(
+        &self,
+        intelligence_id: i64,
+    ) -> Result<(String, String, Vec<(i64, String, String, Option<String>)>)> {
+        let conn = self.intelligence_conn.lock().unwrap();
+        let (filename, fact_summary, category): (String, String, Option<String>) = conn.query_row(
+            "SELECT filename, fact_summary, category
+                   FROM intelligence
+                  WHERE id = ?1",
+            params![intelligence_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )?;
+
+        let mut stmt = conn.prepare(
+            "SELECT id, filename, fact_summary, category
+               FROM intelligence
+              WHERE is_deleted = FALSE
+                AND id != ?1
+                AND filename != ?2
+                AND (
+                    (?3 IS NULL AND category IS NULL)
+                    OR category = ?3
+                )",
+        )?;
+        let rows = stmt.query_map(params![intelligence_id, filename, category], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<String>>(3)?,
+            ))
+        })?;
+        let candidates: Vec<(i64, String, String, Option<String>)> =
+            rows.collect::<Result<Vec<_>>>()?;
+        Ok((fact_summary, filename, candidates))
+    }
+
     /// Build a deduped list of (id, type, value) entity tuples for the
     /// resolution scanner. Distinct by (entity_type, lower(value)) so we
     /// don't churn on per-document duplicates that already exist by design.

@@ -924,6 +924,100 @@ fn merge_duplicate_facts(
 }
 
 // ----------------------------------------------------------------------------
+// FR-VERIF: cross-validate a fact against other sources
+// ----------------------------------------------------------------------------
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct CorroborationMatch {
+    intelligence_id: i64,
+    filename: String,
+    fact_summary: String,
+    similarity: f32,
+    agreement: String, // "agree" | "partial" | "conflict"
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct CrossValidationResult {
+    intelligence_id: i64,
+    source_filename: String,
+    matches: Vec<CorroborationMatch>,
+    consensus_score: f32, // 0..1, weighted by similarity and source diversity
+}
+
+#[tauri::command]
+fn cross_validate_fact(
+    state: State<AppState>,
+    intelligence_id: i64,
+    threshold: Option<f32>,
+) -> Result<CrossValidationResult, String> {
+    use inference::quality::jaccard_similarity;
+    let threshold = threshold.unwrap_or(0.5);
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+    let Some(db) = db.as_ref() else {
+        return Err("Database not initialized".to_string());
+    };
+    let (target_summary, source_filename, candidates) = db
+        .get_corroboration_candidates(intelligence_id)
+        .map_err(|e| e.to_string())?;
+
+    let mut matches: Vec<CorroborationMatch> = Vec::new();
+    let mut total_sim = 0.0_f32;
+    let mut sources = std::collections::HashSet::new();
+    for (id, filename, summary, _category) in candidates {
+        let sim = jaccard_similarity(&target_summary, &summary);
+        if sim < threshold {
+            continue;
+        }
+        let agreement = if sim >= 0.85 {
+            "agree".to_string()
+        } else if sim >= 0.6 {
+            "partial".to_string()
+        } else {
+            "conflict".to_string()
+        };
+        total_sim += sim;
+        sources.insert(filename.clone());
+        matches.push(CorroborationMatch {
+            intelligence_id: id,
+            filename,
+            fact_summary: summary,
+            similarity: sim,
+            agreement,
+        });
+    }
+    matches.sort_by(|a, b| {
+        b.similarity
+            .partial_cmp(&a.similarity)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    // Consensus: average similarity scaled by source diversity.
+    // 1 source = 0.5x, 2 = 0.75x, 3+ = 1x.
+    let diversity = match sources.len() {
+        0 => 0.0,
+        1 => 0.5,
+        2 => 0.75,
+        _ => 1.0,
+    };
+    let avg_sim = if matches.is_empty() {
+        0.0
+    } else {
+        total_sim / matches.len() as f32
+    };
+    let consensus_score = avg_sim * diversity;
+
+    Ok(CrossValidationResult {
+        intelligence_id,
+        source_filename,
+        matches,
+        consensus_score,
+    })
+}
+
+// ----------------------------------------------------------------------------
 // FR-FACET-004: persisted filter/facet presets per page
 // ----------------------------------------------------------------------------
 
@@ -2724,6 +2818,8 @@ pub fn run() {
             merge_duplicate_facts,
             // FR-WEIGHT
             get_evidence_weight,
+            // FR-VERIF
+            cross_validate_fact,
             // FR-FACET-004
             save_facet_preset,
             list_facet_presets,

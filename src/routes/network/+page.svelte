@@ -58,6 +58,46 @@
 	let betweenness = $state<EntityBetweenness[]>([]);
 	let analyzingNet = $state(false);
 
+	// Community palette — keep it well within the dark-theme contrast.
+	const COMMUNITY_PALETTE = [
+		'#e94560',
+		'#3b82f6',
+		'#10b981',
+		'#f59e0b',
+		'#8b5cf6',
+		'#ec4899',
+		'#06b6d4',
+		'#84cc16',
+		'#ef4444',
+		'#a78bfa'
+	];
+
+	function communityColor(communityId: number): string {
+		// communityId is 1-indexed.
+		return COMMUNITY_PALETTE[(communityId - 1) % COMMUNITY_PALETTE.length];
+	}
+
+	function applyCommunityColors() {
+		if (!cy || communities.length === 0) return;
+		// Build entity_id -> community_id map.
+		const map = new Map<number, number>();
+		for (const c of communities) {
+			for (const eid of c.entity_ids) {
+				map.set(eid, c.community_id);
+			}
+		}
+		cy.batch(() => {
+			cy!.nodes().forEach((node) => {
+				const idStr = node.id();
+				const eid = parseInt(idStr.replace('node-', ''), 10);
+				const communityId = map.get(eid);
+				if (communityId !== undefined) {
+					node.style('background-color', communityColor(communityId));
+				}
+			});
+		});
+	}
+
 	async function analyzeNetwork() {
 		analyzingNet = true;
 		try {
@@ -70,6 +110,7 @@
 			]);
 			communities = c;
 			betweenness = b;
+			applyCommunityColors();
 		} catch (e) {
 			console.error('Network analysis failed:', e);
 		} finally {

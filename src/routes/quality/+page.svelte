@@ -100,6 +100,48 @@
 		return facts.find((f) => f.id === id)?.fact_summary ?? `(fact #${id})`;
 	}
 
+	// FR-VERIF: cross-validation
+	interface CorroborationMatch {
+		intelligence_id: number;
+		filename: string;
+		fact_summary: string;
+		similarity: number;
+		agreement: 'agree' | 'partial' | 'conflict';
+	}
+	interface CrossValidationResult {
+		intelligence_id: number;
+		source_filename: string;
+		matches: CorroborationMatch[];
+		consensus_score: number;
+	}
+	let crossValidation = $state<CrossValidationResult | null>(null);
+	let crossValidating = $state(false);
+
+	async function runCrossValidation(factId: number) {
+		crossValidating = true;
+		try {
+			crossValidation = await invoke<CrossValidationResult>('cross_validate_fact', {
+				intelligenceId: factId,
+				threshold: 0.5
+			});
+		} catch (e) {
+			console.error('Cross-validation failed:', e);
+			error = String(e);
+			crossValidation = null;
+		} finally {
+			crossValidating = false;
+		}
+	}
+
+	// Reset cross-validation when selectedFact changes.
+	$effect(() => {
+		if (!selectedFact) {
+			crossValidation = null;
+		} else if (crossValidation && crossValidation.intelligence_id !== selectedFact.id) {
+			crossValidation = null;
+		}
+	});
+
 	// Stats
 	let stats = $derived.by(() => ({
 		total: facts.length,
@@ -450,6 +492,56 @@
 							Disputed
 						</button>
 					</div>
+				</div>
+
+				<!-- FR-VERIF: cross-validation across sources -->
+				<div class="detail-section">
+					<div class="cross-header">
+						<h3>Cross-validation</h3>
+						<button
+							class="btn sm"
+							onclick={() => selectedFact && runCrossValidation(selectedFact.id)}
+							disabled={crossValidating}
+						>
+							{crossValidating ? 'Checking...' : 'Check sources'}
+						</button>
+					</div>
+					{#if crossValidation}
+						<div class="consensus">
+							<span class="consensus-label">Consensus score</span>
+							<div class="consensus-bar" title="Average similarity × source diversity">
+								<div
+									class="consensus-fill"
+									class:strong={crossValidation.consensus_score >= 0.6}
+									class:weak={crossValidation.consensus_score < 0.3}
+									style="width: {Math.round(crossValidation.consensus_score * 100)}%"
+								></div>
+							</div>
+							<span class="consensus-value">
+								{(crossValidation.consensus_score * 100).toFixed(0)}%
+							</span>
+						</div>
+						{#if crossValidation.matches.length === 0}
+							<p class="cross-empty">
+								No corroborating facts found in other sources at similarity ≥ 0.5.
+							</p>
+						{:else}
+							<ul class="cross-matches">
+								{#each crossValidation.matches.slice(0, 5) as m (m.intelligence_id)}
+									<li>
+										<span class="agreement agreement-{m.agreement}">{m.agreement}</span>
+										<span class="cross-summary">{m.fact_summary}</span>
+										<span class="cross-source">{m.filename}</span>
+										<span class="cross-sim">{(m.similarity * 100).toFixed(0)}%</span>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					{:else}
+						<p class="cross-hint">
+							Find matching facts in other source files to validate or contradict this one.
+						</p>
+					{/if}
 				</div>
 
 				<!-- Review Actions -->
@@ -855,5 +947,127 @@
 
 	.dedup-members li.keeper {
 		color: #4ade80;
+	}
+
+	/* FR-VERIF cross-validation panel */
+	.cross-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: var(--space-2);
+	}
+
+	.cross-header h3 {
+		margin: 0;
+	}
+
+	.cross-hint,
+	.cross-empty {
+		font-size: var(--text-sm);
+		color: var(--color-text-muted);
+		margin: var(--space-1) 0 0;
+	}
+
+	.consensus {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		margin-bottom: var(--space-3);
+	}
+
+	.consensus-label {
+		font-size: var(--text-xs);
+		color: var(--color-text-muted);
+	}
+
+	.consensus-bar {
+		flex: 1;
+		height: 8px;
+		background: var(--color-bg-elevated);
+		border-radius: 999px;
+		overflow: hidden;
+	}
+
+	.consensus-fill {
+		height: 100%;
+		background: var(--color-status-info);
+		transition: width 0.2s;
+	}
+
+	.consensus-fill.strong {
+		background: var(--color-status-confirmed);
+	}
+
+	.consensus-fill.weak {
+		background: var(--color-severity-high);
+	}
+
+	.consensus-value {
+		font-variant-numeric: tabular-nums;
+		font-size: var(--text-sm);
+		min-width: 3rem;
+		text-align: right;
+	}
+
+	.cross-matches {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+
+	.cross-matches li {
+		display: grid;
+		grid-template-columns: auto 1fr auto auto;
+		gap: var(--space-2);
+		align-items: center;
+		font-size: var(--text-sm);
+	}
+
+	.agreement {
+		text-transform: uppercase;
+		font-size: var(--text-xs);
+		font-weight: 600;
+		padding: 2px 6px;
+		border-radius: var(--radius-sm);
+		letter-spacing: 0.05em;
+	}
+
+	.agreement-agree {
+		background: rgba(74, 222, 128, 0.15);
+		color: var(--color-status-confirmed);
+	}
+
+	.agreement-partial {
+		background: rgba(234, 179, 8, 0.15);
+		color: var(--color-severity-medium);
+	}
+
+	.agreement-conflict {
+		background: rgba(239, 68, 68, 0.15);
+		color: var(--color-severity-high);
+	}
+
+	.cross-summary {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.cross-source {
+		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		max-width: 120px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.cross-sim {
+		font-variant-numeric: tabular-nums;
+		color: var(--color-text-muted);
+		font-size: var(--text-xs);
 	}
 </style>
