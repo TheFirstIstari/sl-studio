@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/core';
 	import { save } from '@tauri-apps/plugin-dialog';
+	import { PageHeader } from '$lib/components';
 
 	let exportType = $state('facts-json');
 	let minWeight = $state(0.0);
@@ -105,8 +106,8 @@
 	}
 </script>
 
-<div class="export-page">
-	<h1>Export Data</h1>
+<div class="export-page page">
+	<PageHeader title="Export Data" />
 
 	<div class="export-form">
 		<div class="form-group">
@@ -173,11 +174,6 @@
 	.export-page {
 		padding: 2rem;
 		max-width: 800px;
-	}
-
-	h1 {
-		margin-bottom: 1.5rem;
-		font-size: 1.75rem;
 	}
 
 	.export-form {

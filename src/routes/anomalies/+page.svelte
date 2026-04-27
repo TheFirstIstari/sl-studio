@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/core';
 	import { onMount } from 'svelte';
+	import { PageHeader } from '$lib/components';
 
 	interface Anomaly {
 		id: number;
@@ -70,11 +71,9 @@
 	}
 </script>
 
-<div class="anomalies-page">
-	<div class="page-header">
-		<h1>Anomaly Detection</h1>
-
-		<div class="controls">
+<div class="anomalies-page page">
+	<PageHeader title="Anomaly Detection">
+		{#snippet actions()}
 			<div class="control-group">
 				<label for="metric-select">Metric:</label>
 				<select
@@ -100,8 +99,8 @@
 					onchange={loadAnomalies}
 				/>
 			</div>
-		</div>
-	</div>
+		{/snippet}
+	</PageHeader>
 
 	{#if loading}
 		<div class="loading">Analyzing for anomalies...</div>
@@ -228,25 +227,6 @@
 		display: flex;
 		flex-direction: column;
 		position: relative;
-	}
-
-	.page-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 1.5rem;
-		flex-wrap: wrap;
-		gap: 1rem;
-	}
-
-	h1 {
-		font-size: 1.75rem;
-		color: #eaeaea;
-	}
-
-	.controls {
-		display: flex;
-		gap: 1.5rem;
 	}
 
 	.control-group {

@@ -2,6 +2,7 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { onMount, onDestroy } from 'svelte';
 	import cytoscape from 'cytoscape';
+	import { PageHeader } from '$lib/components';
 
 	interface EntityRelationship {
 		entity1_id: number;
@@ -318,11 +319,9 @@
 	}
 </script>
 
-<div class="network-page">
-	<div class="page-header">
-		<h1>Entity Network</h1>
-
-		<div class="controls">
+<div class="network-page page">
+	<PageHeader title="Entity Network">
+		{#snippet actions()}
 			<div class="control-group">
 				<label for="min-conf">Min Confidence:</label>
 				<input
@@ -357,8 +356,8 @@
 					/>
 				</svg>
 			</button>
-		</div>
-	</div>
+		{/snippet}
+	</PageHeader>
 
 	{#if loading}
 		<div class="loading">Loading network...</div>
@@ -490,26 +489,6 @@
 		height: 100%;
 		display: flex;
 		flex-direction: column;
-	}
-
-	.page-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 1rem;
-		flex-wrap: wrap;
-		gap: 1rem;
-	}
-
-	h1 {
-		font-size: 1.75rem;
-		color: #eaeaea;
-	}
-
-	.controls {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
 	}
 
 	.control-group {

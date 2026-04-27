@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/core';
 	import { open } from '@tauri-apps/plugin-dialog';
+	import { PageHeader } from '$lib/components';
 
 	let includeEvidence = $state(false);
 	let isBackingUp = $state(false);
@@ -48,8 +49,8 @@
 	}
 </script>
 
-<div class="backup-page">
-	<h1>Backup & Restore</h1>
+<div class="backup-page page">
+	<PageHeader title="Backup & Restore" />
 
 	<div class="backup-sections">
 		<div class="backup-card">
@@ -113,11 +114,6 @@
 	.backup-page {
 		padding: 2rem;
 		max-width: 1000px;
-	}
-
-	h1 {
-		margin-bottom: 1.5rem;
-		font-size: 1.75rem;
 	}
 
 	h2 {

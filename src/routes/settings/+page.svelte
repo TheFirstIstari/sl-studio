@@ -4,6 +4,7 @@
 	import { listen } from '@tauri-apps/api/event';
 	import { onMount, onDestroy } from 'svelte';
 	import type { AppConfig } from '$lib/stores/app';
+	import { PageHeader } from '$lib/components';
 
 	interface ModelInfo {
 		id: string;
@@ -294,8 +295,8 @@
 	}
 </script>
 
-<div class="settings">
-	<h1>Settings</h1>
+<div class="settings page">
+	<PageHeader title="Settings" />
 
 	{#if loading}
 		<div class="loading">Loading configuration...</div>
@@ -530,12 +531,6 @@
 <style>
 	.settings {
 		max-width: 1000px;
-	}
-
-	h1 {
-		font-size: 1.75rem;
-		margin-bottom: 1.5rem;
-		color: #eaeaea;
 	}
 
 	h2 {

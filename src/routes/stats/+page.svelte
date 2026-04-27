@@ -2,6 +2,7 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { onMount, onDestroy } from 'svelte';
 	import { Chart, registerables } from 'chart.js';
+	import { PageHeader } from '$lib/components';
 
 	Chart.register(...registerables);
 
@@ -207,8 +208,8 @@
 	});
 </script>
 
-<div class="stats-page">
-	<h1>Statistics</h1>
+<div class="stats-page page">
+	<PageHeader title="Statistics" />
 
 	{#if loading}
 		<div class="loading">Loading statistics...</div>
@@ -300,12 +301,6 @@
 <style>
 	.stats-page {
 		max-width: 1400px;
-	}
-
-	h1 {
-		font-size: 1.75rem;
-		color: #eaeaea;
-		margin-bottom: 1.5rem;
 	}
 
 	h2 {

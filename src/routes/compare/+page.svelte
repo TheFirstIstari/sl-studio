@@ -2,6 +2,7 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { open } from '@tauri-apps/plugin-dialog';
 	import { onMount } from 'svelte';
+	import { PageHeader } from '$lib/components';
 
 	interface ProjectSummary {
 		name: string;
@@ -89,8 +90,8 @@
 	});
 </script>
 
-<div class="compare-page">
-	<h1>Compare Projects</h1>
+<div class="compare-page page">
+	<PageHeader title="Compare Projects" />
 
 	{#if error}
 		<div class="error-message">{error}</div>
@@ -198,11 +199,6 @@
 	.compare-page {
 		padding: 2rem;
 		max-width: 1000px;
-	}
-
-	h1 {
-		margin-bottom: 1.5rem;
-		font-size: 1.75rem;
 	}
 
 	h2 {

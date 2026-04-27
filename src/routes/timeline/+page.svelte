@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/core';
 	import { onMount } from 'svelte';
+	import { PageHeader } from '$lib/components';
 
 	interface TimelineEvent {
 		id: number;
@@ -131,11 +132,9 @@
 	}
 </script>
 
-<div class="timeline-page">
-	<div class="page-header">
-		<h1>Timeline</h1>
-
-		<div class="controls">
+<div class="timeline-page page">
+	<PageHeader title="Timeline">
+		{#snippet actions()}
 			<button
 				class="view-btn"
 				class:active={viewMode === 'timeline'}
@@ -150,8 +149,8 @@
 			>
 				List
 			</button>
-		</div>
-	</div>
+		{/snippet}
+	</PageHeader>
 
 	<div class="filter-bar">
 		<div class="filter-section">
@@ -363,23 +362,6 @@
 		display: flex;
 		flex-direction: column;
 		position: relative;
-	}
-
-	.page-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 1.5rem;
-	}
-
-	h1 {
-		font-size: 1.75rem;
-		color: #eaeaea;
-	}
-
-	.controls {
-		display: flex;
-		gap: 0.5rem;
 	}
 
 	.view-btn {

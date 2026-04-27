@@ -3,6 +3,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import L from 'leaflet';
 	import 'leaflet/dist/leaflet.css';
+	import { PageHeader } from '$lib/components';
 
 	interface LocationEntity {
 		id: number;
@@ -122,11 +123,9 @@
 	}
 </script>
 
-<div class="maps-page">
-	<div class="page-header">
-		<h1>Geographic Locations</h1>
-
-		<div class="controls">
+<div class="maps-page page">
+	<PageHeader title="Geographic Locations">
+		{#snippet actions()}
 			<div class="control-group">
 				<label for="min-conf">Min Confidence:</label>
 				<input
@@ -168,8 +167,8 @@
 					<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
 				</svg>
 			</button>
-		</div>
-	</div>
+		{/snippet}
+	</PageHeader>
 
 	{#if loading}
 		<div class="loading">Loading locations...</div>
@@ -288,26 +287,6 @@
 		display: flex;
 		flex-direction: column;
 		position: relative;
-	}
-
-	.page-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 1rem;
-		flex-wrap: wrap;
-		gap: 1rem;
-	}
-
-	h1 {
-		font-size: 1.75rem;
-		color: #eaeaea;
-	}
-
-	.controls {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
 	}
 
 	.control-group {
