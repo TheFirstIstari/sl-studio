@@ -48,6 +48,19 @@ pub fn intelligence_migrations() -> Vec<Migration> {
             );
             CREATE INDEX IF NOT EXISTS idx_facet_presets_page ON facet_presets(page);",
         },
+        // Performance: indexes for common analytic filters.
+        // associated_date is used by timeline queries; confidence is used by
+        // weighted-evidence, centrality, and anomaly filters.
+        Migration {
+            version: 4,
+            name: "add_intelligence_analytic_indexes",
+            up_sql: "CREATE INDEX IF NOT EXISTS idx_intelligence_associated_date
+                        ON intelligence(associated_date)
+                        WHERE is_deleted = FALSE AND associated_date IS NOT NULL;
+                     CREATE INDEX IF NOT EXISTS idx_intelligence_confidence
+                        ON intelligence(confidence)
+                        WHERE is_deleted = FALSE AND confidence IS NOT NULL;",
+        },
     ]
 }
 
@@ -157,6 +170,18 @@ mod tests {
     #[test]
     fn baseline_migrations_run_clean() {
         let mut conn = Connection::open_in_memory().unwrap();
+        // Migrations assume Database::init_schema() already created the core
+        // tables (CREATE TABLE IF NOT EXISTS). Simulate the minimal subset
+        // that later migrations index against.
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS intelligence (
+                id INTEGER PRIMARY KEY,
+                associated_date TEXT,
+                confidence REAL,
+                is_deleted BOOLEAN DEFAULT FALSE
+            );",
+        )
+        .unwrap();
         run_migrations(&mut conn, &intelligence_migrations()).unwrap();
         let max: i64 = conn
             .query_row(
@@ -165,8 +190,8 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        // Highest intelligence migration version (currently 3: facet_presets).
-        assert!(max >= 3);
+        // Highest intelligence migration version (currently 4: analytic indexes).
+        assert!(max >= 4);
 
         let mut reg_conn = Connection::open_in_memory().unwrap();
         run_migrations(&mut reg_conn, &registry_migrations()).unwrap();
@@ -175,6 +200,16 @@ mod tests {
     #[test]
     fn pipelines_migration_creates_table() {
         let mut conn = Connection::open_in_memory().unwrap();
+        // v4 indexes the `intelligence` table; pre-create the minimum schema.
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS intelligence (
+                id INTEGER PRIMARY KEY,
+                associated_date TEXT,
+                confidence REAL,
+                is_deleted BOOLEAN DEFAULT FALSE
+            );",
+        )
+        .unwrap();
         run_migrations(&mut conn, &intelligence_migrations()).unwrap();
         // Insert a row to confirm the table is usable.
         conn.execute(
