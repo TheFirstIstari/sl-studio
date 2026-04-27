@@ -121,11 +121,11 @@
 
 		// Sync workflow state to local progress for display
 		const wf = $workflow;
-		if (wf?.files_scanned > 0) {
+		if (wf && wf.files_scanned > 0) {
 			registryProgress.phase = 'complete';
 			registryProgress.processed = wf.files_scanned;
 		}
-		if (wf?.files_extracted > 0) {
+		if (wf && wf.files_extracted > 0) {
 			extractionProgress.phase = 'complete';
 			extractionProgress.success_count = wf.files_extracted;
 		}
@@ -157,7 +157,7 @@
 	// Actions
 
 	async function startScan() {
-		if (!config?.project.evidence_root) {
+		if (!$config?.project?.evidence_root) {
 			registryProgress.phase = 'error';
 			registryProgress.current_file = 'Please configure evidence folder first';
 			return;
@@ -229,7 +229,7 @@
 			const fingerprints = queue.map((f) => f.fingerprint);
 			const results = await invoke<ExtractionResult[]>('extract_batch', {
 				fingerprints,
-				cpuWorkers: config?.hardware?.cpu_workers || 6
+				cpuWorkers: $config?.hardware?.cpu_workers || 6
 			});
 			extractionProgress.success_count = results.filter((r) => r.success).length;
 			extractionProgress.error_count = results.filter((r) => !r.success).length;

@@ -5,16 +5,46 @@ import { writable, derived, type Readable } from 'svelte/store';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
-// Types matching Rust backend
-export interface AppConfig {
-	project_name: string;
+// Types matching Rust backend (src-tauri/src/config/model.rs::AppConfig).
+// This mirrors the nested shape that `load_config` actually returns.
+export interface ProjectConfig {
+	name: string;
 	evidence_root: string;
 	registry_db: string;
 	intelligence_db: string;
-	worker_count: number;
-	batch_size: number;
+}
+
+export interface ModelConfig {
+	source: 'huggingface' | 'local';
+	id: string;
+	quantization: string;
+	context_length: number;
+	downloaded: boolean;
+	local_path: string;
+}
+
+export interface HardwareConfig {
+	gpu_backend: string;
+	gpu_memory_fraction: number;
+	cpu_workers: number;
 	auto_scale_workers: boolean;
+	batch_size: number;
 	auto_scale_batch: boolean;
+	ocr_provider: string;
+	whisper_size: string;
+}
+
+export interface ProcessingConfig {
+	batch_size: number;
+	max_image_resolution: number;
+}
+
+export interface AppConfig {
+	version: string;
+	project: ProjectConfig;
+	model: ModelConfig;
+	hardware: HardwareConfig;
+	processing: ProcessingConfig;
 }
 
 export interface HardwareStatus {
@@ -122,7 +152,7 @@ export async function initializeApp() {
 		modelLoaded.set(loaded);
 
 		// Initialize project if config exists
-		if (cfg && cfg.evidence_root) {
+		if (cfg && cfg.project?.evidence_root) {
 			await invoke('init_project', { config: cfg });
 			projectInitialized.set(true);
 
@@ -262,5 +292,5 @@ export const isProcessing: Readable<boolean> = derived(
 
 export const hasProject: Readable<boolean> = derived(
 	config,
-	($config) => $config?.evidence_root !== null && $config?.evidence_root !== ''
+	($config) => !!$config?.project?.evidence_root
 );

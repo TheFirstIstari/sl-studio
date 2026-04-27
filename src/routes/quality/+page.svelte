@@ -338,21 +338,21 @@
 						<button
 							class="verify-btn unverified"
 							class:active={selectedFact.verification_status === 'unverified'}
-							onclick={() => updateVerificationStatus(selectedFact.id, 'unverified')}
+							onclick={() => selectedFact && updateVerificationStatus(selectedFact.id, 'unverified')}
 						>
 							Unverified
 						</button>
 						<button
 							class="verify-btn confirmed"
 							class:active={selectedFact.verification_status === 'confirmed'}
-							onclick={() => updateVerificationStatus(selectedFact.id, 'confirmed')}
+							onclick={() => selectedFact && updateVerificationStatus(selectedFact.id, 'confirmed')}
 						>
 							Confirmed
 						</button>
 						<button
 							class="verify-btn disputed"
 							class:active={selectedFact.verification_status === 'disputed'}
-							onclick={() => updateVerificationStatus(selectedFact.id, 'disputed')}
+							onclick={() => selectedFact && updateVerificationStatus(selectedFact.id, 'disputed')}
 						>
 							Disputed
 						</button>
@@ -363,13 +363,13 @@
 				<div class="review-actions">
 					<button
 						class="action-btn"
-						onclick={() => updateVerificationStatus(selectedFact.id, 'confirmed')}
+						onclick={() => selectedFact && updateVerificationStatus(selectedFact.id, 'confirmed')}
 					>
 						Mark as Reviewed
 					</button>
 					<button
 						class="action-btn flag"
-						onclick={() => updateVerificationStatus(selectedFact.id, 'disputed')}
+						onclick={() => selectedFact && updateVerificationStatus(selectedFact.id, 'disputed')}
 					>
 						Flag for Follow-up
 					</button>

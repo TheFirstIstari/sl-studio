@@ -3,6 +3,7 @@
 	import { open } from '@tauri-apps/plugin-dialog';
 	import { listen } from '@tauri-apps/api/event';
 	import { onMount, onDestroy } from 'svelte';
+	import type { AppConfig } from '$lib/stores/app';
 
 	interface ModelInfo {
 		id: string;
@@ -123,32 +124,9 @@
 		}
 	}
 
-	interface LoadedConfig {
-		project?: {
-			name?: string;
-			evidence_root?: string;
-			registry_db?: string;
-			intelligence_db?: string;
-		};
-		model?: {
-			local_path?: string;
-			context_length?: number;
-		};
-		hardware?: {
-			gpu_backend?: string;
-			cpu_workers?: number;
-			vram_allocation?: number;
-			ocr_provider?: string;
-			whisper_size?: string;
-		};
-		processing?: {
-			batch_size?: number;
-		};
-	}
-
 	onMount(async () => {
 		try {
-			const loaded = await invoke<LoadedConfig>('load_config');
+			const loaded = await invoke<Partial<AppConfig>>('load_config');
 			if (loaded) {
 				config = {
 					projectName: loaded.project?.name || 'New Investigation',
@@ -158,7 +136,7 @@
 					modelPath: loaded.model?.local_path || '',
 					contextSize: loaded.model?.context_length || 8192,
 					cpuWorkers: loaded.hardware?.cpu_workers || 6,
-					vramAllocation: loaded.hardware?.vram_allocation || 0.4,
+					vramAllocation: loaded.hardware?.gpu_memory_fraction ?? 0.4,
 					batchSize: loaded.processing?.batch_size || 6,
 					gpuBackend: loaded.hardware?.gpu_backend || 'cpu'
 				};
