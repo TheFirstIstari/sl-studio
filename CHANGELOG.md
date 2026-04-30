@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-04-28
+
+### Added
+
+- FR-META: Metadata extraction (EXIF from images, PDF document properties)
+- FR-LANG: Language detection with whatlang crate
+- FR-STRUCT: Structured data extraction (key-value pairs, PDF form fields)
+
+### Changed
+
+- Performance improvements: Streaming PDF extraction for large files, parallel app initialization
+
+### Fixed
+
+- Inference improvements: Proper n_threads_batch wiring
+
+---
+
 ## [0.3.0] - 2026-04-23
 
 ### Added

@@ -27,6 +27,9 @@ SL Studio processes evidence files (PDFs, images, audio/video) through a pipelin
 - **Auto-scaling**: Automatically configures batch sizes and workers based on hardware
 - **Project Files**: Save/load investigation configurations as `.sls` files
 - **HuggingFace Integration**: Download GGUF models directly from HuggingFace
+- **Metadata Extraction**: Extract EXIF data from images and metadata from PDFs
+- **Language Detection**: Automatic language detection using whatlang
+- **Structured Data Extraction**: Parse structured data from documents (PDF forms, metadata fields)
 
 ## Architecture
 
@@ -34,7 +37,7 @@ SL Studio processes evidence files (PDFs, images, audio/video) through a pipelin
 +-------------------------------------------------------------+
 |                   SvelteKit Frontend                         |
 |   (Dashboard, Settings, Analysis, Results)                   |
-+----------------------------+--------------------------------+
++-------------------------------------------------------------+
                              | Tauri Commands (IPC)
 +----------------------------v--------------------------------+
 |                      Rust Backend                            |
@@ -42,11 +45,54 @@ SL Studio processes evidence files (PDFs, images, audio/video) through a pipelin
 |  | Deconstructor|  | LLM Reasoner|  | Database Manager  |   |
 |  |(PDF/OCR/Audio)|| (llama.cpp) |  | (rusqlite)        |   |
 |  +-------------+  +-------------+  +--------------------+   |
-|  +-------------+  +-------------+                           |
-|  |GPU Detection|  |Auto-scaling |                           |
-|  +-------------+  +-------------+                           |
+|  +-------------+  +-------------+  +------------------+    |
+|  |GPU Detection|  |Auto-scaling |  | Metadata Extractor|   |
+|  +-------------+  +-------------+  +------------------+    |
 +-------------------------------------------------------------+
 ```
+
+## Metadata Extraction
+
+SL Studio includes advanced metadata extraction capabilities to gather forensic metadata from evidence files.
+
+### Image Metadata (EXIF)
+
+Extracts EXIF data from JPEG, PNG, TIFF, and other image formats using the `kamadak-exif` crate:
+
+- **Camera Information**: Make, model, lens details
+- **Timestamps**: Original date/time, digitized date
+- **GPS Data**: Latitude, longitude, altitude (when available)
+- **Technical Settings**: Exposure time, F-number, ISO, focal length
+- **Orientation**: Image orientation and rotation data
+
+### PDF Metadata
+
+Extracts metadata from PDF files using `lopdf` crate:
+
+- **Document Info**: Title, author, subject, creator, producer
+- **PDF Version**: Version number and compatibility
+- **Creation/Modification Dates**: Document timestamps
+- **Page Count**: Total number of pages
+- **Structured Data**: Form fields, bookmarks, and document outline
+- **Custom Metadata**: XMP metadata and custom key-value pairs
+
+### Language Detection
+
+Automatically detects the language of text content using `whatlang`:
+
+- **Language Identification**: Detects 70+ languages
+- **Confidence Scoring**: Provides confidence level for detection
+- **Script Detection**: Identifies writing script (Latin, Cyrillic, etc.)
+- **Integration**: Used in Stage 1 to tag extracted text with language info
+
+### Structured Data Extraction
+
+Extracts structured data from documents:
+
+- **PDF Forms**: Form field names, values, and types
+- **Metadata Fields**: Standard and custom metadata fields
+- **Document Properties**: Key-value pairs from document properties
+- **Export Ready**: Structured data available in JSON export format
 
 ## Tech Stack
 
@@ -60,9 +106,11 @@ SL Studio processes evidence files (PDFs, images, audio/video) through a pipelin
 | Network  | Cytoscape.js 3                      |
 | Maps     | Leaflet.js 1 (CARTO dark tiles)     |
 | OCR      | ocrs 0.12                           |
-| PDF      | pdf-extract 0.7                     |
+| PDF      | pdf-extract 0.7, lopdf 0.33         |
 | LLM      | llama_cpp 0.3 (GGUF models)         |
 | Audio    | whisper.cpp (stub)                  |
+| Metadata | kamadak-exif 0.5, lopdf 0.33        |
+| Language | whatlang 0.16                       |
 | Testing  | Playwright (E2E), Criterion (bench) |
 
 ## Getting Started
@@ -344,18 +392,21 @@ The application includes several optimizations for large-scale evidence processi
 
 ### Required Crates
 
-| Crate       | Version | Purpose             |
-| ----------- | ------- | ------------------- |
-| tauri       | 2.x     | Desktop framework   |
-| rusqlite    | 0.32    | SQLite database     |
-| pdf-extract | 0.7     | PDF text extraction |
-| ocrs        | 0.12    | OCR engine          |
-| llama_cpp   | 0.3     | LLM inference       |
-| sysinfo     | 0.32    | Hardware detection  |
-| rayon       | 1.10    | Parallel processing |
-| sha2        | 0.10    | File hashing        |
-| tracing     | 0.1     | Structured logging  |
-| chrono      | 0.4     | Date/time handling  |
+| Crate        | Version | Purpose                  |
+| ------------ | ------- | ------------------------ |
+| tauri        | 2.x     | Desktop framework        |
+| rusqlite     | 0.32    | SQLite database          |
+| pdf-extract  | 0.7     | PDF text extraction      |
+| lopdf        | 0.33    | PDF metadata/structure   |
+| ocrs         | 0.12    | OCR engine               |
+| kamadak-exif | 0.5     | EXIF metadata extraction |
+| whatlang     | 0.16    | Language detection       |
+| llama_cpp    | 0.3     | LLM inference            |
+| sysinfo      | 0.32    | Hardware detection       |
+| rayon        | 1.10    | Parallel processing      |
+| sha2         | 0.10    | File hashing             |
+| tracing      | 0.1     | Structured logging       |
+| chrono       | 0.4     | Date/time handling       |
 
 ### Optional (Feature-gated)
 

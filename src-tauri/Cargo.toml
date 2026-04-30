@@ -67,6 +67,12 @@ rand = "0.8"
 mupdf = "0.6"
 whatlang = "0.16"
 
+# FR-META: image EXIF (kamadak-exif) and PDF document properties (lopdf).
+# lopdf is already a transitive dep via pdf-extract; promoting to direct
+# so we can rely on a stable version for our own use.
+kamadak-exif = "0.6"
+lopdf = "0.34"
+
 [dev-dependencies]
 tempfile = "3"
 criterion = { version = "0.5", features = ["html_reports"] }

@@ -215,6 +215,10 @@ pub fn run() {
             // FR-STRUCT
             extract_pdf_form_fields,
             extract_key_value_pairs,
+            // FR-META
+            extract_metadata,
+            cache_metadata,
+            get_cached_metadata,
         ])
         .setup(|_app| {
             info!("Tauri app setup complete");

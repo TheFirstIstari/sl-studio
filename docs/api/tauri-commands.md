@@ -123,6 +123,27 @@ The backend exposes 60+ commands to the frontend via Tauri's IPC mechanism. All 
 | `is_model_loaded`          | None         | `bool`                     | Check if model is loaded  |
 | `get_reasoner_config`      | None         | `ReasonerConfig`           | Get reasoner settings     |
 
+## Metadata Commands
+
+| Command                 | Parameters              | Returns                        | Description                                              |
+| ----------------------- | ----------------------- | ------------------------------ | -------------------------------------------------------- |
+| `extract_metadata`      | `path`                  | `Result<DocumentMetadata>`     | Extract metadata from file (no DB access)                |
+| `cache_metadata`        | `fingerprint, path`     | `Result<DocumentMetadata>`     | Extract and cache metadata in DB for later retrieval     |
+| `get_cached_metadata`   | `fingerprint, metadata_type` | `Result<Option<DocumentMetadata>>` | Retrieve cached metadata from DB                    |
+
+## Language Commands
+
+| Command                 | Parameters | Returns              | Description                                       |
+| ----------------------- | ---------- | -------------------- | ------------------------------------------------- |
+| `detect_text_language`  | `text`     | `Option<(String, f64)>` | Detect language of text, returns ISO 639-3 code and confidence |
+
+## Structured Data Commands
+
+| Command                     | Parameters | Returns              | Description                                       |
+| --------------------------- | ---------- | -------------------- | ------------------------------------------------- |
+| `extract_pdf_form_fields`   | `path`     | `Result<Vec<FormField>>` | Extract AcroForm fields from fillable PDF       |
+| `extract_key_value_pairs`   | `text`     | `Vec<KeyValuePair>`  | Extract Key: value pairs from text via regex     |
+
 ## Notification Commands
 
 | Command             | Parameters    | Returns      | Description              |
