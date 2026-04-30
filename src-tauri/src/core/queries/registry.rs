@@ -308,6 +308,44 @@ impl Database {
         entries.collect()
     }
 
+    /// Return all registry entries, ordered by file_name, up to `limit` rows.
+    /// Used by the FR-META metadata viewer page.
+    pub fn get_all_registry_files(&self, limit: i64) -> Result<Vec<RegistryEntry>> {
+        let conn = self.reg_conn()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, fingerprint, path, file_size, file_type, file_name,
+                    last_modified, last_hash_check, has_extracted_text,
+                    extracted_at, processed_at, processed,
+                    processing_priority, retry_count, extraction_quality, created_at
+             FROM registry
+             ORDER BY file_name ASC
+             LIMIT ?1",
+        )?;
+
+        let entries = stmt.query_map([limit], |row| {
+            Ok(RegistryEntry {
+                id: row.get(0)?,
+                fingerprint: row.get(1)?,
+                path: row.get(2)?,
+                file_size: row.get(3)?,
+                file_type: row.get(4)?,
+                file_name: row.get(5)?,
+                last_modified: row.get(6)?,
+                last_hash_check: row.get(7)?,
+                has_extracted_text: row.get(8)?,
+                extracted_at: row.get(9)?,
+                processed_at: row.get(10)?,
+                processed: row.get(11)?,
+                processing_priority: row.get(12)?,
+                retry_count: row.get(13)?,
+                extraction_quality: row.get(14)?,
+                created_at: row.get(15)?,
+            })
+        })?;
+
+        entries.collect()
+    }
+
     // Cache invalidation helper
 
     pub fn save_text_cache(

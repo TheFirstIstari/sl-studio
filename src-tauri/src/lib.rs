@@ -219,6 +219,7 @@ pub fn run() {
             extract_metadata,
             cache_metadata,
             get_cached_metadata,
+            get_registry_files,
         ])
         .setup(|_app| {
             info!("Tauri app setup complete");

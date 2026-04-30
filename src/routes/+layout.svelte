@@ -31,6 +31,7 @@
 		{ href: '/network', label: 'Network', icon: 'network', shortcut: 'G N' },
 		{ href: '/maps', label: 'Maps', icon: 'map', shortcut: 'G M' },
 		{ href: '/anomalies', label: 'Anomalies', icon: 'alert', shortcut: 'G L' },
+		{ href: '/metadata', label: 'Metadata', icon: 'metadata', shortcut: 'G F' },
 		{ href: '/export', label: 'Export', icon: 'download', shortcut: 'G E' },
 		{ href: '/compare', label: 'Compare', icon: 'compare', shortcut: 'G C' },
 		{ href: '/backup', label: 'Backup', icon: 'backup', shortcut: 'G B' },

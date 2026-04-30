@@ -100,6 +100,23 @@ pub fn get_analysis_queue(
     db.get_analysis_queue(limit).map_err(|e| e.to_string())
 }
 
+/// FR-META: Return all registry files ordered by name.
+/// Used by the metadata viewer page to populate the file list.
+#[tauri::command]
+pub fn get_registry_files(
+    state: State<AppState>,
+    limit: i64,
+) -> Result<Vec<core::RegistryEntry>, String> {
+    let db = {
+        let guard = state
+            .db
+            .lock()
+            .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+        guard.as_ref().ok_or("Database not initialized")?.clone()
+    };
+    db.get_all_registry_files(limit).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn get_supported_extensions() -> Vec<String> {
     extractors::Deconstructor::supported_extensions()
