@@ -1,16 +1,11 @@
+use crate::commands::require_db;
 use crate::inference;
 use crate::AppState;
 use tauri::State;
 
 #[tauri::command]
 pub fn list_pipelines(state: State<AppState>) -> Result<Vec<inference::Pipeline>, String> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    let Some(db) = db.as_ref() else {
-        return Err("Database not initialized".to_string());
-    };
+    let db = require_db(&state)?;
     let rows = db.list_pipelines().map_err(|e| e.to_string())?;
     let mut pipelines = Vec::with_capacity(rows.len());
     for (id, name, description, passes_json, is_builtin) in rows {
@@ -41,21 +36,15 @@ pub fn save_pipeline(state: State<AppState>, pipeline: inference::Pipeline) -> R
         return Err("Cannot persist builtin pipelines".to_string());
     }
     let passes_json = serde_json::to_string(&pipeline.passes).map_err(|e| e.to_string())?;
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    let Some(db) = db.as_ref() else {
-        return Err("Database not initialized".to_string());
-    };
-    db.save_pipeline(
-        &pipeline.id,
-        &pipeline.name,
-        &pipeline.description,
-        &passes_json,
-        false,
-    )
-    .map_err(|e| e.to_string())
+    require_db(&state)?
+        .save_pipeline(
+            &pipeline.id,
+            &pipeline.name,
+            &pipeline.description,
+            &passes_json,
+            false,
+        )
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -63,13 +52,7 @@ pub fn get_pipeline(
     state: State<AppState>,
     pipeline_id: String,
 ) -> Result<Option<inference::Pipeline>, String> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    let Some(db) = db.as_ref() else {
-        return Err("Database not initialized".to_string());
-    };
+    let db = require_db(&state)?;
     if let Some((id, name, description, passes_json, is_builtin)) =
         db.get_pipeline(&pipeline_id).map_err(|e| e.to_string())?
     {
@@ -88,12 +71,7 @@ pub fn get_pipeline(
 
 #[tauri::command]
 pub fn delete_pipeline(state: State<AppState>, pipeline_id: String) -> Result<(), String> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    let Some(db) = db.as_ref() else {
-        return Err("Database not initialized".to_string());
-    };
-    db.delete_pipeline(&pipeline_id).map_err(|e| e.to_string())
+    require_db(&state)?
+        .delete_pipeline(&pipeline_id)
+        .map_err(|e| e.to_string())
 }

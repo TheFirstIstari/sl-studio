@@ -4,6 +4,7 @@
 	import L from 'leaflet';
 	import 'leaflet/dist/leaflet.css';
 	import { PageHeader } from '$lib/components';
+	import { getSeverityColor } from '$lib/utils';
 
 	interface LocationEntity {
 		id: number;
@@ -104,13 +105,6 @@
 			);
 			map.fitBounds(bounds, { padding: [50, 50] });
 		}
-	}
-
-	function getSeverityColor(severity: number): string {
-		if (severity >= 8) return '#ef4444';
-		if (severity >= 6) return '#f97316';
-		if (severity >= 4) return '#eab308';
-		return '#4ade80';
 	}
 
 	async function reloadMap() {

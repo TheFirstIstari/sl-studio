@@ -136,6 +136,7 @@
 				href={item.href}
 				class="nav-item"
 				class:active={$page.url.pathname === item.href}
+				aria-current={$page.url.pathname === item.href ? 'page' : undefined}
 				title="{item.label} ({item.shortcut})"
 			>
 				<span class="nav-label">{item.label}</span>

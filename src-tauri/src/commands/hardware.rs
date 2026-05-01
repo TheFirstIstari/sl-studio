@@ -13,7 +13,7 @@ pub fn detect_hardware() -> HardwareStatus {
 pub fn get_hardware_info(state: State<AppState>) -> config::HardwareInfo {
     state
         .config
-        .lock()
+        .read()
         .map(|g| g.get_hardware_info())
         .unwrap_or_default()
 }
@@ -77,8 +77,8 @@ pub fn get_processing_stats(state: State<AppState>) -> Result<ProcessingStats, S
     let db_opt = {
         let guard = state
             .db
-            .lock()
-            .map_err(|e| format!("Failed to lock database: {}", e))?;
+            .read()
+            .map_err(|e| format!("Failed to read database: {}", e))?;
         guard.as_ref().cloned()
     };
     if let Some(db) = db_opt {

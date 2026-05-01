@@ -107,11 +107,38 @@ impl RegistryWorker {
         let results: Vec<(String, String, String, i64, String)> = files
             .par_iter()
             .filter_map(|path| {
-                let file_type = path
+                // Derive file type from extension as a fallback.
+                let ext_type = path
                     .extension()
                     .and_then(|e| e.to_str())
                     .unwrap_or("unknown")
                     .to_lowercase();
+
+                // Magic-bytes validation: read the first 8 KB and let `infer`
+                // determine the actual MIME type.  If the detected type
+                // contradicts the extension we log a warning but still ingest
+                // the file — the forensic value of an unexpectedly-typed file
+                // can be high.  We store the magic-byte-derived type so
+                // downstream extractors can make smarter decisions.
+                let file_type = match read_header(path) {
+                    Ok(header) => {
+                        if let Some(kind) = infer::get(&header) {
+                            let magic_ext = kind.extension().to_lowercase();
+                            if magic_ext != ext_type && ext_type != "unknown" {
+                                warn!(
+                                    "Magic-bytes mismatch for {}: extension={} detected={}",
+                                    path.display(),
+                                    ext_type,
+                                    magic_ext
+                                );
+                            }
+                            magic_ext
+                        } else {
+                            ext_type
+                        }
+                    }
+                    Err(_) => ext_type,
+                };
 
                 let file_name = path
                     .file_name()
@@ -231,6 +258,17 @@ fn hash_file(path: &Path) -> Result<String, Box<dyn std::error::Error + Send + S
 
 pub fn hash_file_sync(path: &Path) -> Result<String, String> {
     hash_file(path).map_err(|e| e.to_string())
+}
+
+/// Read the first 8 KB of a file for magic-byte detection.
+/// Using 8 KB covers all signatures in the `infer` crate's database.
+fn read_header(path: &Path) -> Result<Vec<u8>, std::io::Error> {
+    use std::io::Read;
+    let mut buf = vec![0u8; 8192];
+    let mut file = File::open(path)?;
+    let n = file.read(&mut buf)?;
+    buf.truncate(n);
+    Ok(buf)
 }
 
 #[cfg(test)]

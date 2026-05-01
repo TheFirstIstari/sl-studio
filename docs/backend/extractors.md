@@ -30,14 +30,14 @@ impl Deconstructor {
 
 ### Supported Extensions
 
-| Extension                                                    | Extractor        |
-| ------------------------------------------------------------ | ---------------- |
-| `.pdf`                                                       | `PdfExtractor`   |
-| `.png`, `.jpg`, `.jpeg`, `.tiff`, `.tif`, `.bmp`, `.gif`    | `OcrExtractor`   |
-| `.heic`, `.heif`, `.webp`                                    | Metadata only*   |
-| `.mp3`, `.wav`, `.m4a`, `.mp4`, `.m4v`, `.ogg`, `.flac`     | `AudioExtractor` |
-| `.docx`                                                      | `DocumentExtractor` |
-| `.txt`, `.md`, `.json`, `.xml`, `.csv`                       | `DocumentExtractor` |
+| Extension                                                | Extractor           |
+| -------------------------------------------------------- | ------------------- |
+| `.pdf`                                                   | `PdfExtractor`      |
+| `.png`, `.jpg`, `.jpeg`, `.tiff`, `.tif`, `.bmp`, `.gif` | `OcrExtractor`      |
+| `.heic`, `.heif`, `.webp`                                | Metadata only\*     |
+| `.mp3`, `.wav`, `.m4a`, `.mp4`, `.m4v`, `.ogg`, `.flac`  | `AudioExtractor`    |
+| `.docx`                                                  | `DocumentExtractor` |
+| `.txt`, `.md`, `.json`, `.xml`, `.csv`                   | `DocumentExtractor` |
 
 \* HEIC/HEIF/WebP files support metadata extraction (EXIF) but not text extraction.
 
@@ -102,14 +102,15 @@ Extracts metadata from images (EXIF) and PDFs without requiring database access.
 
 ### Supported Formats
 
-| Format              | Metadata Type | Library        |
-| ------------------- | ------------- | -------------- |
-| JPEG, PNG, TIFF, HEIC, WebP | EXIF tags     | `kamadak-exif` |
-| PDF                 | Document Information Dictionary | `lopdf` |
+| Format                      | Metadata Type                   | Library        |
+| --------------------------- | ------------------------------- | -------------- |
+| JPEG, PNG, TIFF, HEIC, WebP | EXIF tags                       | `kamadak-exif` |
+| PDF                         | Document Information Dictionary | `lopdf`        |
 
 ### Features
 
 **EXIF Metadata (Images)**
+
 - Camera information (make, model)
 - Capture date/time (`DateTimeOriginal`, `DateTime`, `DateTimeDigitized`)
 - GPS coordinates (latitude/longitude with hemisphere handling)
@@ -117,11 +118,13 @@ Extracts metadata from images (EXIF) and PDFs without requiring database access.
 - All raw EXIF tags preserved in `raw` map
 
 **PDF Metadata**
+
 - Document Information Dictionary fields: Title, Author, Subject, Keywords, Creator, Producer
 - Dates normalized to ISO 8601 format (`CreationDate`, `ModDate`)
 - Handles both UTF-8 and UTF-16BE (with BOM) encoded strings
 
 **Output Structure**
+
 ```rust
 struct DocumentMetadata {
     source: String,              // "exif", "pdf", or "none"
@@ -155,11 +158,13 @@ Extracts structured data from documents — form fields from fillable PDFs and k
 ### Features
 
 **PDF Form Fields** (`extract_pdf_form_fields`)
+
 - Extracts AcroForm field name/value pairs from fillable PDFs
 - Returns field type (`text`, `checkbox`, `choice`, `signature`, etc.) and page number
 - Current status: API stable but returns empty vec (mupdf-rs 0.6 lacks widget iteration API)
 
 **Key-Value Pair Extraction** (`extract_key_value_pairs`)
+
 - Heuristic regex extraction from plain text
 - Key pattern: Starts with uppercase letter, 3-41 characters, letters/spaces/slash/hyphen
 - Value pattern: Non-whitespace start, up to 200 characters, anchored to end of line

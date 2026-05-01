@@ -1,3 +1,4 @@
+use crate::commands::require_db;
 use crate::core;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
@@ -28,22 +29,16 @@ pub fn export_facts_json(
     start_date: Option<String>,
     end_date: Option<String>,
 ) -> Result<String, String> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    if let Some(db) = db.as_ref() {
-        let filters = core::ExportFilters {
-            min_weight,
-            limit,
-            categories,
-            start_date,
-            end_date,
-        };
-        db.export_facts_json(&filters).map_err(|e| e.to_string())
-    } else {
-        Err("Database not initialized".to_string())
-    }
+    let filters = core::ExportFilters {
+        min_weight,
+        limit,
+        categories,
+        start_date,
+        end_date,
+    };
+    require_db(&state)?
+        .export_facts_json(&filters)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -52,16 +47,9 @@ pub fn export_entities_csv(
     entity_type: Option<String>,
     min_confidence: f64,
 ) -> Result<String, String> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    if let Some(db) = db.as_ref() {
-        db.export_entities_csv(entity_type.as_deref(), min_confidence)
-            .map_err(|e| e.to_string())
-    } else {
-        Err("Database not initialized".to_string())
-    }
+    require_db(&state)?
+        .export_entities_csv(entity_type.as_deref(), min_confidence)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -70,40 +58,25 @@ pub fn export_timeline_json(
     start_date: Option<String>,
     end_date: Option<String>,
 ) -> Result<String, String> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    if let Some(db) = db.as_ref() {
-        db.export_timeline_json(start_date.as_deref(), end_date.as_deref())
-            .map_err(|e| e.to_string())
-    } else {
-        Err("Database not initialized".to_string())
-    }
+    require_db(&state)?
+        .export_timeline_json(start_date.as_deref(), end_date.as_deref())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn export_full_report_json(state: State<AppState>) -> Result<String, String> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    if let Some(db) = db.as_ref() {
-        let facts = db
-            .get_weighted_evidence(0.0, 10000)
-            .map_err(|e| e.to_string())?;
-        let statistics = db.get_overall_statistics().map_err(|e| e.to_string())?;
-        let categories = db.get_category_distribution().map_err(|e| e.to_string())?;
-
-        let report = ExportReport {
-            facts,
-            statistics,
-            categories,
-        };
-        serde_json::to_string_pretty(&report).map_err(|e| e.to_string())
-    } else {
-        Err("Database not initialized".to_string())
-    }
+    let db = require_db(&state)?;
+    let facts = db
+        .get_weighted_evidence(0.0, 10000)
+        .map_err(|e| e.to_string())?;
+    let statistics = db.get_overall_statistics().map_err(|e| e.to_string())?;
+    let categories = db.get_category_distribution().map_err(|e| e.to_string())?;
+    let report = ExportReport {
+        facts,
+        statistics,
+        categories,
+    };
+    serde_json::to_string_pretty(&report).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -112,35 +85,28 @@ pub fn export_facts_csv(
     min_weight: f64,
     limit: i64,
 ) -> Result<String, String> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    if let Some(db) = db.as_ref() {
-        let facts = db
-            .get_weighted_evidence(min_weight, limit)
-            .map_err(|e| e.to_string())?;
-
-        let mut csv = String::from("id,fingerprint,filename,category,severity,confidence,quality,weight,summary,created_at\n");
-        for f in facts {
-            csv.push_str(&format!(
-                "{},{},\"{}\",\"{}\",{},{},{},{},\"{}\",\"{}\"\n",
-                f.id,
-                f.fingerprint,
-                f.filename.replace('"', "\"\""),
-                f.category.unwrap_or_default(),
-                f.severity,
-                f.confidence.unwrap_or(0.0),
-                f.quality.unwrap_or(0.0),
-                f.weight,
-                f.summary.replace('"', "\"\""),
-                f.created_at.unwrap_or_default()
-            ));
-        }
-        Ok(csv)
-    } else {
-        Err("Database not initialized".to_string())
+    let facts = require_db(&state)?
+        .get_weighted_evidence(min_weight, limit)
+        .map_err(|e| e.to_string())?;
+    let mut csv = String::from(
+        "id,fingerprint,filename,category,severity,confidence,quality,weight,summary,created_at\n",
+    );
+    for f in facts {
+        csv.push_str(&format!(
+            "{},{},\"{}\",\"{}\",{},{},{},{},\"{}\",\"{}\"\n",
+            f.id,
+            f.fingerprint,
+            f.filename.replace('"', "\"\""),
+            f.category.unwrap_or_default(),
+            f.severity,
+            f.confidence.unwrap_or(0.0),
+            f.quality.unwrap_or(0.0),
+            f.weight,
+            f.summary.replace('"', "\"\""),
+            f.created_at.unwrap_or_default()
+        ));
     }
+    Ok(csv)
 }
 
 #[tauri::command]
@@ -155,13 +121,7 @@ pub fn export_pdf_report(state: State<AppState>) -> Result<Vec<u8>, String> {
     use printpdf::*;
     use std::io::BufWriter;
 
-    let db = {
-        let guard = state
-            .db
-            .lock()
-            .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-        guard.as_ref().ok_or("Database not initialized")?.clone()
-    };
+    let db = require_db(&state)?;
 
     let facts = db
         .get_weighted_evidence(0.0, 100)
@@ -283,13 +243,7 @@ pub fn export_pdf_report(state: State<AppState>) -> Result<Vec<u8>, String> {
 
 #[tauri::command]
 pub fn export_excel_data(state: State<AppState>) -> Result<String, String> {
-    let db = {
-        let guard = state
-            .db
-            .lock()
-            .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-        guard.as_ref().ok_or("Database not initialized")?.clone()
-    };
+    let db = require_db(&state)?;
 
     let facts = db
         .get_weighted_evidence(0.0, 1000)

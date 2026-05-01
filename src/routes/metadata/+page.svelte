@@ -115,7 +115,7 @@
 			});
 			if (cached) {
 				metadata = cached;
-				cachedFingerprints.add(file.fingerprint);
+				cachedFingerprints = new Set([...cachedFingerprints, file.fingerprint]);
 				return;
 			}
 		} catch {
@@ -148,7 +148,7 @@
 				fingerprint: selected.fingerprint,
 				path: selected.path
 			});
-			cachedFingerprints.add(selected.fingerprint);
+			cachedFingerprints = new Set([...cachedFingerprints, selected.fingerprint]);
 		} catch (e) {
 			console.error('Cache metadata failed:', e);
 			error = `Failed to cache: ${e}`;
@@ -280,7 +280,9 @@
 				<div class="detail-header">
 					<div class="detail-title">
 						<span class="detail-filename">{selected.file_name}</span>
-						<span class="badge {sourceBadgeClass(metadata.source)}">{sourceLabel(metadata.source)}</span>
+						<span class="badge {sourceBadgeClass(metadata.source)}"
+							>{sourceLabel(metadata.source)}</span
+						>
 						{#if cachedFingerprints.has(selected.fingerprint)}
 							<span class="badge badge-cached">Cached</span>
 						{/if}
@@ -345,7 +347,9 @@
 							{#if hasGps}
 								<dt>GPS</dt>
 								<dd class="gps-row">
-									<span>{metadata.gps_latitude?.toFixed(6)}, {metadata.gps_longitude?.toFixed(6)}</span>
+									<span
+										>{metadata.gps_latitude?.toFixed(6)}, {metadata.gps_longitude?.toFixed(6)}</span
+									>
 									<button class="btn ghost sm" onclick={openInMaps}>View on map</button>
 								</dd>
 							{/if}

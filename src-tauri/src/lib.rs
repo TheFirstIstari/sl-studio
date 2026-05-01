@@ -18,7 +18,7 @@ pub use commands::workflow::WorkflowState;
 
 use std::sync::atomic::AtomicBool;
 use std::sync::OnceLock;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use tracing::{error, info};
 
 static GLOBAL_THREAD_POOL: OnceLock<rayon::ThreadPool> = OnceLock::new();
@@ -39,11 +39,16 @@ pub(crate) const IS_DEV: bool = true;
 pub(crate) const IS_DEV: bool = false;
 
 pub struct AppState {
-    pub config: Mutex<AppConfig>,
-    pub db: Mutex<Option<Arc<Database>>>,
-    pub registry_worker: Mutex<Option<RegistryWorker>>,
-    pub reasoner: Mutex<Option<Arc<Reasoner>>>,
+    /// Read-heavy: written only by `save_config` and `init_project`.
+    pub config: RwLock<AppConfig>,
+    /// Read-heavy: written only by `init_project` and `restore_backup`.
+    pub db: RwLock<Option<Arc<Database>>>,
+    /// Written once during `init_project`, never read after that (just held).
+    pub registry_worker: RwLock<Option<RegistryWorker>>,
+    /// Written once during `init_reasoner`, read by all inference commands.
+    pub reasoner: RwLock<Option<Arc<Reasoner>>>,
     pub cancel_flag: AtomicBool,
+    /// Updated frequently during batch runs; Mutex is appropriate here.
     pub processing: Mutex<ProcessingState>,
 }
 
@@ -57,10 +62,10 @@ impl Default for AppState {
             }
         };
         AppState {
-            config: Mutex::new(config),
-            db: Mutex::new(None),
-            registry_worker: Mutex::new(None),
-            reasoner: Mutex::new(None),
+            config: RwLock::new(config),
+            db: RwLock::new(None),
+            registry_worker: RwLock::new(None),
+            reasoner: RwLock::new(None),
             cancel_flag: AtomicBool::new(false),
             processing: Mutex::new(ProcessingState::default()),
         }

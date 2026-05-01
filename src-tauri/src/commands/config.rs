@@ -1,3 +1,4 @@
+use crate::commands::require_db;
 use crate::config::{AppConfig, ValidationResult};
 use crate::utils;
 use crate::AppState;
@@ -8,8 +9,8 @@ use tracing::info;
 pub fn load_config(state: State<AppState>) -> Result<AppConfig, String> {
     let guard = state
         .config
-        .lock()
-        .map_err(|e| format!("Failed to lock config: {}", e))?;
+        .read()
+        .map_err(|e| format!("Failed to read config: {}", e))?;
     let config = guard.clone();
     info!("Config loaded");
     Ok(config)
@@ -20,10 +21,14 @@ pub fn save_config(state: State<AppState>, config: AppConfig) -> Result<(), Stri
     config.save().map_err(|e| e.to_string())?;
     let mut guard = state
         .config
-        .lock()
-        .map_err(|e| format!("Failed to lock config: {}", e))?;
+        .write()
+        .map_err(|e| format!("Failed to write config: {}", e))?;
     *guard = config;
     info!("Config saved");
+    // Audit: best-effort — DB may not be open yet during first-run setup.
+    if let Ok(db) = require_db(&state) {
+        let _ = db.log_audit("config_saved", "", None);
+    }
     Ok(())
 }
 

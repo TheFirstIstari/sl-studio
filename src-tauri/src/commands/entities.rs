@@ -1,3 +1,4 @@
+use crate::commands::require_db;
 use crate::core;
 use crate::inference;
 use crate::AppState;
@@ -11,13 +12,7 @@ pub fn suggest_entity_matches(
     scan_limit: Option<i64>,
 ) -> Result<Vec<inference::quality::EntityMatchSuggestion>, String> {
     use inference::quality::{find_entity_matches, EntityCandidate, EntityResolutionConfig};
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    let Some(db) = db.as_ref() else {
-        return Err("Database not initialized".to_string());
-    };
+    let db = require_db(&state)?;
     let raw = db
         .list_distinct_entities(scan_limit.unwrap_or(2000))
         .map_err(|e| e.to_string())?;
@@ -44,20 +39,14 @@ pub fn add_entity_alias(
     alias_type: Option<String>,
     confidence: Option<f64>,
 ) -> Result<(), String> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    let Some(db) = db.as_ref() else {
-        return Err("Database not initialized".to_string());
-    };
-    db.add_entity_alias(
-        canonical_id,
-        &alias,
-        alias_type.as_deref().unwrap_or("manual"),
-        confidence.unwrap_or(1.0),
-    )
-    .map_err(|e| e.to_string())
+    require_db(&state)?
+        .add_entity_alias(
+            canonical_id,
+            &alias,
+            alias_type.as_deref().unwrap_or("manual"),
+            confidence.unwrap_or(1.0),
+        )
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -65,12 +54,7 @@ pub fn resolve_entity_alias(
     state: State<AppState>,
     alias: String,
 ) -> Result<Vec<core::ResolvedEntity>, String> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    let Some(db) = db.as_ref() else {
-        return Err("Database not initialized".to_string());
-    };
-    db.resolve_entity(&alias).map_err(|e| e.to_string())
+    require_db(&state)?
+        .resolve_entity(&alias)
+        .map_err(|e| e.to_string())
 }

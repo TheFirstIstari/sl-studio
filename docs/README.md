@@ -26,7 +26,7 @@
 ### Frontend (SvelteKit)
 
 - [Frontend Overview](frontend/overview.md) - SvelteKit structure and routing
-- [Pages](frontend/pages.md) - All 12 application pages
+- [Pages](frontend/pages.md) - All 13 application pages
 - [Components](frontend/components.md) - Shared components and utilities
 
 ### API

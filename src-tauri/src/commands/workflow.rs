@@ -1,3 +1,4 @@
+use crate::commands::require_db;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -30,24 +31,16 @@ pub struct WorkflowState {
 
 #[tauri::command]
 pub fn get_stats(state: State<AppState>) -> Result<Stats, String> {
-    let db_opt = {
-        let guard = state
-            .db
-            .lock()
-            .map_err(|e| format!("Failed to lock database: {}", e))?;
-        guard.as_ref().cloned()
-    };
-    if let Some(db) = db_opt {
-        Ok(Stats {
-            registry_count: db.get_registry_count().unwrap_or(0),
-            intelligence_count: db.get_intelligence_count().unwrap_or(0),
-        })
-    } else {
-        Ok(Stats {
+    let Ok(db) = require_db(&state) else {
+        return Ok(Stats {
             registry_count: 0,
             intelligence_count: 0,
-        })
-    }
+        });
+    };
+    Ok(Stats {
+        registry_count: db.get_registry_count().unwrap_or(0),
+        intelligence_count: db.get_intelligence_count().unwrap_or(0),
+    })
 }
 
 #[tauri::command]
@@ -96,13 +89,7 @@ pub fn update_processing_state(
 
 #[tauri::command]
 pub fn get_workflow_state(state: State<AppState>) -> Result<WorkflowState, String> {
-    let db_opt = {
-        let guard = state
-            .db
-            .lock()
-            .map_err(|e| format!("Failed to lock database: {}", e))?;
-        guard.as_ref().cloned()
-    };
+    let db_opt = require_db(&state).ok();
     let (db_state, processing) = {
         let proc_guard = state
             .processing

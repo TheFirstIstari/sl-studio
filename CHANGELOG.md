@@ -5,11 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-04-30
+
+### Added
+
+- AGENTS.md developer reference (build/test commands, architecture notes, key patterns)
+- `src/lib/utils.ts` shared utility module (`getSeverityColor`, `getCategoryIcon`,
+  `getQualityBadgeColor`, `formatFileSize`) — all using CSS custom properties
+
+### Changed
+
+- `aria-current="page"` added to active nav items for accessibility (F-MED-003)
+- Svelte 5 `$state` Set mutation in metadata page now uses reassignment for
+  correct reactivity (F-MED-001)
+- Removed duplicate local `getSeverityColor` / `getCategoryIcon` /
+  `getQualityBadgeColor` functions from `results`, `quality`, `timeline`, and
+  `maps` pages — all now import from `$lib/utils`
+- Removed redundant `setInterval(refreshWorkflow, 2000)` from results page;
+  `analysis_progress` event listener is sufficient (F-HIGH-003)
+
+### Fixed
+
+- **Quality score bug** (`extraction.rs`): quality field was always 0/1 (cast
+  from `is_partial`); now computed as a real heuristic (word-density × 0.6 +
+  length score × 0.4, capped at 0.8 for partial chunks) (B-CRIT-003)
+- **Llama lock unwrap** (`llama.rs`): replaced `.lock().unwrap()` in hot
+  inference path with `map_err` to avoid poisoning panics (B-CRIT-002)
+- **Pipeline naked unwrap** (`pipeline.rs`): `parsed.as_array().unwrap()`
+  replaced with a safe `if let` (B-CRIT-001)
+- **Analytics cache lock unwraps** (`queries/analytics.rs`): all four
+  `.lock().unwrap()` calls replaced with `if let Ok` guards (B-HIGH-003)
+- **GPS timeline unwrap** (`queries/timeline.rs`): regex capture `.unwrap()`
+  replaced with destructured `if let` (B-HIGH-006)
+- **`require_db()` helper** (`commands/mod.rs`): extracted to replace ~72
+  instances of manual lock/check boilerplate across 14 command files (B-HIGH-002)
+
+---
+
 ## [0.3.1] - 2026-04-28
 
 ### Added
 
 - FR-META: Metadata extraction (EXIF from images, PDF document properties)
+- Metadata UI page: file selector, cached/live extraction toggle, raw/parsed view
 - FR-LANG: Language detection with whatlang crate
 - FR-STRUCT: Structured data extraction (key-value pairs, PDF form fields)
 

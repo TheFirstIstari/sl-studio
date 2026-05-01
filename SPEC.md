@@ -3587,3 +3587,285 @@ When all files in the evidence folder are already fingerprinted and stored in th
 - Provide clear completion status with file counts
 
 **Priority:** Low - Future Enhancement
+
+# ================================================================================
+
+# Part IX: Comprehensive Review — Findings & Action Tracker
+
+# ================================================================================
+
+# Recorded: 2026-04-30
+
+# Status key: [ ] = open [~] = in-progress [x] = done
+
+# ================================================================================
+
+## 9.1 Backend (Rust) Findings
+
+### Critical
+
+- [ ] **B-CRIT-001** `inference/pipeline.rs:125` — `unwrap()` on `as_array()` after explicit `is_array()` guard; restructure with `if let` or add `expect("invariant: checked above")`.
+- [ ] **B-CRIT-002** `inference/llama.rs:322` — `self.model.lock().unwrap().generate(prompt)` in LLM hot path. A poisoned mutex panics the entire Tauri process. Replace with `map_err(|e| LlamaError::Lock(e.to_string()))`.
+- [ ] **B-CRIT-003** `commands/extraction.rs:211` — quality score set to `extraction.is_partial as u8 as f64` (yields 0.0 for complete, 1.0 for partial — both wrong and inverted). The real `quality_score` from the extractor is never propagated. Corrupts FR-QUAL-001 confidence filtering across the whole app.
+
+### High
+
+- [ ] **B-HIGH-001** `AppState` uses `Mutex<T>` for `config`, `db`, `processing` which are read-heavy. Replace with `RwLock<T>` to allow concurrent reads across simultaneous IPC calls.
+- [ ] **B-HIGH-002** 30+ identical db-lock boilerplate blocks across commands. Extract a `fn require_db(state: &State<AppState>) -> Result<Arc<Database>, String>` helper in `commands/mod.rs`.
+- [ ] **B-HIGH-003** `analytics.rs:397,429,481,523` — in-memory cache lock uses `.unwrap()`. A poisoned lock silently panics analytics queries. Change to `.unwrap_or_else(|_| { /* skip cache */ })` or poison recovery.
+- [ ] **B-HIGH-004** `queries/dedup.rs:get_dedup_candidates()` loads ALL non-deleted intelligence rows into RAM with no LIMIT. On large cases (100k+ facts) this OOMs. Add pagination or pre-filter by category/date before similarity pass.
+- [ ] **B-HIGH-005** `commands/inference.rs:analyze_batch` — failures are logged and skipped but never written to `error_queue`, `retry_count` is never incremented. NFR-REL-002 (retry with exponential backoff) unimplemented despite the DB schema existing.
+- [ ] **B-HIGH-006** `core/queries/timeline.rs:205-206` — `caps.get(1).unwrap()` / `caps.get(2).unwrap()` inside a GPS regex match. The outer `if let Some(caps)` only guards the match, not group existence. A malformed GPS string panics the entire timeline query.
+- [ ] **B-HIGH-007** No magic-bytes validation before extraction (NFR-FILE-004 MUST). File type is determined from extension only via `FileType::from_extension`. The `infer` crate is a transitive dep; promote to direct dep and call `infer::get(buf)` before dispatching to extractors.
+- [ ] **B-HIGH-008** `commands/inference.rs:analyze_batch` — `checkpoint_start/update/complete` exist in DB layer but are never called. Interrupted analyses cannot resume (NFR-REL-001 MUST).
+
+### Medium
+
+- [ ] **B-MED-001** `commands/backup.rs:302` — `path.strip_prefix(evidence_root).unwrap()` panics if a symlink or race puts a file outside `evidence_root`. Change to `.unwrap_or(path)`.
+- [ ] **B-MED-002** `get_or_create_thread_pool` uses `OnceLock` — pool size is fixed at first `extract_batch` call. Subsequent Settings changes to `cpu_workers` are silently ignored.
+- [ ] **B-MED-003** `commands/metadata.rs` — inconsistent error messages (`"Database mutex poisoned: {e}"` vs `"Failed to lock database"` elsewhere). Standardise via the B-HIGH-002 helper.
+- [ ] **B-MED-004** `intelligence` table has no `model_id` or `extraction_params` columns. FR-SOURCE-001–004 (model provenance per fact) is unimplemented; critical for forensic reproducibility.
+
+### Low
+
+- [ ] **B-LOW-001** `IS_DEV` const is feature-gated on `custom-protocol` (inverted — dev builds _don't_ have the feature). Rename or document the inversion.
+- [ ] **B-LOW-002** `AppState.registry_worker: Mutex<Option<RegistryWorker>>` is written once by `start_registry` and never read afterwards. Dead state field.
+- [ ] **B-LOW-003** `Reasoner` is wrapped in `Arc<Mutex<Reasoner>>` inside a `Mutex<Option<Arc<Reasoner>>>` — double indirection. The inner Arc is sufficient if AppState uses RwLock (see B-HIGH-001).
+
+---
+
+## 9.2 Frontend (SvelteKit 5) Findings
+
+### High
+
+- [ ] **F-HIGH-001** 191 hardcoded hex colour values (`#ef4444`, `#4ade80`, `#eab308`, `#0f3460`, `#1a1a2e`, etc.) across `maps`, `settings`, `timeline`, `network`, `anomalies` route files. Every value must use `var(--color-*)` tokens from `theme.css`. Theme changes currently require editing every file.
+- [ ] **F-HIGH-002** `getSeverityColor()`, `getCategoryIcon()`, `getQualityBadgeColor()` are duplicated verbatim across 4+ page files. Extract to `src/lib/utils.ts` and import.
+- [ ] **F-HIGH-003** `results/+page.svelte` runs `setInterval(refreshWorkflow, 2000)` while `+layout.svelte` already refreshes every 10 000 ms from the same store. Double polling. Consolidate: remove the results-page interval and rely on the `analysis_progress` Tauri event already wired on that page.
+- [ ] **F-HIGH-004** `maps/+page.svelte` loads Leaflet and CARTO tile assets from external CDNs. This violates NFR-PRIV-001 (all processing local). Bundle Leaflet via npm and switch to a self-hosted or offline-capable tile source.
+
+### Medium
+
+- [ ] **F-MED-001** `src/routes/metadata/+page.svelte` — `cachedFingerprints` is a `Set` mutated via `.add()` inside async callbacks. Svelte 5 proxy tracks Set mutations, but to be safe replace with immutable assignment: `cachedFingerprints = new Set([...cachedFingerprints, fp])`.
+- [ ] **F-MED-002** `src/routes/metadata/+page.svelte` — `role="listbox"` / `role="option"` pattern without arrow-key navigation. Implement `ArrowUp/ArrowDown` handlers or change to a simpler list pattern that doesn't advertise ARIA widget semantics.
+- [ ] **F-MED-003** `+layout.svelte` nav — active item has CSS `.active` class but no `aria-current="page"`. Add `aria-current={$page.url.pathname === item.href ? 'page' : undefined}`.
+- [ ] **F-MED-004** Icon-only buttons across pages (map zoom, timeline zoom, network layout) have no `aria-label`. Add descriptive labels.
+- [ ] **F-MED-005** `compare/+page.svelte` — FR-CMP-003 (timeline overlap) and FR-CMP-004 (geographic comparison) have UI sections but no backend data wired up. Remove or clearly mark as "Coming soon" to avoid misleading investigators.
+- [ ] **F-MED-006** `settings/+page.svelte` at 808 lines is the second largest file. Split into sub-components: `ProjectSettings`, `ModelSettings`, `HardwareSettings`, `ProcessingSettings`.
+- [ ] **F-MED-007** No shared `useFacts()` composable — `results/+page.svelte` and `quality/+page.svelte` each re-implement nearly identical `loadFacts()` + error handling + empty-state patterns.
+
+### Low
+
+- [ ] **F-LOW-001** `formatFileSize()` in `metadata/+page.svelte` is a standalone utility. Move to `src/lib/utils.ts` alongside `getSeverityColor` etc.
+- [ ] **F-LOW-002** Dashboard `+page.svelte` shows full filesystem path for model. Display only the filename for cleaner UX.
+- [ ] **F-LOW-003** `stats/+page.svelte` chart configuration is inline. Extract chart config objects to a separate `src/lib/charts.ts` file.
+
+---
+
+## 9.3 SPEC / Guidelines Compliance Findings
+
+### Critical
+
+- [ ] **C-CRIT-001** NFR-FOR-001/002/003 (forensic file integrity) — no automated test confirms original evidence files are never modified. Add a Rust integration test that verifies file mtime/content is unchanged after a full `extract_batch` run.
+- [ ] **C-CRIT-002** NFR-FILE-004 (magic-bytes validation MUST) — not implemented. See B-HIGH-007.
+
+### High
+
+- [ ] **C-HIGH-001** NFR-AUDIT-001 — `log_audit()` is defined and the DB table exists but is **never called** from any command. The entire chain-of-custody audit trail is empty. Wire into at minimum: `start_registry`, `extract_batch`, `analyze_batch`, `init_reasoner`, `delete_facts`, `merge_duplicate_facts`.
+- [ ] **C-HIGH-002** NFR-REL-001 (job checkpointing) — `checkpoint_start/update/complete` exist in DB but are never called. See B-HIGH-008.
+- [ ] **C-HIGH-003** NFR-REL-002 (error queue + retry) — DB schema exists, nothing writes to it. See B-HIGH-005.
+- [ ] **C-HIGH-004** FR-SOURCE-001–004 (model provenance per fact) — no `model_id` or `extraction_params` on `intelligence` rows. See B-MED-004.
+
+### Medium
+
+- [ ] **C-MED-001** No unit tests for new FR-META extractor (`extractors/metadata.rs`) — GPS parsing, EXIF field mapping, PDF field extraction. The one existing test relies on `current_exe()` path resolution which is fragile in CI.
+- [ ] **C-MED-002** Playwright E2E tests (~386 tests, 18 files) are **not run in CI**. The `ci.yml` workflow runs `npm run check`, `npm run lint`, `npm run build` — no `playwright test` step.
+- [ ] **C-MED-003** CHANGELOG.md v0.3.1 entry does not mention the `/metadata` UI page (added 2026-04-30). Update.
+- [ ] **C-MED-004** `docs/` describes HEIC/HEIF metadata extraction and the Metadata Extraction feature as complete but the UI page only landed today. Keep docs in sync with implementation state.
+
+### Low
+
+- [ ] **C-LOW-001** `docs/project-overview.md` "What's Still Needed" section is stale (lists v0.2-era items). Update to reflect current backlog.
+- [ ] **C-LOW-002** No `AGENTS.md` at project root to persist build commands, test commands, and preferences for AI tooling sessions.
+
+---
+
+## 9.4 Architecture Review & Improvement Plan
+
+### Current Architecture
+
+```
+Frontend (SvelteKit 5 + TypeScript)
+  └── Tauri IPC (~65 commands) ──► AppState (Mutex<config>, Mutex<db>, Mutex<reasoner>)
+                                        │
+                              ┌─────────┼──────────────────┐
+                              ▼         ▼                  ▼
+                         Database    Reasoner         Extractors
+                       (r2d2 pools)  (llama.cpp)    (Deconstructor)
+                       registry.db  (single Arc)    rayon thread pool
+                       intel.db
+```
+
+**Two databases** (registry + intelligence) with separate r2d2 pools.  
+**One `AppState`** holds all global mutable state behind individual `Mutex<T>` locks.  
+**Extractors** are stateless and parallel (rayon).  
+**Reasoner** is stateful (loaded model) and sequential per file.  
+**Commands** are thin wrappers — acquire lock, call DB/extractor/reasoner, return result.
+
+### Identified Architecture Issues
+
+#### A-001 — AppState is a God Object `[HIGH]`
+
+All global state lives in one struct. Adding a feature means adding another `Mutex<T>` field to `AppState`, which forces recompilation of every command file. Commands that only need `db` still depend on the full `AppState`. Consider splitting into purpose-specific state handles (`DbHandle`, `ReasonerHandle`, `ConfigHandle`) each managed separately by Tauri.
+
+#### A-002 — Two SQLite databases add coordination complexity `[MEDIUM]`
+
+Registry (`registry.db`) and intelligence (`intel.db`) are separate files to allow keeping them on different storage. However this means cross-database queries are impossible in SQL (all joins happen in Rust), and transactions cannot span both. The forensic case for separation is mainly deployment (keep DBs on a network share separately) — consider making single-DB an option with a feature flag, or at minimum document the join limitation more explicitly.
+
+#### A-003 — Sync commands on async Tauri runtime `[MEDIUM]`
+
+98 of 107 Tauri commands are synchronous (`pub fn`, not `pub async fn`). Tauri 2 runs sync commands on a blocking thread pool automatically, but this means every IPC call pays a thread-spawn overhead. The current approach is fine for low-frequency commands, but `get_overall_statistics` (called on every dashboard load) does multiple SQL aggregates synchronously. Consider making the high-frequency read commands async with `spawn_blocking` wrapping the DB call so the tokio runtime stays free.
+
+#### A-004 — Extraction quality score is a boolean, not a score `[HIGH]`
+
+See B-CRIT-003. The `is_partial` flag is cast to f64 and stored as `quality`. The existing `quality_score` from `TextCacheEntry` (computed by the extractor using character counts, word density, etc.) is never surfaced to the intelligence layer. Wire `extraction.quality_score` → `intelligence.extraction_quality`.
+
+#### A-005 — No event bus between pipeline stages `[MEDIUM]`
+
+Stage 1 (extraction) and Stage 2 (analysis) communicate only through the database. This is correct for durability but means the UI must poll or rely on Tauri events emitted ad hoc. A lightweight internal event channel (or extending the existing Tauri emit calls) would allow the UI to subscribe to finer-grained progress without polling.
+
+#### A-006 — LLM Reasoner is not cancelable at the token level `[LOW]`
+
+`cancel_flag` is an `AtomicBool` checked between files in `analyze_batch`, but not between tokens during inference. A single long inference call (e.g. a 50-page document) cannot be interrupted mid-generation. This requires llama.cpp callback support — record as a future enhancement.
+
+#### A-007 — Config hot-reload not supported `[LOW]`
+
+Changes to `AppConfig` (e.g. `cpu_workers`) require a restart to take effect due to `OnceLock` on the thread pool and the `Mutex<AppConfig>` pattern that doesn't notify other state. Add a `config_changed` signal or at minimum reload-aware wrappers for settings that affect runtime behaviour (workers, batch size).
+
+### Recommended Architecture Improvements
+
+#### R-001 — Split AppState into focused handles `[HIGH]`
+
+```rust
+// lib.rs — replace monolithic AppState
+#[derive(Clone)]
+pub struct DbHandle(Arc<RwLock<Option<Arc<Database>>>>);
+
+#[derive(Clone)]
+pub struct ReasonerHandle(Arc<RwLock<Option<Arc<Reasoner>>>>);
+
+#[derive(Clone)]
+pub struct ConfigHandle(Arc<RwLock<AppConfig>>);
+
+// Register each as a separate Tauri managed state
+.manage(DbHandle::default())
+.manage(ReasonerHandle::default())
+.manage(ConfigHandle::from(loaded_config))
+```
+
+Commands declare only the handles they need, reducing coupling and compile times.
+
+#### R-002 — Add a `CommandResult<T>` type alias `[MEDIUM]`
+
+```rust
+// commands/mod.rs
+pub type CmdResult<T> = Result<T, String>;
+
+pub fn require_db(db: &State<DbHandle>) -> CmdResult<Arc<Database>> {
+    db.read().map_err(|e| format!("DB lock poisoned: {e}"))?
+      .as_ref().ok_or_else(|| "Database not initialized".into())
+      .cloned()
+}
+```
+
+Replaces 30+ copy-pasted lock blocks. Every command becomes 3–5 lines of business logic.
+
+#### R-003 — Introduce a `PipelineEvent` enum for internal progress `[MEDIUM]`
+
+```rust
+pub enum PipelineEvent {
+    ExtractionStarted { fingerprint: String },
+    ExtractionComplete { fingerprint: String, quality: f64 },
+    ExtractionFailed { fingerprint: String, error: String, retry: u8 },
+    AnalysisStarted { fingerprint: String },
+    AnalysisComplete { fingerprint: String, fact_count: usize },
+    AnalysisFailed { fingerprint: String, error: String, retry: u8 },
+}
+```
+
+This enum drives: Tauri event emission, audit log writes, error queue inserts, and checkpoint updates — all from one place rather than scattered throughout `extract_batch` and `analyze_batch`.
+
+#### R-004 — Promote extraction quality score through the pipeline `[HIGH]`
+
+```
+Deconstructor.extract() → ExtractionResult { quality_score: f64 }
+                       ↓
+  save_text_cache(quality_score)       ← already stored
+                       ↓
+  IntelligenceEntry { extraction_quality: f64 }   ← currently 0.0/1.0 bug
+                       ↓
+  UI quality filter / FR-QUAL-001      ← fix restores correct behaviour
+```
+
+#### R-005 — Magic-bytes pre-flight check `[HIGH]`
+
+```rust
+// extractors/deconstructor.rs — before routing
+use infer;
+pub fn extract(&self, path: &Path) -> Result<ExtractionResult, ExtractionError> {
+    let buf = std::fs::read(path).map_err(ExtractionError::Io)?;
+    let detected = infer::get(&buf[..std::cmp::min(512, buf.len())]);
+    let file_type = detected
+        .map(|t| FileType::from_mime(t.mime_type()))
+        .unwrap_or_else(|| FileType::from_extension(...));
+    // route by file_type, not extension
+}
+```
+
+#### R-006 — Audit log middleware `[HIGH]`
+
+Rather than manually calling `log_audit()` in every command, wrap commands that mutate state in a thin macro or function:
+
+```rust
+pub fn with_audit<F, T>(db: &Arc<Database>, action: &str, f: F) -> CmdResult<T>
+where F: FnOnce() -> CmdResult<T>
+{
+    let start = Instant::now();
+    let result = f();
+    let ok = result.is_ok();
+    db.log_audit(action, if ok { "ok" } else { "failed" },
+                 Some(start.elapsed().as_millis() as i64)).ok();
+    result
+}
+```
+
+---
+
+## 9.5 Priority Matrix
+
+| #   | ID                      | Severity | Category     | Work Estimate                                  |
+| --- | ----------------------- | -------- | ------------ | ---------------------------------------------- |
+| 1   | B-CRIT-003              | Critical | Backend      | 30 min — fix extraction quality score          |
+| 2   | B-CRIT-002              | Critical | Backend      | 15 min — fix llama lock unwrap                 |
+| 3   | B-CRIT-001              | Critical | Backend      | 10 min — fix pipeline.rs unwrap                |
+| 4   | C-HIGH-001              | High     | Compliance   | 2 h — wire log_audit() into key commands       |
+| 5   | B-HIGH-002 + R-002      | High     | Architecture | 1 h — extract require_db helper                |
+| 6   | B-HIGH-001 + R-001      | High     | Architecture | 3 h — Mutex → RwLock / split AppState          |
+| 7   | B-HIGH-007 + R-005      | High     | Security     | 1 h — magic-bytes validation                   |
+| 8   | F-HIGH-001              | High     | Frontend     | 2 h — replace hardcoded hex with CSS vars      |
+| 9   | F-HIGH-002              | High     | Frontend     | 30 min — extract shared utility functions      |
+| 10  | B-HIGH-005 + C-HIGH-003 | High     | Reliability  | 2 h — wire error_queue into analyze_batch      |
+| 11  | B-HIGH-008 + C-HIGH-002 | High     | Reliability  | 1 h — wire checkpoint calls                    |
+| 12  | B-MED-004 + C-HIGH-004  | High     | Compliance   | 2 h — add model_id column (migration + UI)     |
+| 13  | F-HIGH-003              | Medium   | Frontend     | 20 min — remove results-page poll interval     |
+| 14  | F-HIGH-004              | Medium   | Privacy      | 3 h — bundle Leaflet, remove CDN deps          |
+| 15  | B-HIGH-003              | Medium   | Backend      | 20 min — fix analytics cache lock unwrap       |
+| 16  | B-HIGH-006              | Medium   | Backend      | 15 min — fix GPS timeline unwrap               |
+| 17  | F-MED-003               | Medium   | A11y         | 10 min — add aria-current to nav               |
+| 18  | F-MED-001/002           | Medium   | Frontend     | 30 min — fix metadata page Set mutation + a11y |
+| 19  | C-MED-001               | Medium   | Testing      | 2 h — unit tests for FR-META extractor         |
+| 20  | C-MED-002               | Medium   | CI           | 1 h — add Playwright step to ci.yml            |
+| 21  | B-MED-002               | Medium   | Backend      | 1 h — dynamic thread pool sizing               |
+| 22  | R-003                   | Medium   | Architecture | 3 h — PipelineEvent enum                       |
+| 23  | C-LOW-002               | Low      | Guidelines   | 15 min — create AGENTS.md                      |
+| 24  | F-MED-006               | Low      | Frontend     | 1 h — split settings page into sub-components  |
+| 25  | F-LOW-001/002/003       | Low      | Frontend     | 30 min — shared utils, dashboard path display  |

@@ -2,6 +2,7 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { onMount } from 'svelte';
 	import { PageHeader, StatCard, FilterBar } from '$lib/components';
+	import { getSeverityColor, getCategoryIcon, getQualityBadgeColor } from '$lib/utils';
 
 	interface Fact {
 		id: number;
@@ -14,31 +15,6 @@
 		verification_status: string | null;
 		review_notes: string | null;
 		created_at: string;
-	}
-
-	// Quality badge colors per SPEC
-	function getQualityBadgeColor(confidence: number | null): string {
-		const conf = confidence ?? 0;
-		if (conf >= 0.7) return '#4ade80'; // green
-		if (conf >= 0.5) return '#eab308'; // yellow
-		return '#ef4444'; // red
-	}
-
-	// Severity color from existing pattern
-	function getSeverityColor(score: number): string {
-		if (score >= 8) return '#ef4444';
-		if (score >= 6) return '#f97316';
-		if (score >= 4) return '#eab308';
-		return '#4ade80';
-	}
-
-	function getCategoryIcon(category: string | null): string {
-		if (category === 'Financial') return '$';
-		if (category === 'Legal') return '§';
-		if (category === 'Digital') return '§';
-		if (category === 'Physical') return '¶';
-		if (category === 'Verbal') return '§';
-		return '•';
 	}
 
 	let facts = $state<Fact[]>([]);

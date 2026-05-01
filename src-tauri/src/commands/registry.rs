@@ -1,3 +1,4 @@
+use crate::commands::require_db;
 use crate::core::{self, RegistryProgress, RegistryWorker};
 use crate::extractors;
 use crate::AppState;
@@ -9,8 +10,8 @@ pub async fn start_registry(app: AppHandle, state: State<'_, AppState>) -> Resul
     let (evidence_root, registry_db, intelligence_db) = {
         let config_guard = state
             .config
-            .lock()
-            .map_err(|e| format!("Failed to lock config: {}", e))?;
+            .read()
+            .map_err(|e| format!("Failed to read config: {}", e))?;
         (
             config_guard.project.evidence_root.clone(),
             config_guard.project.registry_db.clone(),
@@ -38,6 +39,12 @@ pub async fn start_registry(app: AppHandle, state: State<'_, AppState>) -> Resul
 
     info!("Registry scan complete: {} files", result);
     app.emit("registry_complete", result).ok();
+
+    // Audit: record the scan outcome.
+    if let Ok(db) = require_db(&state) {
+        let _ = db.log_audit("registry_scan", &format!("files_found={result}"), None);
+    }
+
     Ok(result)
 }
 
@@ -46,28 +53,16 @@ pub fn get_unprocessed_files(
     state: State<AppState>,
     limit: i64,
 ) -> Result<Vec<core::RegistryEntry>, String> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    if let Some(db) = db.as_ref() {
-        db.get_unprocessed_files(limit).map_err(|e| e.to_string())
-    } else {
-        Err("Database not initialized".to_string())
-    }
+    require_db(&state)?
+        .get_unprocessed_files(limit)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn mark_processed(state: State<AppState>, fingerprint: String) -> Result<(), String> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    if let Some(db) = db.as_ref() {
-        db.mark_processed(&fingerprint).map_err(|e| e.to_string())
-    } else {
-        Err("Database not initialized".to_string())
-    }
+    require_db(&state)?
+        .mark_processed(&fingerprint)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -75,14 +70,9 @@ pub fn get_extraction_queue(
     state: State<AppState>,
     limit: i64,
 ) -> Result<Vec<core::RegistryEntry>, String> {
-    let db = {
-        let guard = state
-            .db
-            .lock()
-            .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-        guard.as_ref().ok_or("Database not initialized")?.clone()
-    };
-    db.get_extraction_queue(limit).map_err(|e| e.to_string())
+    require_db(&state)?
+        .get_extraction_queue(limit)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -90,14 +80,9 @@ pub fn get_analysis_queue(
     state: State<AppState>,
     limit: i64,
 ) -> Result<Vec<core::RegistryEntry>, String> {
-    let db = {
-        let guard = state
-            .db
-            .lock()
-            .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-        guard.as_ref().ok_or("Database not initialized")?.clone()
-    };
-    db.get_analysis_queue(limit).map_err(|e| e.to_string())
+    require_db(&state)?
+        .get_analysis_queue(limit)
+        .map_err(|e| e.to_string())
 }
 
 /// FR-META: Return all registry files ordered by name.
@@ -107,14 +92,9 @@ pub fn get_registry_files(
     state: State<AppState>,
     limit: i64,
 ) -> Result<Vec<core::RegistryEntry>, String> {
-    let db = {
-        let guard = state
-            .db
-            .lock()
-            .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-        guard.as_ref().ok_or("Database not initialized")?.clone()
-    };
-    db.get_all_registry_files(limit).map_err(|e| e.to_string())
+    require_db(&state)?
+        .get_all_registry_files(limit)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

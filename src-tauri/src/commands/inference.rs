@@ -1,6 +1,8 @@
+use crate::commands::require_db;
 use crate::core::IntelligenceEntry;
 use crate::inference::{self, Reasoner, ReasonerConfig};
 use crate::AppState;
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -51,8 +53,8 @@ pub fn init_reasoner(
 
     let mut cached = state
         .reasoner
-        .lock()
-        .map_err(|e| format!("Reasoner mutex poisoned: {e}"))?;
+        .write()
+        .map_err(|e| format!("Reasoner lock poisoned: {e}"))?;
     *cached = Some(Arc::new(reasoner));
 
     info!("Reasoner initialized and cached");
@@ -67,8 +69,8 @@ pub fn analyze_file(
     let reasoner_arc = {
         let cached = state
             .reasoner
-            .lock()
-            .map_err(|e| format!("Reasoner mutex poisoned: {e}"))?;
+            .read()
+            .map_err(|e| format!("Reasoner lock poisoned: {e}"))?;
         cached.clone()
     };
 
@@ -102,7 +104,7 @@ pub fn validate_model(_state: State<AppState>, model_path: String) -> Result<boo
 
 #[tauri::command]
 pub fn is_model_loaded(state: State<AppState>) -> bool {
-    let Ok(cached) = state.reasoner.lock() else {
+    let Ok(cached) = state.reasoner.read() else {
         return false;
     };
     cached
@@ -113,7 +115,7 @@ pub fn is_model_loaded(state: State<AppState>) -> bool {
 
 #[tauri::command]
 pub fn get_reasoner_config(state: State<AppState>) -> Option<ReasonerConfig> {
-    let cached = state.reasoner.lock().ok()?;
+    let cached = state.reasoner.read().ok()?;
     cached.as_ref().map(|r| r.get_config())
 }
 
@@ -138,8 +140,8 @@ pub async fn analyze_batch(
     let reasoner_arc = {
         let cached = state
             .reasoner
-            .lock()
-            .map_err(|e| format!("Reasoner mutex poisoned: {e}"))?;
+            .read()
+            .map_err(|e| format!("Reasoner lock poisoned: {e}"))?;
         cached.clone()
     };
 
@@ -157,15 +159,13 @@ pub async fn analyze_batch(
     )
     .ok();
 
-    let db = {
-        let guard = state
-            .db
-            .lock()
-            .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-        guard.as_ref().ok_or("Database not initialized")?.clone()
-    };
+    let db = require_db(&state)?;
     let mut results = Vec::new();
     let mut processed = 0;
+
+    // Checkpoint: open a job record for this analysis batch.
+    let job_id = format!("analyze_{}", Utc::now().timestamp_millis());
+    let _ = db.checkpoint_start("analyze_batch", &job_id);
 
     for fingerprint in &fingerprints {
         if state.cancel_flag.load(Ordering::SeqCst) {
@@ -177,6 +177,7 @@ pub async fn analyze_batch(
             Ok(e) => e,
             Err(e) => {
                 error!("Registry lookup failed for {}: {}", fingerprint, e);
+                let _ = db.push_error(fingerprint, "analyze_batch", &e.to_string(), None);
                 continue;
             }
         };
@@ -270,15 +271,23 @@ pub async fn analyze_batch(
                     result.facts.len(),
                     entry.file_name
                 );
+                // Periodic checkpoint update every 5 files.
+                if (processed + 1) % 5 == 0 {
+                    let _ = db.checkpoint_update(&job_id, fingerprint, (processed + 1) as i64);
+                }
                 results.push(result);
             }
             Err(e) => {
                 error!("Analysis failed for {}: {}", fingerprint, e);
+                let _ = db.push_error(fingerprint, "analyze_batch", &e.to_string(), None);
             }
         }
 
         processed += 1;
     }
+
+    // Complete the checkpoint.
+    let _ = db.checkpoint_complete(&job_id);
 
     app.emit(
         "analysis_progress",
@@ -291,6 +300,19 @@ pub async fn analyze_batch(
     )
     .ok();
 
-    info!("Analysis complete: {} files processed", results.len());
+    let facts_saved: usize = results.iter().map(|r| r.facts.len()).sum();
+    info!(
+        "Analysis complete: {} files processed, {} facts saved",
+        results.len(),
+        facts_saved
+    );
+
+    // Audit: record batch analysis summary.
+    let _ = db.log_audit(
+        "analyze_batch",
+        &format!("files={},facts_saved={}", results.len(), facts_saved),
+        None,
+    );
+
     Ok(results)
 }

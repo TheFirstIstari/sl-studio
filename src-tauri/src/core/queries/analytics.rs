@@ -394,10 +394,11 @@ impl Database {
     pub fn get_category_distribution(&self) -> Result<Vec<CategoryStats>> {
         // Check cache first
         {
-            let cache = self.category_cache.lock().unwrap();
-            if let Some(entry) = cache.as_ref() {
-                if entry.is_valid() {
-                    return Ok(entry.data.clone());
+            if let Ok(cache) = self.category_cache.lock() {
+                if let Some(entry) = cache.as_ref() {
+                    if entry.is_valid() {
+                        return Ok(entry.data.clone());
+                    }
                 }
             }
         }
@@ -425,9 +426,10 @@ impl Database {
 
         let result = entries?;
 
-        // Update cache with 60-second TTL
-        let mut cache = self.category_cache.lock().unwrap();
-        *cache = Some(CacheEntry::new(result.clone(), Duration::from_secs(60)));
+        // Update cache with 60-second TTL (skip update if mutex is poisoned)
+        if let Ok(mut cache) = self.category_cache.lock() {
+            *cache = Some(CacheEntry::new(result.clone(), Duration::from_secs(60)));
+        }
 
         Ok(result)
     }
@@ -478,10 +480,11 @@ impl Database {
     pub fn get_overall_statistics(&self) -> Result<OverallStatistics> {
         // Check cache first
         {
-            let cache = self.overall_stats_cache.lock().unwrap();
-            if let Some(entry) = cache.as_ref() {
-                if entry.is_valid() {
-                    return Ok(entry.data.clone());
+            if let Ok(cache) = self.overall_stats_cache.lock() {
+                if let Some(entry) = cache.as_ref() {
+                    if entry.is_valid() {
+                        return Ok(entry.data.clone());
+                    }
                 }
             }
         }
@@ -519,9 +522,10 @@ impl Database {
             total_chain_links,
         };
 
-        // Update cache with 30-second TTL
-        let mut cache = self.overall_stats_cache.lock().unwrap();
-        *cache = Some(CacheEntry::new(result.clone(), Duration::from_secs(30)));
+        // Update cache with 30-second TTL (skip update if mutex is poisoned)
+        if let Ok(mut cache) = self.overall_stats_cache.lock() {
+            *cache = Some(CacheEntry::new(result.clone(), Duration::from_secs(30)));
+        }
 
         Ok(result)
     }

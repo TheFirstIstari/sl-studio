@@ -69,4 +69,23 @@ impl Database {
         )?;
         Ok(())
     }
+
+    /// Push a processing failure onto the error queue so operators can
+    /// review and retry failed files without re-running the full batch.
+    pub fn push_error(
+        &self,
+        fingerprint: &str,
+        job_type: &str,
+        error_message: &str,
+        error_details: Option<&str>,
+    ) -> Result<()> {
+        let conn = self.intel_conn()?;
+        conn.execute(
+            "INSERT INTO error_queue (fingerprint, job_type, error_message, error_details, last_attempt)
+             VALUES (?1, ?2, ?3, ?4, CURRENT_TIMESTAMP)
+             ON CONFLICT DO NOTHING",
+            params![fingerprint, job_type, error_message, error_details],
+        )?;
+        Ok(())
+    }
 }

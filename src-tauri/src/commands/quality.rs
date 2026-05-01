@@ -1,3 +1,4 @@
+use crate::commands::require_db;
 use crate::inference;
 use crate::AppState;
 use tauri::State;
@@ -10,13 +11,7 @@ pub fn find_duplicate_facts(
     require_same_date: Option<bool>,
 ) -> Result<Vec<inference::quality::DuplicateGroup>, String> {
     use inference::quality::{find_duplicate_groups, DeduplicationConfig};
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    let Some(db) = db.as_ref() else {
-        return Err("Database not initialized".to_string());
-    };
+    let db = require_db(&state)?;
     let candidates = db.get_dedup_candidates().map_err(|e| e.to_string())?;
     let config = DeduplicationConfig {
         similarity_threshold: threshold.unwrap_or(0.85),
@@ -32,14 +27,8 @@ pub fn merge_duplicate_facts(
     keeper_id: i64,
     member_ids: Vec<i64>,
 ) -> Result<usize, String> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    let Some(db) = db.as_ref() else {
-        return Err("Database not initialized".to_string());
-    };
-    db.merge_duplicate_facts(keeper_id, &member_ids)
+    require_db(&state)?
+        .merge_duplicate_facts(keeper_id, &member_ids)
         .map_err(|e| e.to_string())
 }
 
@@ -68,13 +57,7 @@ pub fn cross_validate_fact(
 ) -> Result<CrossValidationResult, String> {
     use inference::quality::jaccard_similarity;
     let threshold = threshold.unwrap_or(0.5);
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    let Some(db) = db.as_ref() else {
-        return Err("Database not initialized".to_string());
-    };
+    let db = require_db(&state)?;
     let (target_summary, source_filename, candidates) = db
         .get_corroboration_candidates(intelligence_id)
         .map_err(|e| e.to_string())?;

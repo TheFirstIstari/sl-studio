@@ -77,8 +77,8 @@ pub fn compare_projects(
         let db = {
             let guard = state
                 .db
-                .lock()
-                .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+                .read()
+                .map_err(|e| format!("Database lock poisoned: {e}"))?;
             guard.as_ref().ok_or("Database not initialized")?.clone()
         };
 
@@ -91,8 +91,8 @@ pub fn compare_projects(
 
         let config = state
             .config
-            .lock()
-            .map_err(|e| format!("Config mutex poisoned: {e}"))?;
+            .read()
+            .map_err(|e| format!("Config lock poisoned: {e}"))?;
         let project1_name = config.project.name.clone();
 
         (entities1, timeline1, project1_name)
@@ -212,8 +212,8 @@ pub fn get_project_summary(state: State<AppState>) -> Result<ProjectSummary, Str
     let db = {
         let guard = state
             .db
-            .lock()
-            .map_err(|e| format!("Database mutex poisoned: {e}"))?;
+            .read()
+            .map_err(|e| format!("Database lock poisoned: {e}"))?;
         guard.as_ref().ok_or("Database not initialized")?.clone()
     };
 
@@ -224,8 +224,8 @@ pub fn get_project_summary(state: State<AppState>) -> Result<ProjectSummary, Str
 
     let config = state
         .config
-        .lock()
-        .map_err(|e| format!("Config mutex poisoned: {e}"))?;
+        .read()
+        .map_err(|e| format!("Config lock poisoned: {e}"))?;
 
     let project_path = std::path::Path::new(&config.project.registry_db)
         .parent()
@@ -247,8 +247,8 @@ pub fn create_backup(state: State<AppState>, include_evidence: bool) -> Result<B
 
     let config = state
         .config
-        .lock()
-        .map_err(|e| format!("Config mutex poisoned: {e}"))?;
+        .read()
+        .map_err(|e| format!("Config lock poisoned: {e}"))?;
     let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
     let backup_name = format!("slstudio_backup_{}.zip", timestamp);
 
@@ -331,8 +331,8 @@ pub fn restore_backup(state: State<AppState>, backup_path: String) -> Result<(),
     let (registry_db, intelligence_db) = {
         let config = state
             .config
-            .lock()
-            .map_err(|e| format!("Config mutex poisoned: {e}"))?;
+            .read()
+            .map_err(|e| format!("Config lock poisoned: {e}"))?;
         (
             config.project.registry_db.clone(),
             config.project.intelligence_db.clone(),
@@ -358,8 +358,8 @@ pub fn restore_backup(state: State<AppState>, backup_path: String) -> Result<(),
                 let rel_path = &n[9..];
                 let config = state
                     .config
-                    .lock()
-                    .map_err(|e| format!("Config mutex poisoned: {e}"))?;
+                    .read()
+                    .map_err(|e| format!("Config lock poisoned: {e}"))?;
                 let dest = std::path::Path::new(&config.project.evidence_root).join(rel_path);
                 if let Some(parent) = dest.parent() {
                     std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -373,10 +373,14 @@ pub fn restore_backup(state: State<AppState>, backup_path: String) -> Result<(),
 
     let db = Database::new(&registry_db, &intelligence_db)
         .map_err(|e| format!("Failed to reopen database: {}", e))?;
+
+    // Audit: record the restore before handing db ownership to AppState.
+    let _ = db.log_audit("restore_backup", &backup_path, None);
+
     *state
         .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))? = Some(Arc::new(db));
+        .write()
+        .map_err(|e| format!("Database lock poisoned: {e}"))? = Some(Arc::new(db));
 
     info!("Backup restored from: {}", backup_path);
     Ok(())

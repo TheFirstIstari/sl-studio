@@ -15,12 +15,12 @@ pub async fn init_project(
     {
         let config_guard = state
             .config
-            .lock()
-            .map_err(|e| format!("Failed to lock config: {}", e))?;
+            .read()
+            .map_err(|e| format!("Failed to read config: {}", e))?;
         let db_guard = state
             .db
-            .lock()
-            .map_err(|e| format!("Failed to lock database: {}", e))?;
+            .read()
+            .map_err(|e| format!("Failed to read database: {}", e))?;
 
         if config_guard.project.name == config.project.name && db_guard.is_some() {
             info!("Project already initialized: {}", config_guard.project.name);
@@ -38,8 +38,8 @@ pub async fn init_project(
     {
         let mut db_guard = state
             .db
-            .lock()
-            .map_err(|e| format!("Failed to lock database: {}", e))?;
+            .write()
+            .map_err(|e| format!("Failed to write database: {}", e))?;
         *db_guard = Some(Arc::new(db));
     }
 
@@ -53,22 +53,28 @@ pub async fn init_project(
     {
         let mut worker_guard = state
             .registry_worker
-            .lock()
-            .map_err(|e| format!("Failed to lock worker: {}", e))?;
+            .write()
+            .map_err(|e| format!("Failed to write worker: {}", e))?;
         *worker_guard = Some(worker);
     }
 
+    let project_name = config.project.name.clone();
     config.save().map_err(|e| e.to_string())?;
     {
         let mut config_guard = state
             .config
-            .lock()
-            .map_err(|e| format!("Failed to lock config: {}", e))?;
+            .write()
+            .map_err(|e| format!("Failed to write config: {}", e))?;
         *config_guard = config;
     }
 
     info!("Project initialized successfully");
     app.emit("project_initialized", true).ok();
+
+    // Audit: record project initialisation (best-effort, non-fatal).
+    if let Ok(db) = crate::commands::require_db(&state) {
+        let _ = db.log_audit("project_init", &project_name, None);
+    }
 
     Ok(true)
 }

@@ -10,6 +10,7 @@ use std::path::Path;
 
 use tauri::State;
 
+use crate::commands::require_db;
 use crate::extractors::metadata::{extract_metadata as extract_metadata_inner, DocumentMetadata};
 use crate::AppState;
 
@@ -26,15 +27,8 @@ pub fn cache_metadata(
 ) -> Result<DocumentMetadata, String> {
     let meta = extract_metadata_inner(Path::new(&path)).map_err(|e| e.to_string())?;
     let json = serde_json::to_string(&meta).map_err(|e| e.to_string())?;
-
-    let db = {
-        let guard = state
-            .db
-            .lock()
-            .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-        guard.as_ref().ok_or("Database not initialized")?.clone()
-    };
-    db.save_metadata_cache(&fingerprint, &meta.source, &json)
+    require_db(&state)?
+        .save_metadata_cache(&fingerprint, &meta.source, &json)
         .map_err(|e| e.to_string())?;
     Ok(meta)
 }
@@ -45,13 +39,7 @@ pub fn get_cached_metadata(
     fingerprint: String,
     metadata_type: String,
 ) -> Result<Option<DocumentMetadata>, String> {
-    let db = {
-        let guard = state
-            .db
-            .lock()
-            .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-        guard.as_ref().ok_or("Database not initialized")?.clone()
-    };
+    let db = require_db(&state)?;
     let cached = db
         .get_metadata_cache(&fingerprint, &metadata_type)
         .map_err(|e| e.to_string())?;
@@ -62,8 +50,7 @@ pub fn get_cached_metadata(
             if json.is_empty() {
                 return Ok(None);
             }
-            let meta: DocumentMetadata =
-                serde_json::from_str(&json).map_err(|e| e.to_string())?;
+            let meta: DocumentMetadata = serde_json::from_str(&json).map_err(|e| e.to_string())?;
             Ok(Some(meta))
         }
     }

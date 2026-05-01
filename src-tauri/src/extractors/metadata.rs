@@ -58,7 +58,9 @@ pub struct DocumentMetadata {
 /// text files that simply have no metadata to surface.
 pub fn extract_metadata(path: &Path) -> Result<DocumentMetadata, MetadataError> {
     if !path.exists() {
-        return Err(MetadataError::FileNotFound(path.to_string_lossy().to_string()));
+        return Err(MetadataError::FileNotFound(
+            path.to_string_lossy().to_string(),
+        ));
     }
 
     let ext = path
@@ -186,12 +188,8 @@ pub fn extract_pdf_metadata(path: &Path) -> Result<DocumentMetadata, MetadataErr
                             "Creator" => meta.creator = Some(val_str.clone()),
                             "Producer" => meta.producer = Some(val_str.clone()),
                             "Keywords" => meta.keywords = Some(val_str.clone()),
-                            "CreationDate" => {
-                                meta.created_at = Some(normalize_pdf_date(&val_str))
-                            }
-                            "ModDate" => {
-                                meta.modified_at = Some(normalize_pdf_date(&val_str))
-                            }
+                            "CreationDate" => meta.created_at = Some(normalize_pdf_date(&val_str)),
+                            "ModDate" => meta.modified_at = Some(normalize_pdf_date(&val_str)),
                             _ => {}
                         }
                         meta.raw.insert(key_str, val_str);
@@ -224,7 +222,9 @@ fn pdf_string_value(obj: &lopdf::Object) -> Option<String> {
                     .filter(|c| c.len() == 2)
                     .map(|c| u16::from_be_bytes([c[0], c[1]]))
                     .collect();
-                return String::from_utf16(&utf16).ok().map(|s| s.trim().to_string());
+                return String::from_utf16(&utf16)
+                    .ok()
+                    .map(|s| s.trim().to_string());
             }
             // Fallback: lossy UTF-8.
             Some(String::from_utf8_lossy(bytes).trim().to_string())
@@ -321,10 +321,7 @@ mod tests {
         let path = std::env::current_exe().unwrap();
         // current_exe is OS specific; use a guaranteed-existing path with
         // an unsupported extension instead by writing a temp file.
-        let tmp = tempfile::Builder::new()
-            .suffix(".log")
-            .tempfile()
-            .unwrap();
+        let tmp = tempfile::Builder::new().suffix(".log").tempfile().unwrap();
         let r = extract_metadata(tmp.path()).unwrap();
         assert_eq!(r.source, "none");
         // Avoid unused var warning on path.

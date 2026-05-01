@@ -6,6 +6,7 @@
 	// Use shared stores
 	import { stats, workflow, refreshStats, refreshWorkflow } from '$lib/stores/app';
 	import { PageHeader, FilterBar, Modal } from '$lib/components';
+	import { getSeverityColor, getCategoryIcon } from '$lib/utils';
 
 	interface Fact {
 		id: number;
@@ -245,7 +246,6 @@
 		saveToHistory();
 	}
 
-	let pollInterval: ReturnType<typeof setInterval>;
 	let unlistenAnalysis: (() => void) | null = null;
 
 	onMount(async () => {
@@ -253,10 +253,9 @@
 		await loadPresets();
 		window.addEventListener('keydown', handleKeydown);
 
-		// Use stores for workflow - refresh periodically
-		pollInterval = setInterval(refreshWorkflow, 2000);
-
-		// Listen for analysis progress updates
+		// Listen for analysis_progress events to refresh workflow state.
+		// The global layout already polls every 10 s; a dedicated event
+		// listener is sufficient here — no additional interval needed.
 		unlistenAnalysis = await listen('analysis_progress', () => {
 			refreshWorkflow();
 		});
@@ -264,7 +263,6 @@
 
 	onDestroy(() => {
 		window.removeEventListener('keydown', handleKeydown);
-		if (pollInterval) clearInterval(pollInterval);
 		if (unlistenAnalysis) unlistenAnalysis();
 	});
 
@@ -310,22 +308,6 @@
 
 	function onSortChange() {
 		saveToHistory();
-	}
-
-	function getSeverityColor(score: number): string {
-		if (score >= 8) return '#ef4444';
-		if (score >= 6) return '#f97316';
-		if (score >= 4) return '#eab308';
-		return '#4ade80';
-	}
-
-	function getCategoryIcon(category: string | null): string {
-		if (category === 'Financial') return 'dollar';
-		if (category === 'Legal') return 'scale';
-		if (category === 'Digital') return 'laptop';
-		if (category === 'Physical') return 'map-pin';
-		if (category === 'Verbal') return 'mic';
-		return 'file';
 	}
 
 	let filteredFacts = $derived(

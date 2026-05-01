@@ -30,6 +30,9 @@ pub struct ExtractionResult {
     pub file_type: String,
     pub char_count: usize,
     pub is_partial: bool,
+    /// Extraction quality score 0.0–1.0. Computed from char density, completeness,
+    /// and partial flag. Used for FR-QUAL-001 confidence filtering.
+    pub quality_score: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -149,9 +152,22 @@ impl Deconstructor {
         };
 
         let char_count = text.len();
+        // Quality heuristic: penalise very short extractions (< 200 chars), reward
+        // high word density. Score in 0.0–1.0; partial chunks are capped at 0.8.
+        let word_count = text.split_whitespace().count();
+        let density = if char_count > 0 {
+            word_count as f64 / char_count as f64
+        } else {
+            0.0
+        };
+        // Typical prose density ~0.16 words/char; normalise to 1.0 at that value
+        let density_score = (density / 0.16).min(1.0);
+        let length_score = (char_count as f64 / 200.0).min(1.0);
+        let quality_score = (density_score * 0.6 + length_score * 0.4).min(1.0);
+
         info!(
-            "Extracted {} chars from {} ({})",
-            char_count, file_name, file_type
+            "Extracted {} chars from {} ({}) quality={:.2}",
+            char_count, file_name, file_type, quality_score
         );
 
         Ok(ExtractionResult {
@@ -160,6 +176,7 @@ impl Deconstructor {
             file_type,
             char_count,
             is_partial: false,
+            quality_score,
         })
     }
 
@@ -190,6 +207,18 @@ impl Deconstructor {
                 text[start..].to_string()
             };
 
+            let chunk_is_partial = end < text.len();
+            let chunk_len = chunk_text.len();
+            let chunk_words = chunk_text.split_whitespace().count();
+            let chunk_density = if chunk_len > 0 {
+                chunk_words as f64 / chunk_len as f64
+            } else {
+                0.0
+            };
+            let chunk_quality = ((chunk_density / 0.16).min(1.0) * 0.6
+                + (chunk_len as f64 / 200.0).min(1.0) * 0.4)
+                .min(if chunk_is_partial { 0.8 } else { 1.0 });
+
             chunks.push(ExtractionResult {
                 text: chunk_text.clone(),
                 source_file: if start == 0 {
@@ -198,8 +227,9 @@ impl Deconstructor {
                     format!("{} (Part {})", file_name, start / max_chars + 1)
                 },
                 file_type: file_type.clone(),
-                char_count: chunk_text.len(),
-                is_partial: end < text.len(),
+                char_count: chunk_len,
+                is_partial: chunk_is_partial,
+                quality_score: chunk_quality,
             });
 
             if end >= text.len() {

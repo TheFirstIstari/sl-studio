@@ -1,3 +1,4 @@
+use crate::commands::require_db;
 use crate::AppState;
 use tauri::State;
 
@@ -17,14 +18,8 @@ pub fn save_facet_preset(
     name: String,
     state_json: String,
 ) -> Result<i64, String> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    let Some(db) = db.as_ref() else {
-        return Err("Database not initialized".to_string());
-    };
-    db.save_facet_preset(&page, &name, &state_json)
+    require_db(&state)?
+        .save_facet_preset(&page, &name, &state_json)
         .map_err(|e| e.to_string())
 }
 
@@ -33,14 +28,9 @@ pub fn list_facet_presets(
     state: State<AppState>,
     page: String,
 ) -> Result<Vec<FacetPreset>, String> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    let Some(db) = db.as_ref() else {
-        return Err("Database not initialized".to_string());
-    };
-    let rows = db.list_facet_presets(&page).map_err(|e| e.to_string())?;
+    let rows = require_db(&state)?
+        .list_facet_presets(&page)
+        .map_err(|e| e.to_string())?;
     Ok(rows
         .into_iter()
         .map(|(id, page, name, state_json, updated_at)| FacetPreset {
@@ -55,12 +45,7 @@ pub fn list_facet_presets(
 
 #[tauri::command]
 pub fn delete_facet_preset(state: State<AppState>, preset_id: i64) -> Result<(), String> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-    let Some(db) = db.as_ref() else {
-        return Err("Database not initialized".to_string());
-    };
-    db.delete_facet_preset(preset_id).map_err(|e| e.to_string())
+    require_db(&state)?
+        .delete_facet_preset(preset_id)
+        .map_err(|e| e.to_string())
 }

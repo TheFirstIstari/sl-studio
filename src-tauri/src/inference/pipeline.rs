@@ -121,8 +121,8 @@ impl Fact {
         let parsed: serde_json::Value =
             serde_json::from_str(json_str).map_err(|e| PipelineError::JsonError(e.to_string()))?;
 
-        let facts_array = if parsed.is_array() {
-            parsed.as_array().unwrap().clone()
+        let facts_array = if let Some(arr) = parsed.as_array() {
+            arr.clone()
         } else if let Some(obj) = parsed.get("facts").and_then(|f| f.as_array()) {
             obj.clone()
         } else {

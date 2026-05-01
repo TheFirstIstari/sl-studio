@@ -336,6 +336,7 @@ impl Reasoner {
                 file_type: "chunk".to_string(),
                 char_count: text.len(),
                 is_partial: false,
+                quality_score: 1.0,
             }];
         }
 
@@ -362,6 +363,7 @@ impl Reasoner {
                 file_type: "chunk".to_string(),
                 char_count: chunk_text.len(),
                 is_partial: !is_last,
+                quality_score: if is_last { 1.0 } else { 0.8 },
             });
 
             if is_last {

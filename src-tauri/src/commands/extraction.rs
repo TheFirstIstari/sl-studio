@@ -1,6 +1,8 @@
+use crate::commands::require_db;
 use crate::extractors;
 use crate::get_or_create_thread_pool;
 use crate::AppState;
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -58,33 +60,25 @@ pub struct ExtractionProgress {
 
 #[tauri::command]
 pub fn get_extraction_statistics(state: State<AppState>) -> Result<ExtractionStats, String> {
-    let db_opt = {
-        let guard = state
-            .db
-            .lock()
-            .map_err(|e| format!("Failed to lock database: {}", e))?;
-        guard.as_ref().cloned()
-    };
-    if let Some(db) = db_opt {
-        let stats = db.get_extraction_statistics().map_err(|e| e.to_string())?;
-        Ok(ExtractionStats {
-            total_files: stats.total_files,
-            total_characters: stats.total_characters,
-            average_characters: stats.average_characters,
-            average_quality: stats.average_quality,
-            partial_count: stats.partial_count,
-            files_by_type: stats.files_by_type,
-        })
-    } else {
-        Ok(ExtractionStats {
+    let Ok(db) = require_db(&state) else {
+        return Ok(ExtractionStats {
             total_files: 0,
             total_characters: 0,
             average_characters: 0.0,
             average_quality: 0.0,
             partial_count: 0,
             files_by_type: HashMap::new(),
-        })
-    }
+        });
+    };
+    let stats = db.get_extraction_statistics().map_err(|e| e.to_string())?;
+    Ok(ExtractionStats {
+        total_files: stats.total_files,
+        total_characters: stats.total_characters,
+        average_characters: stats.average_characters,
+        average_quality: stats.average_quality,
+        partial_count: stats.partial_count,
+        files_by_type: stats.files_by_type,
+    })
 }
 
 #[tauri::command]
@@ -114,8 +108,8 @@ pub async fn extract_batch(
         } else {
             state
                 .config
-                .lock()
-                .map_err(|e| format!("Config mutex poisoned: {e}"))?
+                .read()
+                .map_err(|e| format!("Config lock poisoned: {e}"))?
                 .get_effective_workers() as usize
         }
     };
@@ -133,16 +127,14 @@ pub async fn extract_batch(
     let pool = get_or_create_thread_pool(workers);
     info!("Using thread pool with {} workers", workers);
 
+    // Checkpoint: open a job record so the batch is resumable and visible
+    // in the audit trail.  Errors here are non-fatal.
+    let job_id = format!("extract_{}", Utc::now().timestamp_millis());
+
     let total = fingerprints.len();
 
     let (file_data, cached_results): (Vec<(String, String)>, Vec<ExtractionResult>) = {
-        let db = {
-            let guard = state
-                .db
-                .lock()
-                .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-            guard.as_ref().ok_or("Database not initialized")?.clone()
-        };
+        let db = require_db(&state)?;
         let mut to_extract = Vec::new();
         let mut cached = Vec::new();
         for fingerprint in &fingerprints {
@@ -177,6 +169,11 @@ pub async fn extract_batch(
         );
     }
 
+    // Record checkpoint start (best-effort).
+    if let Ok(db) = require_db(&state) {
+        let _ = db.checkpoint_start("extract_batch", &job_id);
+    }
+
     let deconstructor = {
         let config = ExtractorConfig::default();
         Deconstructor::new(config).map_err(|e| format!("Failed to create Deconstructor: {}", e))?
@@ -208,7 +205,7 @@ pub async fn extract_batch(
                             success: true,
                             char_count: extraction.char_count,
                             error: None,
-                            quality: Some(extraction.is_partial as u8 as f64),
+                            quality: Some(extraction.quality_score),
                             extraction_text: Some(extraction.text),
                             is_partial: extraction.is_partial,
                         }),
@@ -237,16 +234,19 @@ pub async fn extract_batch(
     all_results.extend(results);
 
     {
-        let db = {
-            let guard = state
-                .db
-                .lock()
-                .map_err(|e| format!("Database mutex poisoned: {e}"))?;
-            guard.as_ref().ok_or("Database not initialized")?.clone()
-        };
-
+        let db = require_db(&state)?;
+        let mut saved = 0i64;
         for result in all_results.iter().skip(cache_hits) {
             if !result.success {
+                // Push failed extractions to the error queue for later review.
+                if let Some(ref err) = result.error {
+                    let _ = db.push_error(
+                        &result.fingerprint,
+                        "extract_batch",
+                        err,
+                        Some(&result.path),
+                    );
+                }
                 continue;
             }
             if let Some(ref text) = result.extraction_text {
@@ -259,8 +259,15 @@ pub async fn extract_batch(
                     result.quality.unwrap_or(0.0),
                 );
                 let _ = db.mark_extracted(&result.fingerprint, result.is_partial);
+                saved += 1;
+                // Update checkpoint every 10 files so progress survives a crash.
+                if saved % 10 == 0 {
+                    let _ = db.checkpoint_update(&job_id, &result.fingerprint, saved);
+                }
             }
         }
+        // Mark job complete.
+        let _ = db.checkpoint_complete(&job_id);
     }
 
     let mut success_count = 0;
@@ -291,6 +298,21 @@ pub async fn extract_batch(
         all_results.len(),
         cache_hits
     );
+
+    // Audit: record batch extraction summary.
+    if let Ok(db) = require_db(&state) {
+        let _ = db.log_audit(
+            "extract_batch",
+            &format!(
+                "total={},success={},errors={},cache_hits={}",
+                all_results.len(),
+                success_count,
+                error_count,
+                cache_hits
+            ),
+            None,
+        );
+    }
 
     Ok(all_results)
 }

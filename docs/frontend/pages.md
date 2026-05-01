@@ -104,6 +104,18 @@ Backup and restore:
 - Restore from backup
 - Warning dialogs
 
+## Metadata (`/metadata`)
+
+Document metadata viewer:
+
+- File selector (from registered files)
+- Cached vs live extraction toggle
+- EXIF fields (images), PDF document properties
+- Language detection result
+- Structured key-value pairs / form fields
+- Raw JSON view
+- One-click cache-to-database action
+
 ## Settings (`/settings`)
 
 Configuration:

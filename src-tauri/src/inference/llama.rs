@@ -319,7 +319,10 @@ impl SimpleInference {
     }
 
     pub fn generate(&self, prompt: &str) -> Result<GenerationResult, LlamaError> {
-        self.model.lock().unwrap().generate(prompt)
+        self.model
+            .lock()
+            .map_err(|e| LlamaError::InferenceError(format!("Model mutex poisoned: {e}")))?
+            .generate(prompt)
     }
 }
 

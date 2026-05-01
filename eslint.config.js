@@ -40,14 +40,15 @@ export default [
 	...svelteConfig,
 	{
 		ignores: [
-			'node_modules',
-			'src-tauri/target',
-			'.svelte-kit',
-			'build',
-			'~',
-			'src-tauri/~',
-			'src-tauri/src/inference/~',
-			'src-tauri/src/inference/~'
+			'node_modules/**',
+			'src-tauri/target/**',
+			'.svelte-kit/**',
+			'build/**',
+			// Prevent ESLint from scanning the literal '$HOME' directory that mise
+			// creates in the project root when env vars expand to a literal path segment.
+			'\$HOME/**',
+			'**/registry/src/**',
+			'**/toolchains/**'
 		]
 	},
 	svelteTsConfig,

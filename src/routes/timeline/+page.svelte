@@ -2,6 +2,7 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { onMount } from 'svelte';
 	import { PageHeader } from '$lib/components';
+	import { getSeverityColor } from '$lib/utils';
 
 	interface TimelineEvent {
 		id: number;
@@ -84,13 +85,6 @@
 
 	function setZoom(level: 'day' | 'week' | 'month' | 'year') {
 		zoomLevel = level;
-	}
-
-	function getSeverityColor(severity: number): string {
-		if (severity >= 8) return '#ef4444';
-		if (severity >= 6) return '#f97316';
-		if (severity >= 4) return '#eab308';
-		return '#4ade80';
 	}
 
 	function formatDate(dateStr: string): string {

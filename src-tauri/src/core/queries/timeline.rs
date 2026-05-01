@@ -201,12 +201,14 @@ impl Database {
 
         if let Some(re) = coords_re {
             if let Some(caps) = re.captures(loc) {
-                if let (Ok(lat), Ok(lon)) = (
-                    caps.get(1).unwrap().as_str().parse::<f64>(),
-                    caps.get(2).unwrap().as_str().parse::<f64>(),
-                ) {
-                    if (-90.0..=90.0).contains(&lat) && (-180.0..=180.0).contains(&lon) {
-                        return (Some(lat), Some(lon));
+                if let (Some(lat_str), Some(lon_str)) = (caps.get(1), caps.get(2)) {
+                    if let (Ok(lat), Ok(lon)) = (
+                        lat_str.as_str().parse::<f64>(),
+                        lon_str.as_str().parse::<f64>(),
+                    ) {
+                        if (-90.0..=90.0).contains(&lat) && (-180.0..=180.0).contains(&lon) {
+                            return (Some(lat), Some(lon));
+                        }
                     }
                 }
             }
