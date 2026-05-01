@@ -36,6 +36,7 @@ fn test_extraction_result_struct() {
         file_type: "pdf".to_string(),
         char_count: 9,
         is_partial: false,
+        quality_score: 0.0,
     };
 
     assert_eq!(result.char_count, 9);

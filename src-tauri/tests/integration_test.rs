@@ -3,8 +3,6 @@ use std::io::Write;
 use tempfile::tempdir;
 
 mod export_tests {
-    use super::*;
-
     #[test]
     fn test_json_export_structure() {
         // Test that JSON export produces valid structure
@@ -87,8 +85,6 @@ mod backup_tests {
 }
 
 mod notification_tests {
-    use super::*;
-
     #[test]
     fn test_notification_structure() {
         #[derive(serde::Serialize)]
@@ -116,8 +112,6 @@ mod notification_tests {
 }
 
 mod system_monitor_tests {
-    use super::*;
-
     #[test]
     fn test_monitor_data_structure() {
         #[derive(serde::Serialize, Clone)]
@@ -141,8 +135,6 @@ mod system_monitor_tests {
 }
 
 mod case_comparison_tests {
-    use super::*;
-
     #[test]
     fn test_entity_overlap_calculation() {
         let project1_entities = vec!["Alice", "Bob", "Charlie"];
