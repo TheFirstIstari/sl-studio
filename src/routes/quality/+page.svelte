@@ -624,8 +624,8 @@
 	}
 
 	.fact-item {
-		background: #16213e;
-		border: 1px solid #0f3460;
+		background: var(--color-bg-card);
+		border: 1px solid var(--color-border);
 		border-radius: 0.5rem;
 		padding: 0.75rem;
 		text-align: left;
@@ -634,11 +634,11 @@
 	}
 
 	.fact-item:hover {
-		border-color: #475569;
+		border-color: var(--color-text-muted);
 	}
 
 	.fact-item.selected {
-		border-color: #e94560;
+		border-color: var(--color-accent);
 	}
 
 	.fact-header {
@@ -654,7 +654,7 @@
 		font-size: 0.7rem;
 		padding: 0.15rem 0.4rem;
 		border-radius: 0.25rem;
-		color: #0f172a;
+		color: var(--color-text-inverse);
 		font-weight: 500;
 	}
 
@@ -665,21 +665,21 @@
 	}
 
 	.status-badge {
-		background: #64748b;
-		color: white;
+		background: var(--color-text-muted);
+		color: var(--color-text-inverse);
 	}
 
 	.status-badge.confirmed {
-		background: #4ade80;
+		background: var(--color-status-confirmed);
 	}
 
 	.status-badge.disputed {
-		background: #ef4444;
-		color: white;
+		background: var(--color-severity-high);
+		color: var(--color-text-inverse);
 	}
 
 	.fact-summary {
-		color: #e2e8f0;
+		color: var(--color-text-primary);
 		font-size: 0.875rem;
 		margin-bottom: 0.5rem;
 		display: -webkit-box;
@@ -692,24 +692,24 @@
 		display: flex;
 		gap: 1rem;
 		font-size: 0.75rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 	}
 
 	.category {
-		color: #818cf8;
+		color: var(--color-entity-date);
 	}
 
 	.loading,
 	.empty-state {
-		background: #16213e;
+		background: var(--color-bg-card);
 		border-radius: 0.5rem;
 		padding: 2rem;
 		text-align: center;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 	}
 
 	.detail-panel {
-		background: #16213e;
+		background: var(--color-bg-card);
 		border-radius: 0.5rem;
 		padding: 1rem;
 		height: fit-content;
@@ -718,7 +718,7 @@
 	.detail-panel h2 {
 		font-size: 1.125rem;
 		font-weight: 600;
-		color: #eaeaea;
+		color: var(--color-text-primary);
 		margin: 0 0 1rem;
 	}
 
@@ -736,14 +736,14 @@
 	.detail-section h3 {
 		font-size: 0.75rem;
 		font-weight: 500;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		margin: 0 0 0.25rem;
 	}
 
 	.detail-section p {
-		color: #e2e8f0;
+		color: var(--color-text-primary);
 		font-size: 0.875rem;
 		margin: 0;
 	}
@@ -756,36 +756,36 @@
 	.verify-btn {
 		flex: 1;
 		padding: 0.5rem;
-		border: 1px solid #0f3460;
+		border: 1px solid var(--color-border);
 		border-radius: 0.375rem;
 		background: transparent;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		font-size: 0.8rem;
 		cursor: pointer;
 		transition: all 0.15s;
 	}
 
 	.verify-btn:hover {
-		border-color: #475569;
-		color: #e2e8f0;
+		border-color: var(--color-text-muted);
+		color: var(--color-text-primary);
 	}
 
 	.verify-btn.active.unverified {
-		background: #64748b;
-		border-color: #64748b;
-		color: white;
+		background: var(--color-text-muted);
+		border-color: var(--color-text-muted);
+		color: var(--color-text-inverse);
 	}
 
 	.verify-btn.active.confirmed {
-		background: #4ade80;
-		border-color: #4ade80;
-		color: white;
+		background: var(--color-status-confirmed);
+		border-color: var(--color-status-confirmed);
+		color: var(--color-text-inverse);
 	}
 
 	.verify-btn.active.disputed {
-		background: #ef4444;
-		border-color: #ef4444;
-		color: white;
+		background: var(--color-severity-high);
+		border-color: var(--color-severity-high);
+		color: var(--color-text-inverse);
 	}
 
 	.review-actions {
@@ -797,25 +797,25 @@
 	.action-btn {
 		flex: 1;
 		padding: 0.5rem;
-		background: #0f3460;
+		background: var(--color-bg-elevated);
 		border: none;
 		border-radius: 0.375rem;
-		color: #e2e8f0;
+		color: var(--color-text-primary);
 		font-size: 0.875rem;
 		cursor: pointer;
 		transition: background 0.15s;
 	}
 
 	.action-btn:hover {
-		background: #475569;
+		background: var(--color-text-muted);
 	}
 
 	.action-btn.flag {
-		background: #7f1d1d;
+		background: var(--color-severity-high);
 	}
 
 	.action-btn.flag:hover {
-		background: #991b1b;
+		background: var(--color-severity-high);
 	}
 
 	.export-bar {
@@ -825,10 +825,10 @@
 
 	.export-btn {
 		padding: 0.625rem 1.25rem;
-		background: #e94560;
+		background: var(--color-accent);
 		border: none;
 		border-radius: 0.375rem;
-		color: white;
+		color: var(--color-text-inverse);
 		font-size: 0.875rem;
 		font-weight: 500;
 		cursor: pointer;
@@ -836,13 +836,13 @@
 	}
 
 	.export-btn:hover {
-		background: #d13650;
+		background: var(--color-accent-hover);
 	}
 
 	/* FR-DEDUP panel */
 	.dedup-panel {
-		background: var(--card-bg, #1a1d29);
-		border: 1px solid var(--border-color, #2c3046);
+		background: var(--color-bg-card);
+		border: 1px solid var(--color-border);
 		border-radius: 0.5rem;
 		padding: 1.25rem;
 		margin-bottom: 1.5rem;
@@ -855,7 +855,7 @@
 
 	.dedup-header .subtitle {
 		margin: 0 0 0.75rem;
-		color: var(--text-muted, #8b91a8);
+		color: var(--color-text-muted);
 		font-size: 0.85rem;
 	}
 
@@ -884,8 +884,8 @@
 	}
 
 	.dedup-controls button.primary {
-		background: #e94560;
-		color: white;
+		background: var(--color-accent);
+		color: var(--color-text-inverse);
 		border: none;
 		padding: 0.5rem 1rem;
 		border-radius: 0.375rem;
@@ -899,7 +899,7 @@
 	}
 
 	.dedup-empty {
-		color: var(--text-muted, #8b91a8);
+		color: var(--color-text-muted);
 		font-style: italic;
 		margin: 0.5rem 0 0;
 	}
@@ -911,7 +911,7 @@
 	}
 
 	.dedup-group {
-		border: 1px solid var(--border-color, #2c3046);
+		border: 1px solid var(--color-border);
 		border-radius: 0.375rem;
 		padding: 0.75rem;
 		background: rgba(255, 255, 255, 0.02);
@@ -929,15 +929,15 @@
 	}
 
 	.dedup-similarity {
-		color: var(--text-muted, #8b91a8);
+		color: var(--color-text-muted);
 		font-size: 0.85rem;
 	}
 
 	.merge-btn {
 		margin-left: auto;
 		background: transparent;
-		color: #e94560;
-		border: 1px solid #e94560;
+		color: var(--color-accent);
+		border: 1px solid var(--color-accent);
 		padding: 0.35rem 0.75rem;
 		border-radius: 0.375rem;
 		font-size: 0.85rem;
@@ -945,8 +945,8 @@
 	}
 
 	.merge-btn:hover {
-		background: #e94560;
-		color: white;
+		background: var(--color-accent);
+		color: var(--color-text-inverse);
 	}
 
 	.dedup-members {
@@ -965,7 +965,7 @@
 	}
 
 	.dedup-members li.keeper {
-		color: #4ade80;
+		color: var(--color-status-confirmed);
 	}
 
 	/* FR-VERIF cross-validation panel */

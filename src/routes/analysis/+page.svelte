@@ -570,23 +570,7 @@
 </div>
 
 <style>
-	/* CSS Variables - Design System */
-	.analysis-container {
-		--color-primary: #e94560;
-		--color-primary-hover: #d13650;
-		--color-bg-main: #1a1a2e;
-		--color-bg-panel: #16213e;
-		--color-bg-card: #1e1e2e;
-		--color-border: #0f3460;
-		--color-text: #eaeaea;
-		--color-text-muted: #9ca3af;
-		--color-success: #4ade80;
-		--color-warning: #f59e0b;
-		--color-error: #ef4444;
-		--radius-sm: 4px;
-		--radius-md: 8px;
-		--radius-lg: 12px;
-	}
+	
 
 	.analysis-container {
 		max-width: 1400px;
@@ -599,7 +583,7 @@
 		align-items: center;
 		gap: 0.5rem;
 		padding: 1rem 1.25rem;
-		background: var(--color-bg-panel);
+		background: var(--color-bg-card);
 		border-radius: var(--radius-lg);
 		border: 1px solid var(--color-border);
 		margin-bottom: 1.5rem;
@@ -635,8 +619,8 @@
 	}
 
 	.workflow-stage.done .stage-indicator {
-		background: var(--color-success);
-		color: var(--color-bg-main);
+		background: var(--color-status-confirmed);
+		color: var(--color-bg-input);
 	}
 
 	.stage-info {
@@ -654,7 +638,7 @@
 	.stage-count {
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: var(--color-text);
+		color: var(--color-text-primary);
 	}
 
 	.workflow-connector {
@@ -681,7 +665,7 @@
 	.qs-value {
 		font-size: 1.25rem;
 		font-weight: 700;
-		color: var(--color-success);
+		color: var(--color-status-confirmed);
 	}
 
 	.qs-label {
@@ -698,7 +682,7 @@
 	}
 
 	.panel {
-		background: var(--color-bg-panel);
+		background: var(--color-bg-card);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-lg);
 		padding: 1.25rem;
@@ -726,7 +710,7 @@
 	.panel h2 {
 		font-size: 1rem;
 		font-weight: 600;
-		color: var(--color-text);
+		color: var(--color-text-primary);
 		margin: 0;
 	}
 
@@ -753,7 +737,7 @@
 
 	.progress-fill {
 		height: 100%;
-		background: var(--color-primary);
+		background: var(--color-accent);
 		transition: width 0.3s ease;
 	}
 
@@ -773,7 +757,7 @@
 
 	.progress-label {
 		font-size: 0.8125rem;
-		color: var(--color-text);
+		color: var(--color-text-primary);
 	}
 
 	.progress-detail {
@@ -793,12 +777,12 @@
 
 	.status-badge.success {
 		background: rgba(74, 222, 128, 0.15);
-		color: var(--color-success);
+		color: var(--color-status-confirmed);
 	}
 
 	.status-badge.error {
 		background: rgba(239, 68, 68, 0.15);
-		color: var(--color-error);
+		color: var(--color-severity-high);
 	}
 
 	.status-badge.idle {
@@ -830,7 +814,7 @@
 
 	.model-badge.loaded {
 		background: rgba(74, 222, 128, 0.15);
-		color: var(--color-success);
+		color: var(--color-status-confirmed);
 	}
 
 	/* Buttons */
@@ -855,21 +839,21 @@
 	}
 
 	.btn-primary {
-		background: var(--color-primary);
-		color: white;
+		background: var(--color-accent);
+		color: var(--color-text-inverse);
 	}
 
 	.btn-primary:hover:not(:disabled) {
-		background: var(--color-primary-hover);
+		background: var(--color-accent-hover);
 	}
 
 	.btn-danger {
-		background: var(--color-error);
-		color: white;
+		background: var(--color-severity-high);
+		color: var(--color-text-inverse);
 	}
 
 	.btn-danger:hover:not(:disabled) {
-		background: #dc2626;
+		background: var(--color-severity-high);
 	}
 
 	.btn-icon {
@@ -898,14 +882,14 @@
 	}
 
 	.stat-card.warning {
-		border: 1px solid var(--color-warning);
+		border: 1px solid var(--color-severity-medium);
 	}
 
 	.stat-value {
 		display: block;
 		font-size: 1.375rem;
 		font-weight: 700;
-		color: var(--color-text);
+		color: var(--color-text-primary);
 	}
 
 	.stat-label {
@@ -930,7 +914,7 @@
 		display: block;
 		height: 100%;
 		width: calc(var(--quality, 0) * 100%);
-		background: var(--color-success);
+		background: var(--color-status-confirmed);
 	}
 
 	/* File Types */
@@ -958,7 +942,7 @@
 		background: var(--color-border);
 		border-radius: var(--radius-sm);
 		font-size: 0.6875rem;
-		color: var(--color-text);
+		color: var(--color-text-primary);
 	}
 
 	.empty-stats {

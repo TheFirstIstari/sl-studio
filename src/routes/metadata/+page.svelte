@@ -570,7 +570,7 @@
 
 	.badge-exif {
 		background: rgba(59, 130, 246, 0.15);
-		color: #60a5fa;
+		color: var(--color-entity-person);
 		border: 1px solid rgba(59, 130, 246, 0.3);
 	}
 

@@ -360,23 +360,23 @@
 
 	.view-btn {
 		padding: 0.5rem 1rem;
-		background-color: #16213e;
-		border: 1px solid #0f3460;
+		background-color: var(--color-bg-card);
+		border: 1px solid var(--color-border);
 		border-radius: 6px;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		cursor: pointer;
 		transition: all 0.2s;
 	}
 
 	.view-btn:hover {
-		border-color: #e94560;
-		color: #eaeaea;
+		border-color: var(--color-accent);
+		color: var(--color-text-primary);
 	}
 
 	.view-btn.active {
-		background-color: #e94560;
-		border-color: #e94560;
-		color: #ffffff;
+		background-color: var(--color-accent);
+		border-color: var(--color-accent);
+		color: var(--color-text-inverse);
 	}
 
 	.filter-bar {
@@ -384,8 +384,8 @@
 		flex-wrap: wrap;
 		gap: 1.5rem;
 		padding: 1rem;
-		background-color: #16213e;
-		border: 1px solid #0f3460;
+		background-color: var(--color-bg-card);
+		border: 1px solid var(--color-border);
 		border-radius: 8px;
 		margin-bottom: 1.5rem;
 		align-items: flex-end;
@@ -399,7 +399,7 @@
 
 	.filter-label {
 		font-size: 0.75rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 	}
@@ -411,24 +411,24 @@
 
 	.zoom-btn {
 		padding: 0.375rem 0.75rem;
-		background-color: #0f3460;
-		border: 1px solid #0f3460;
+		background-color: var(--color-bg-elevated);
+		border: 1px solid var(--color-border);
 		border-radius: 4px;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		font-size: 0.75rem;
 		cursor: pointer;
 		transition: all 0.2s;
 	}
 
 	.zoom-btn:hover {
-		border-color: #e94560;
-		color: #eaeaea;
+		border-color: var(--color-accent);
+		color: var(--color-text-primary);
 	}
 
 	.zoom-btn.active {
-		background-color: #e94560;
-		border-color: #e94560;
-		color: #ffffff;
+		background-color: var(--color-accent);
+		border-color: var(--color-accent);
+		color: var(--color-text-inverse);
 	}
 
 	.date-inputs {
@@ -439,20 +439,20 @@
 
 	.date-input {
 		padding: 0.375rem 0.5rem;
-		background-color: #0f3460;
-		border: 1px solid #0f3460;
+		background-color: var(--color-bg-elevated);
+		border: 1px solid var(--color-border);
 		border-radius: 4px;
-		color: #eaeaea;
+		color: var(--color-text-primary);
 		font-size: 0.875rem;
 	}
 
 	.date-input:focus {
 		outline: none;
-		border-color: #e94560;
+		border-color: var(--color-accent);
 	}
 
 	.date-separator {
-		color: #6b7280;
+		color: var(--color-text-muted);
 		font-size: 0.875rem;
 	}
 
@@ -464,24 +464,24 @@
 
 	.category-btn {
 		padding: 0.25rem 0.5rem;
-		background-color: #0f3460;
-		border: 1px solid #0f3460;
+		background-color: var(--color-bg-elevated);
+		border: 1px solid var(--color-border);
 		border-radius: 4px;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		font-size: 0.75rem;
 		cursor: pointer;
 		transition: all 0.2s;
 	}
 
 	.category-btn:hover {
-		border-color: #e94560;
-		color: #eaeaea;
+		border-color: var(--color-accent);
+		color: var(--color-text-primary);
 	}
 
 	.category-btn.active {
-		background-color: #e94560;
-		border-color: #e94560;
-		color: #ffffff;
+		background-color: var(--color-accent);
+		border-color: var(--color-accent);
+		color: var(--color-text-inverse);
 	}
 
 	.severity-range {
@@ -495,7 +495,7 @@
 		height: 4px;
 		-webkit-appearance: none;
 		appearance: none;
-		background: #0f3460;
+		background: var(--color-bg-elevated);
 		border-radius: 2px;
 		outline: none;
 	}
@@ -505,7 +505,7 @@
 		appearance: none;
 		width: 14px;
 		height: 14px;
-		background: #e94560;
+		background: var(--color-accent);
 		border-radius: 50%;
 		cursor: pointer;
 	}
@@ -513,7 +513,7 @@
 	.severity-slider::-moz-range-thumb {
 		width: 14px;
 		height: 14px;
-		background: #e94560;
+		background: var(--color-accent);
 		border-radius: 50%;
 		cursor: pointer;
 		border: none;
@@ -521,29 +521,29 @@
 
 	.entity-input {
 		padding: 0.375rem 0.5rem;
-		background-color: #0f3460;
-		border: 1px solid #0f3460;
+		background-color: var(--color-bg-elevated);
+		border: 1px solid var(--color-border);
 		border-radius: 4px;
-		color: #eaeaea;
+		color: var(--color-text-primary);
 		font-size: 0.875rem;
 		width: 150px;
 	}
 
 	.entity-input:focus {
 		outline: none;
-		border-color: #e94560;
+		border-color: var(--color-accent);
 	}
 
 	.entity-input::placeholder {
-		color: #6b7280;
+		color: var(--color-text-muted);
 	}
 
 	.clear-filters-btn {
 		padding: 0.375rem 0.75rem;
 		background-color: transparent;
-		border: 1px solid #e94560;
+		border: 1px solid var(--color-accent);
 		border-radius: 4px;
-		color: #e94560;
+		color: var(--color-accent);
 		font-size: 0.75rem;
 		cursor: pointer;
 		transition: all 0.2s;
@@ -551,27 +551,27 @@
 	}
 
 	.clear-filters-btn:hover {
-		background-color: #e94560;
-		color: #ffffff;
+		background-color: var(--color-accent);
+		color: var(--color-text-inverse);
 	}
 
 	.loading,
 	.empty {
 		text-align: center;
 		padding: 3rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 	}
 
 	.empty-icon {
 		width: 48px;
 		height: 48px;
-		color: #6b7280;
+		color: var(--color-text-muted);
 		margin-bottom: 1rem;
 	}
 
 	.empty-hint {
 		font-size: 0.875rem;
-		color: #6b7280;
+		color: var(--color-text-muted);
 		margin-top: 0.5rem;
 	}
 
@@ -590,7 +590,7 @@
 		align-items: center;
 		gap: 1rem;
 		padding: 0.75rem 1rem;
-		background-color: #16213e;
+		background-color: var(--color-bg-card);
 		border-radius: 8px;
 		margin-bottom: 1rem;
 	}
@@ -598,12 +598,12 @@
 	.month-label {
 		font-size: 1rem;
 		font-weight: 600;
-		color: #e94560;
+		color: var(--color-accent);
 	}
 
 	.month-count {
 		font-size: 0.875rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 	}
 
 	.timeline {
@@ -618,15 +618,15 @@
 		top: 0;
 		bottom: 0;
 		width: 2px;
-		background-color: #0f3460;
+		background-color: var(--color-bg-elevated);
 	}
 
 	.timeline-item {
 		display: flex;
 		gap: 1rem;
 		padding: 1rem;
-		background-color: #16213e;
-		border: 1px solid #0f3460;
+		background-color: var(--color-bg-card);
+		border: 1px solid var(--color-border);
 		border-radius: 8px;
 		margin-bottom: 0.75rem;
 		cursor: pointer;
@@ -636,12 +636,12 @@
 	}
 
 	.timeline-item:hover {
-		border-color: #e94560;
+		border-color: var(--color-accent);
 	}
 
 	.timeline-item.selected {
-		border-color: #e94560;
-		background-color: #0f3460;
+		border-color: var(--color-accent);
+		background-color: var(--color-bg-elevated);
 	}
 
 	.timeline-marker {
@@ -659,13 +659,13 @@
 
 	.timeline-date {
 		font-size: 0.875rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		margin-bottom: 0.25rem;
 	}
 
 	.timeline-summary {
 		font-size: 0.875rem;
-		color: #eaeaea;
+		color: var(--color-text-primary);
 		margin-bottom: 0.5rem;
 		line-height: 1.4;
 	}
@@ -678,11 +678,11 @@
 	}
 
 	.timeline-filename {
-		color: #6b7280;
+		color: var(--color-text-muted);
 	}
 
 	.timeline-category {
-		color: #e94560;
+		color: var(--color-accent);
 		padding: 0.125rem 0.5rem;
 		background-color: rgba(233, 69, 96, 0.2);
 		border-radius: 4px;
@@ -691,7 +691,7 @@
 	.timeline-severity {
 		padding: 0.125rem 0.5rem;
 		border-radius: 4px;
-		color: #ffffff;
+		color: var(--color-text-inverse);
 		font-weight: 600;
 	}
 
@@ -709,8 +709,8 @@
 		align-items: center;
 		gap: 1rem;
 		padding: 1rem;
-		background-color: #16213e;
-		border: 1px solid #0f3460;
+		background-color: var(--color-bg-card);
+		border: 1px solid var(--color-border);
 		border-radius: 8px;
 		cursor: pointer;
 		transition: all 0.2s;
@@ -719,25 +719,25 @@
 	}
 
 	.list-item:hover {
-		border-color: #e94560;
+		border-color: var(--color-accent);
 	}
 
 	.list-item.selected {
-		border-color: #e94560;
-		background-color: #0f3460;
+		border-color: var(--color-accent);
+		background-color: var(--color-bg-elevated);
 	}
 
 	.list-date {
 		width: 100px;
 		font-size: 0.875rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		flex-shrink: 0;
 	}
 
 	.list-summary {
 		flex: 1;
 		font-size: 0.875rem;
-		color: #eaeaea;
+		color: var(--color-text-primary);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -751,13 +751,13 @@
 
 	.list-filename {
 		font-size: 0.75rem;
-		color: #6b7280;
+		color: var(--color-text-muted);
 	}
 
 	.list-severity {
 		padding: 0.125rem 0.5rem;
 		border-radius: 4px;
-		color: #ffffff;
+		color: var(--color-text-inverse);
 		font-size: 0.75rem;
 		font-weight: 600;
 	}
@@ -768,8 +768,8 @@
 		top: 0;
 		bottom: 0;
 		width: 350px;
-		background-color: #16213e;
-		border-left: 1px solid #0f3460;
+		background-color: var(--color-bg-card);
+		border-left: 1px solid var(--color-border);
 		padding: 1.5rem;
 		overflow-y: auto;
 	}
@@ -783,7 +783,7 @@
 
 	.detail-header h2 {
 		font-size: 1.25rem;
-		color: #e94560;
+		color: var(--color-accent);
 	}
 
 	.close-btn {
@@ -791,31 +791,31 @@
 		height: 32px;
 		background: none;
 		border: none;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		font-size: 1.5rem;
 		cursor: pointer;
 		border-radius: 4px;
 	}
 
 	.close-btn:hover {
-		background-color: #0f3460;
-		color: #eaeaea;
+		background-color: var(--color-bg-elevated);
+		color: var(--color-text-primary);
 	}
 
 	.detail-row {
 		display: flex;
 		justify-content: space-between;
 		padding: 0.75rem 0;
-		border-bottom: 1px solid #0f3460;
+		border-bottom: 1px solid var(--color-border);
 	}
 
 	.detail-label {
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		font-size: 0.875rem;
 	}
 
 	.detail-value {
-		color: #eaeaea;
+		color: var(--color-text-primary);
 		font-size: 0.875rem;
 		font-weight: 500;
 	}
@@ -824,7 +824,7 @@
 		padding: 0.25rem 0.5rem;
 		border-radius: 4px;
 		font-size: 0.75rem;
-		color: #ffffff;
+		color: var(--color-text-inverse);
 	}
 
 	.detail-section {
@@ -833,12 +833,12 @@
 
 	.detail-section h3 {
 		font-size: 0.875rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		margin-bottom: 0.5rem;
 	}
 
 	.detail-section p {
-		color: #eaeaea;
+		color: var(--color-text-primary);
 		font-size: 0.875rem;
 		line-height: 1.5;
 	}

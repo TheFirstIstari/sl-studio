@@ -58,23 +58,32 @@
 	let betweenness = $state<EntityBetweenness[]>([]);
 	let analyzingNet = $state(false);
 
-	// Community palette — keep it well within the dark-theme contrast.
-	const COMMUNITY_PALETTE = [
-		'#e94560',
-		'#3b82f6',
-		'#10b981',
-		'#f59e0b',
-		'#8b5cf6',
-		'#ec4899',
-		'#06b6d4',
-		'#84cc16',
-		'#ef4444',
-		'#a78bfa'
-	];
+	// Read a CSS custom property value at runtime so Cytoscape uses themed colours.
+	function cssVar(name: string): string {
+		return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+	}
+
+	// Community palette — read from theme CSS variables so dark/light mode both work.
+	// Computed lazily (on first graph render) via getCommunityPalette().
+	function getCommunityPalette(): string[] {
+		return [
+			cssVar('--color-accent'),
+			cssVar('--color-entity-person'),
+			cssVar('--color-entity-org'),
+			cssVar('--color-entity-location'),
+			cssVar('--color-entity-date'),
+			cssVar('--color-severity-medium-high'),
+			cssVar('--color-status-info'),
+			cssVar('--color-status-confirmed'),
+			cssVar('--color-severity-high'),
+			cssVar('--color-entity-other')
+		];
+	}
 
 	function communityColor(communityId: number): string {
 		// communityId is 1-indexed.
-		return COMMUNITY_PALETTE[(communityId - 1) % COMMUNITY_PALETTE.length];
+		const palette = getCommunityPalette();
+		return palette[(communityId - 1) % palette.length];
 	}
 
 	function applyCommunityColors() {
@@ -281,8 +290,8 @@
 					selector: 'node',
 					style: {
 						label: 'data(label)',
-						'background-color': '#e94560',
-						color: '#eaeaea',
+						'background-color': cssVar('--color-accent'),
+						color: cssVar('--color-text-primary'),
 						'font-size': '10px',
 						'text-valign': 'bottom',
 						'text-margin-y': 5,
@@ -293,32 +302,32 @@
 				{
 					selector: 'node[type = "PERSON"]',
 					style: {
-						'background-color': '#3b82f6'
+						'background-color': cssVar('--color-entity-person')
 					}
 				},
 				{
 					selector: 'node[type = "ORGANIZATION"]',
 					style: {
-						'background-color': '#10b981'
+						'background-color': cssVar('--color-entity-org')
 					}
 				},
 				{
 					selector: 'node[type = "LOCATION"]',
 					style: {
-						'background-color': '#f59e0b'
+						'background-color': cssVar('--color-entity-location')
 					}
 				},
 				{
 					selector: 'node[type = "DATE"]',
 					style: {
-						'background-color': '#8b5cf6'
+						'background-color': cssVar('--color-entity-date')
 					}
 				},
 				{
 					selector: 'edge',
 					style: {
 						width: 'data(weight)',
-						'line-color': '#0f3460',
+						'line-color': cssVar('--color-border'),
 						opacity: 0.6
 					}
 				},
@@ -326,7 +335,7 @@
 					selector: ':selected',
 					style: {
 						'border-width': 2,
-						'border-color': '#ffffff'
+						'border-color': cssVar('--color-text-inverse')
 					}
 				}
 			],
@@ -370,15 +379,15 @@
 	function getTypeColor(typeName: string): string {
 		switch (typeName) {
 			case 'PERSON':
-				return '#3b82f6';
+				return cssVar('--color-entity-person');
 			case 'ORGANIZATION':
-				return '#10b981';
+				return cssVar('--color-entity-org');
 			case 'LOCATION':
-				return '#f59e0b';
+				return cssVar('--color-entity-location');
 			case 'DATE':
-				return '#8b5cf6';
+				return cssVar('--color-entity-date');
 			default:
-				return '#e94560';
+				return cssVar('--color-accent');
 		}
 	}
 
@@ -588,23 +597,23 @@
 					<div class="legend">
 						<h3>Legend</h3>
 						<div class="legend-item">
-							<div class="legend-dot" style="background-color: #3b82f6"></div>
+							<div class="legend-dot" style="background-color: var(--color-entity-person)"></div>
 							<span>Person</span>
 						</div>
 						<div class="legend-item">
-							<div class="legend-dot" style="background-color: #10b981"></div>
+							<div class="legend-dot" style="background-color: var(--color-entity-org)"></div>
 							<span>Organization</span>
 						</div>
 						<div class="legend-item">
-							<div class="legend-dot" style="background-color: #f59e0b"></div>
+							<div class="legend-dot" style="background-color: var(--color-entity-location)"></div>
 							<span>Location</span>
 						</div>
 						<div class="legend-item">
-							<div class="legend-dot" style="background-color: #8b5cf6"></div>
+							<div class="legend-dot" style="background-color: var(--color-entity-date)"></div>
 							<span>Date</span>
 						</div>
 						<div class="legend-item">
-							<div class="legend-dot" style="background-color: #e94560"></div>
+							<div class="legend-dot" style="background-color: var(--color-accent)"></div>
 							<span>Other</span>
 						</div>
 					</div>
@@ -629,16 +638,16 @@
 
 	.control-group label {
 		font-size: 0.875rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 	}
 
 	.control-group input {
 		width: 60px;
 		padding: 0.5rem;
-		background-color: #16213e;
-		border: 1px solid #0f3460;
+		background-color: var(--color-bg-card);
+		border: 1px solid var(--color-border);
 		border-radius: 6px;
-		color: #eaeaea;
+		color: var(--color-text-primary);
 		font-size: 0.875rem;
 	}
 
@@ -648,17 +657,17 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background-color: #16213e;
-		border: 1px solid #0f3460;
+		background-color: var(--color-bg-card);
+		border: 1px solid var(--color-border);
 		border-radius: 6px;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		cursor: pointer;
 		transition: all 0.2s;
 	}
 
 	.icon-btn:hover {
-		border-color: #e94560;
-		color: #eaeaea;
+		border-color: var(--color-accent);
+		color: var(--color-text-primary);
 	}
 
 	.icon-btn svg {
@@ -674,19 +683,19 @@
 		align-items: center;
 		justify-content: center;
 		text-align: center;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 	}
 
 	.empty-icon {
 		width: 48px;
 		height: 48px;
-		color: #6b7280;
+		color: var(--color-text-muted);
 		margin-bottom: 1rem;
 	}
 
 	.empty-hint {
 		font-size: 0.875rem;
-		color: #6b7280;
+		color: var(--color-text-muted);
 		margin-top: 0.5rem;
 	}
 
@@ -699,15 +708,15 @@
 
 	.graph-container {
 		flex: 1;
-		background-color: #16213e;
+		background-color: var(--color-bg-card);
 		border-radius: 8px;
-		border: 1px solid #0f3460;
+		border: 1px solid var(--color-border);
 	}
 
 	.side-panel {
 		width: 280px;
-		background-color: #16213e;
-		border-left: 1px solid #0f3460;
+		background-color: var(--color-bg-card);
+		border-left: 1px solid var(--color-border);
 		padding: 1rem;
 		overflow-y: auto;
 	}
@@ -721,7 +730,7 @@
 
 	.panel-header h2 {
 		font-size: 1rem;
-		color: #e94560;
+		color: var(--color-accent);
 	}
 
 	.close-btn {
@@ -729,40 +738,40 @@
 		height: 24px;
 		background: none;
 		border: none;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		font-size: 1.25rem;
 		cursor: pointer;
 		border-radius: 4px;
 	}
 
 	.close-btn:hover {
-		background-color: #0f3460;
-		color: #eaeaea;
+		background-color: var(--color-bg-elevated);
+		color: var(--color-text-primary);
 	}
 
 	.selection-info {
 		padding: 0.75rem;
-		background-color: #1a1a2e;
+		background-color: var(--color-bg-input);
 		border-radius: 6px;
 		margin-bottom: 1rem;
 	}
 
 	.selection-label {
 		font-size: 0.75rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		margin-bottom: 0.25rem;
 	}
 
 	.selection-value {
 		font-size: 0.875rem;
-		color: #eaeaea;
+		color: var(--color-text-primary);
 		word-break: break-all;
 	}
 
 	.connected-list h3,
 	.legend h3 {
 		font-size: 0.875rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		margin-bottom: 0.75rem;
 	}
 
@@ -775,7 +784,7 @@
 		align-items: flex-start;
 		gap: 0.75rem;
 		padding: 0.5rem 0;
-		border-bottom: 1px solid #0f3460;
+		border-bottom: 1px solid var(--color-border);
 	}
 
 	.entity-dot {
@@ -793,7 +802,7 @@
 
 	.entity-value {
 		font-size: 0.875rem;
-		color: #eaeaea;
+		color: var(--color-text-primary);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -806,11 +815,11 @@
 	}
 
 	.entity-type {
-		color: #e94560;
+		color: var(--color-accent);
 	}
 
 	.entity-confidence {
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 	}
 
 	.legend-item {
@@ -818,7 +827,7 @@
 		align-items: center;
 		gap: 0.5rem;
 		font-size: 0.75rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		margin-bottom: 0.5rem;
 	}
 
@@ -832,8 +841,8 @@
 		display: flex;
 		gap: 1.5rem;
 		padding: 0.75rem 1rem;
-		background-color: #16213e;
-		border-bottom: 1px solid #0f3460;
+		background-color: var(--color-bg-card);
+		border-bottom: 1px solid var(--color-border);
 	}
 
 	.stat-item {
@@ -845,12 +854,12 @@
 	.stat-value {
 		font-size: 1.25rem;
 		font-weight: 600;
-		color: #eaeaea;
+		color: var(--color-text-primary);
 	}
 
 	.stat-label {
 		font-size: 0.75rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 	}
 
 	/* FR-NET-005 analysis grid */
@@ -910,7 +919,7 @@
 
 	.degree-info {
 		padding: 0.75rem;
-		background-color: #1a1a2e;
+		background-color: var(--color-bg-input);
 		border-radius: 6px;
 		margin-bottom: 1rem;
 	}
@@ -918,7 +927,7 @@
 	.degree-value {
 		font-size: 1.5rem;
 		font-weight: 600;
-		color: #e94560;
+		color: var(--color-accent);
 	}
 
 	.hub-list {
@@ -930,12 +939,12 @@
 		align-items: flex-start;
 		gap: 0.5rem;
 		padding: 0.5rem 0;
-		border-bottom: 1px solid #0f3460;
+		border-bottom: 1px solid var(--color-border);
 	}
 
 	.hub-rank {
 		font-size: 0.75rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		min-width: 20px;
 	}
 
@@ -946,7 +955,7 @@
 
 	.hub-value {
 		font-size: 0.875rem;
-		color: #eaeaea;
+		color: var(--color-text-primary);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -957,6 +966,6 @@
 	}
 
 	.hub-degree {
-		color: #f59e0b;
+		color: var(--color-entity-location);
 	}
 </style>

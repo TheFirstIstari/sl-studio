@@ -1,23 +1,48 @@
-/* SL Studio Theme Variables */
-:root {
-	/* Backgrounds */
+/* =============================================================================
+   SL Studio — Design Token System
+   Supports dark mode (default) and light mode via [data-theme="light"].
+   Toggle by setting document.documentElement.dataset.theme = "light" | "dark".
+   ============================================================================= */
+
+/* ---------------------------------------------------------------------------
+   Dark theme (default)
+   --------------------------------------------------------------------------- */
+:root,
+[data-theme='dark'] {
+	color-scheme: dark;
+
+	/* Backgrounds — layered depth model */
+	--color-bg-app: #0b1120;
+	--color-bg-page: #0d1b2a;
 	--color-bg-card: #16213e;
 	--color-bg-input: #1a1a2e;
 	--color-bg-elevated: #0f3460;
-	--color-bg-page: #0d1b2a;
+	--color-bg-overlay: rgba(0, 0, 0, 0.6);
+
+	/* Sidebar / navigation */
+	--color-bg-sidebar: #0d1420;
+	--color-bg-sidebar-hover: rgba(233, 69, 96, 0.1);
+	--color-bg-sidebar-active: rgba(233, 69, 96, 0.18);
+
+	/* Header / chrome */
+	--color-bg-header: #0d1420;
+	--color-bg-footer: #0d1420;
 
 	/* Borders */
-	--color-border: #0f3460;
+	--color-border: rgba(15, 52, 96, 0.8);
+	--color-border-subtle: rgba(255, 255, 255, 0.06);
 	--color-border-focus: #e94560;
 
 	/* Text */
 	--color-text-primary: #eaeaea;
 	--color-text-secondary: #9ca3af;
 	--color-text-muted: #6b7280;
+	--color-text-inverse: #0d1b2a;
 
 	/* Accent */
 	--color-accent: #e94560;
 	--color-accent-hover: #d63a52;
+	--color-accent-subtle: rgba(233, 69, 96, 0.15);
 
 	/* Severity */
 	--color-severity-high: #ef4444;
@@ -30,20 +55,104 @@
 	--color-quality-medium: #eab308;
 	--color-quality-low: #ef4444;
 
-	/* Entity Types */
+	/* Entity types */
 	--color-entity-person: #3b82f6;
 	--color-entity-org: #10b981;
 	--color-entity-location: #f59e0b;
 	--color-entity-date: #8b5cf6;
 	--color-entity-other: #e94560;
 
-	/* Status colors (verification, pipeline state, etc.) */
+	/* Status */
 	--color-status-confirmed: #4ade80;
 	--color-status-disputed: #ef4444;
 	--color-status-unverified: #6b7280;
 	--color-status-info: #3b82f6;
+	--color-status-ready: #22c55e;
+	--color-status-loading: #eab308;
 
-	/* Spacing scale */
+	/* Scrollbar */
+	--color-scrollbar-thumb: rgba(255, 255, 255, 0.12);
+	--color-scrollbar-track: transparent;
+
+	/* Shadows */
+	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+	--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+	--shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+
+	/* Theme icon shown in toggle button */
+	--theme-icon: '☀';
+}
+
+/* ---------------------------------------------------------------------------
+   Light theme
+   --------------------------------------------------------------------------- */
+[data-theme='light'] {
+	color-scheme: light;
+
+	--color-bg-app: #f0f2f5;
+	--color-bg-page: #f5f7fa;
+	--color-bg-card: #ffffff;
+	--color-bg-input: #f9fafb;
+	--color-bg-elevated: #e8edf3;
+	--color-bg-overlay: rgba(0, 0, 0, 0.35);
+
+	--color-bg-sidebar: #1e2d3d;
+	--color-bg-sidebar-hover: rgba(233, 69, 96, 0.12);
+	--color-bg-sidebar-active: rgba(233, 69, 96, 0.2);
+
+	--color-bg-header: #1e2d3d;
+	--color-bg-footer: #1e2d3d;
+
+	--color-border: #d1d9e0;
+	--color-border-subtle: rgba(0, 0, 0, 0.06);
+	--color-border-focus: #e94560;
+
+	--color-text-primary: #111827;
+	--color-text-secondary: #4b5563;
+	--color-text-muted: #9ca3af;
+	--color-text-inverse: #ffffff;
+
+	--color-accent: #e94560;
+	--color-accent-hover: #d63a52;
+	--color-accent-subtle: rgba(233, 69, 96, 0.1);
+
+	/* Severity — same semantic colours, slightly adjusted for legibility on light */
+	--color-severity-high: #dc2626;
+	--color-severity-medium-high: #ea580c;
+	--color-severity-medium: #ca8a04;
+	--color-severity-low: #16a34a;
+
+	--color-quality-high: #16a34a;
+	--color-quality-medium: #ca8a04;
+	--color-quality-low: #dc2626;
+
+	--color-entity-person: #2563eb;
+	--color-entity-org: #059669;
+	--color-entity-location: #d97706;
+	--color-entity-date: #7c3aed;
+	--color-entity-other: #e94560;
+
+	--color-status-confirmed: #16a34a;
+	--color-status-disputed: #dc2626;
+	--color-status-unverified: #6b7280;
+	--color-status-info: #2563eb;
+	--color-status-ready: #16a34a;
+	--color-status-loading: #ca8a04;
+
+	--color-scrollbar-thumb: rgba(0, 0, 0, 0.18);
+	--color-scrollbar-track: transparent;
+
+	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+	--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+	--shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.16);
+
+	--theme-icon: '🌙';
+}
+
+/* ---------------------------------------------------------------------------
+   Spacing, radius, typography — theme-independent
+   --------------------------------------------------------------------------- */
+:root {
 	--space-1: 0.25rem;
 	--space-2: 0.5rem;
 	--space-3: 0.75rem;
@@ -51,57 +160,127 @@
 	--space-5: 1.25rem;
 	--space-6: 1.5rem;
 	--space-8: 2rem;
+	--space-10: 2.5rem;
 
-	/* Radius */
 	--radius-sm: 0.25rem;
 	--radius-md: 0.375rem;
 	--radius-lg: 0.5rem;
 	--radius-xl: 0.75rem;
+	--radius-full: 9999px;
 
-	/* Typography */
-	--text-xs: 0.75rem;
-	--text-sm: 0.85rem;
-	--text-base: 0.95rem;
+	--text-xs: 0.72rem;
+	--text-sm: 0.83rem;
+	--text-base: 0.92rem;
 	--text-md: 1rem;
-	--text-lg: 1.15rem;
-	--text-xl: 1.4rem;
-	--text-2xl: 1.75rem;
+	--text-lg: 1.1rem;
+	--text-xl: 1.3rem;
+	--text-2xl: 1.65rem;
 
-	/* Layout */
+	--sidebar-width: 200px;
+	--header-height: 48px;
+	--footer-height: 32px;
 	--page-max-width: 1400px;
 	--page-padding: var(--space-6);
+
+	--transition-fast: 0.12s ease;
+	--transition-base: 0.18s ease;
 }
 
-/* Base styles */
+/* ---------------------------------------------------------------------------
+   Base reset & global styles
+   --------------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html {
+	height: 100%;
+}
+
 body {
-	background-color: var(--color-bg-page);
+	height: 100%;
+	margin: 0;
+	background-color: var(--color-bg-app);
 	color: var(--color-text-primary);
-	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+	font-family:
+		-apple-system,
+		BlinkMacSystemFont,
+		'Segoe UI',
+		Roboto,
+		Oxygen,
+		Ubuntu,
+		sans-serif;
+	font-size: var(--text-base);
+	line-height: 1.5;
+	transition:
+		background-color var(--transition-base),
+		color var(--transition-base);
 }
 
-/* Shared component styles */
+/* Scrollbar styling */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
+}
+
+::-webkit-scrollbar {
+	width: 6px;
+	height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--color-scrollbar-thumb);
+	border-radius: var(--radius-full);
+}
+
+/* ---------------------------------------------------------------------------
+   Global component primitives
+   --------------------------------------------------------------------------- */
+
+/* Cards */
 .card {
 	background-color: var(--color-bg-card);
 	border: 1px solid var(--color-border);
-	border-radius: 8px;
+	border-radius: var(--radius-lg);
+	box-shadow: var(--shadow-sm);
 }
 
-.input {
+/* Inputs */
+.input,
+input[type='text'],
+input[type='number'],
+input[type='date'],
+input[type='search'],
+select,
+textarea {
 	background-color: var(--color-bg-input);
 	border: 1px solid var(--color-border);
 	color: var(--color-text-primary);
+	border-radius: var(--radius-md);
+	padding: var(--space-2) var(--space-3);
+	font-size: var(--text-sm);
+	width: 100%;
+	transition: border-color var(--transition-fast);
 }
 
-.input:focus {
+.input:focus,
+input[type='text']:focus,
+input[type='number']:focus,
+input[type='date']:focus,
+input[type='search']:focus,
+select:focus,
+textarea:focus {
 	border-color: var(--color-border-focus);
 	outline: none;
+	box-shadow: 0 0 0 2px var(--color-accent-subtle);
 }
 
-/*
- * Standardized button system. Pages should use these classes rather than
- * inventing per-feature button class names. Combine .btn with one variant
- * (.btn.primary, .btn.danger, .btn.ghost) and optionally .btn.sm or .btn.lg.
- */
+/* ---------------------------------------------------------------------------
+   Button system
+   Combine: .btn + one of .primary / .danger / .ghost / .sm / .lg
+   --------------------------------------------------------------------------- */
 .btn {
 	display: inline-flex;
 	align-items: center;
@@ -115,18 +294,22 @@ body {
 	border-radius: var(--radius-md);
 	font-size: var(--text-sm);
 	font-weight: 500;
+	text-decoration: none;
+	white-space: nowrap;
 	transition:
-		background-color 0.15s,
-		border-color 0.15s,
-		color 0.15s;
+		background-color var(--transition-fast),
+		border-color var(--transition-fast),
+		color var(--transition-fast),
+		box-shadow var(--transition-fast);
 }
 
 .btn:hover:not(:disabled) {
 	border-color: var(--color-accent);
+	box-shadow: var(--shadow-sm);
 }
 
 .btn:disabled {
-	opacity: 0.55;
+	opacity: 0.45;
 	cursor: not-allowed;
 }
 
@@ -134,7 +317,7 @@ body {
 .btn-primary {
 	background-color: var(--color-accent);
 	border-color: var(--color-accent);
-	color: white;
+	color: #fff;
 }
 
 .btn.primary:hover:not(:disabled),
@@ -151,7 +334,7 @@ body {
 
 .btn.danger:hover:not(:disabled) {
 	background-color: var(--color-severity-high);
-	color: white;
+	color: #fff;
 }
 
 .btn.ghost {
@@ -163,6 +346,7 @@ body {
 .btn.ghost:hover:not(:disabled) {
 	color: var(--color-text-primary);
 	background-color: var(--color-bg-elevated);
+	border-color: var(--color-border-subtle);
 }
 
 .btn.sm {
@@ -175,36 +359,52 @@ body {
 	font-size: var(--text-base);
 }
 
-/* Utility: responsive grid for StatCard rows. */
+/* ---------------------------------------------------------------------------
+   Layout utilities
+   --------------------------------------------------------------------------- */
 .stat-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
 	gap: var(--space-3);
 	margin-bottom: var(--space-5);
 }
 
-/* Utility: full-bleed page wrapper used by routes. */
 .page {
 	max-width: var(--page-max-width);
 	margin: 0 auto;
 	padding: var(--page-padding);
 }
 
-/* Utility: error banner used by multiple pages. */
+/* ---------------------------------------------------------------------------
+   Feedback utilities
+   --------------------------------------------------------------------------- */
 .error-banner {
-	background: rgba(239, 68, 68, 0.12);
+	background: rgba(239, 68, 68, 0.1);
 	border: 1px solid var(--color-severity-high);
 	color: var(--color-severity-high);
 	padding: var(--space-3) var(--space-4);
 	border-radius: var(--radius-md);
 	margin-bottom: var(--space-4);
 	font-size: var(--text-sm);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
 }
 
-/* Utility: empty state. */
 .empty-state {
 	text-align: center;
-	padding: var(--space-8) var(--space-4);
+	padding: var(--space-10) var(--space-4);
 	color: var(--color-text-muted);
 	font-style: italic;
+}
+
+/* Form label */
+.form-label {
+	display: block;
+	font-size: var(--text-xs);
+	color: var(--color-text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	margin-bottom: var(--space-1);
 }

@@ -1,6 +1,4 @@
 use crate::inference::llama::{LlamaConfig, LlamaModel};
-use rand::seq::SliceRandom;
-use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use thiserror::Error;
@@ -291,11 +289,12 @@ impl PipelineRunner {
             return text[..size].to_string();
         }
 
-        let mut rng = rand::rngs::StdRng::from_entropy();
+        // Sample paragraphs with evenly-spaced stride — no external RNG needed.
+        // Covers the full document uniformly, which is what matters for LLM context.
         let sample_count = size.min(paragraphs.len());
-        let selected: Vec<_> = paragraphs
-            .choose_multiple(&mut rng, sample_count)
-            .cloned()
+        let stride = paragraphs.len().max(1) / sample_count.max(1);
+        let selected: Vec<&str> = (0..sample_count)
+            .map(|i| paragraphs[(i * stride).min(paragraphs.len() - 1)].as_ref())
             .collect();
 
         selected.join("\n\n")

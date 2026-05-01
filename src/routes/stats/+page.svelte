@@ -6,6 +6,11 @@
 
 	Chart.register(...registerables);
 
+	// Read a CSS custom property at runtime so Chart.js uses themed colours.
+	function cssVar(name: string): string {
+		return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+	}
+
 	interface OverallStats {
 		total_facts: number;
 		avg_severity: number;
@@ -101,7 +106,13 @@
 						{
 							label: 'Facts by Severity',
 							data: [],
-							backgroundColor: ['#4ade80', '#eab308', '#f97316', '#ef4444', '#dc2626']
+							backgroundColor: [
+								cssVar('--color-severity-low'),
+								cssVar('--color-severity-medium'),
+								cssVar('--color-severity-medium-high'),
+								cssVar('--color-severity-high'),
+								cssVar('--color-severity-high')
+							]
 						}
 					]
 				},
@@ -114,12 +125,12 @@
 					scales: {
 						y: {
 							beginAtZero: true,
-							ticks: { color: '#9ca3af' },
-							grid: { color: '#0f3460' }
+							ticks: { color: cssVar('--color-text-secondary') },
+							grid: { color: cssVar('--color-border') }
 						},
 						x: {
-							ticks: { color: '#9ca3af' },
-							grid: { color: '#0f3460' }
+							ticks: { color: cssVar('--color-text-secondary') },
+							grid: { color: cssVar('--color-border') }
 						}
 					}
 				}
@@ -134,7 +145,7 @@
 					datasets: [
 						{
 							data: [],
-							backgroundColor: ['#e94560', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899']
+							backgroundColor: [cssVar('--color-accent'), cssVar('--color-entity-person'), cssVar('--color-entity-org'), cssVar('--color-entity-location'), cssVar('--color-entity-date'), cssVar('--color-severity-medium-high')]
 						}
 					]
 				},
@@ -144,7 +155,7 @@
 					plugins: {
 						legend: {
 							position: 'right',
-							labels: { color: '#9ca3af' }
+							labels: { color: cssVar('--color-text-secondary') }
 						}
 					}
 				}
@@ -160,7 +171,7 @@
 						{
 							label: 'Entity Occurrences',
 							data: [],
-							backgroundColor: '#e94560'
+							backgroundColor: cssVar('--color-accent')
 						}
 					]
 				},
@@ -174,12 +185,12 @@
 					scales: {
 						x: {
 							beginAtZero: true,
-							ticks: { color: '#9ca3af' },
-							grid: { color: '#0f3460' }
+							ticks: { color: cssVar('--color-text-secondary') },
+							grid: { color: cssVar('--color-border') }
 						},
 						y: {
-							ticks: { color: '#9ca3af' },
-							grid: { color: '#0f3460' }
+							ticks: { color: cssVar('--color-text-secondary') },
+							grid: { color: cssVar('--color-border') }
 						}
 					}
 				}
@@ -288,14 +299,14 @@
 
 	h2 {
 		font-size: 1.125rem;
-		color: #eaeaea;
+		color: var(--color-text-primary);
 		margin-bottom: 1rem;
 	}
 
 	.loading {
 		text-align: center;
 		padding: 3rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 	}
 
 	.charts-grid {
@@ -306,9 +317,9 @@
 	}
 
 	.chart-card {
-		background-color: #16213e;
+		background-color: var(--color-bg-card);
 		border-radius: 8px;
-		border: 1px solid #0f3460;
+		border: 1px solid var(--color-border);
 		padding: 1.5rem;
 	}
 
@@ -321,9 +332,9 @@
 	}
 
 	.table-card {
-		background-color: #16213e;
+		background-color: var(--color-bg-card);
 		border-radius: 8px;
-		border: 1px solid #0f3460;
+		border: 1px solid var(--color-border);
 		padding: 1.5rem;
 		overflow-x: auto;
 	}
@@ -337,21 +348,21 @@
 	.data-table td {
 		padding: 0.75rem;
 		text-align: left;
-		border-bottom: 1px solid #0f3460;
+		border-bottom: 1px solid var(--color-border);
 	}
 
 	.data-table th {
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		font-weight: 500;
 		font-size: 0.875rem;
 	}
 
 	.data-table td {
-		color: #eaeaea;
+		color: var(--color-text-primary);
 		font-size: 0.875rem;
 	}
 
 	.data-table tbody tr:hover {
-		background-color: #0f3460;
+		background-color: var(--color-bg-elevated);
 	}
 </style>

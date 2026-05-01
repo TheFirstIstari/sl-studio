@@ -129,13 +129,13 @@
 	}
 
 	.backup-card {
-		background: var(--card-bg, #16213e);
+		background: var(--color-bg-card);
 		border-radius: 8px;
 		padding: 1.5rem;
 	}
 
 	.backup-card p {
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		margin-bottom: 1rem;
 	}
 
@@ -156,7 +156,7 @@
 
 	.hint {
 		font-size: 0.875rem;
-		color: #666;
+		color: var(--color-text-muted);
 		margin-top: 0.5rem;
 	}
 
@@ -171,21 +171,21 @@
 	}
 
 	.backup-btn {
-		background: #4a9eff;
-		color: white;
+		background: var(--color-status-info);
+		color: var(--color-text-inverse);
 	}
 
 	.backup-btn:hover:not(:disabled) {
-		background: #3a8eef;
+		background: var(--color-status-info);
 	}
 
 	.restore-btn {
-		background: #ff9800;
-		color: white;
+		background: var(--color-severity-medium-high);
+		color: var(--color-text-inverse);
 	}
 
 	.restore-btn:hover:not(:disabled) {
-		background: #f57c00;
+		background: var(--color-severity-medium-high);
 	}
 
 	button:disabled {
@@ -196,45 +196,45 @@
 	.last-backup {
 		margin-top: 1rem;
 		padding: 0.75rem;
-		background: #1a1a2e;
+		background: var(--color-bg-input);
 		border-radius: 4px;
 		font-size: 0.875rem;
-		color: #4caf50;
+		color: var(--color-status-confirmed);
 	}
 
 	.warning-box {
-		background: #fff3e0;
-		border-left: 4px solid #ff9800;
+		background: var(--color-accent-subtle);
+		border-left: 4px solid var(--color-severity-medium-high);
 		padding: 1rem;
 		margin-bottom: 1rem;
 		border-radius: 0 4px 4px 0;
 	}
 
 	.warning-box p {
-		color: #0f3460;
+		color: var(--color-bg-elevated);
 		margin: 0;
 	}
 
 	.status-message {
 		padding: 1rem;
-		background: #1a1a2e;
+		background: var(--color-bg-input);
 		border-radius: 4px;
 		margin-bottom: 1.5rem;
 	}
 
 	.status-message.error {
-		background: #f4433620;
-		color: #f44336;
+		background: var(--color-accent-subtle);
+		color: var(--color-severity-high);
 	}
 
 	.backup-info {
-		background: var(--card-bg, #16213e);
+		background: var(--color-bg-card);
 		border-radius: 8px;
 		padding: 1.5rem;
 	}
 
 	.backup-info ul {
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		padding-left: 1.5rem;
 	}
 

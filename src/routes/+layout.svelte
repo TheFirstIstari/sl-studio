@@ -5,9 +5,10 @@
 	import { goto } from '$app/navigation';
 	import {
 		initializeApp,
+		initTheme,
+		toggleTheme,
 		cleanupEventListeners,
 		config,
-		hardware,
 		stats,
 		workflow,
 		modelLoaded,
@@ -15,27 +16,29 @@
 		isLoading,
 		error,
 		refreshStats,
-		refreshWorkflow
+		refreshWorkflow,
+		theme
 	} from '$lib/stores/app';
 
+	// ---------------------------------------------------------------------------
+	// Navigation — 15 items (stats merged into dashboard, compare merged into results)
+	// ---------------------------------------------------------------------------
 	const navItems = [
-		{ href: '/', label: 'Dashboard', icon: 'dashboard', shortcut: 'G D' },
-		{ href: '/analysis', label: 'Analysis', icon: 'search', shortcut: 'G A' },
-		{ href: '/results', label: 'Results', icon: 'list', shortcut: 'G R' },
-		{ href: '/quality', label: 'Quality', icon: 'quality', shortcut: 'G Q' },
-		{ href: '/chains', label: 'Chains', icon: 'chain', shortcut: 'G H' },
-		{ href: '/entities', label: 'Entities', icon: 'entity', shortcut: 'G I' },
-		{ href: '/pipelines', label: 'Pipelines', icon: 'pipeline', shortcut: 'G P' },
-		{ href: '/timeline', label: 'Timeline', icon: 'timeline', shortcut: 'G T' },
-		{ href: '/stats', label: 'Statistics', icon: 'chart', shortcut: 'G S' },
-		{ href: '/network', label: 'Network', icon: 'network', shortcut: 'G N' },
-		{ href: '/maps', label: 'Maps', icon: 'map', shortcut: 'G M' },
-		{ href: '/anomalies', label: 'Anomalies', icon: 'alert', shortcut: 'G L' },
-		{ href: '/metadata', label: 'Metadata', icon: 'metadata', shortcut: 'G F' },
-		{ href: '/export', label: 'Export', icon: 'download', shortcut: 'G E' },
-		{ href: '/compare', label: 'Compare', icon: 'compare', shortcut: 'G C' },
-		{ href: '/backup', label: 'Backup', icon: 'backup', shortcut: 'G B' },
-		{ href: '/settings', label: 'Settings', icon: 'settings', shortcut: 'G ,' }
+		{ href: '/', label: 'Dashboard', shortcut: 'G D' },
+		{ href: '/analysis', label: 'Analysis', shortcut: 'G A' },
+		{ href: '/results', label: 'Results', shortcut: 'G R' },
+		{ href: '/quality', label: 'Quality', shortcut: 'G Q' },
+		{ href: '/chains', label: 'Chains', shortcut: 'G H' },
+		{ href: '/entities', label: 'Entities', shortcut: 'G I' },
+		{ href: '/pipelines', label: 'Pipelines', shortcut: 'G P' },
+		{ href: '/timeline', label: 'Timeline', shortcut: 'G T' },
+		{ href: '/network', label: 'Network', shortcut: 'G N' },
+		{ href: '/maps', label: 'Maps', shortcut: 'G M' },
+		{ href: '/anomalies', label: 'Anomalies', shortcut: 'G L' },
+		{ href: '/metadata', label: 'Metadata', shortcut: 'G F' },
+		{ href: '/export', label: 'Export', shortcut: 'G E' },
+		{ href: '/backup', label: 'Backup', shortcut: 'G B' },
+		{ href: '/settings', label: 'Settings', shortcut: 'G ,' }
 	];
 
 	let showShortcuts = $state(false);
@@ -49,11 +52,16 @@
 	};
 
 	function handleKeydown(event: KeyboardEvent) {
-		const key = event.key;
-
-		if (event.metaKey || event.ctrlKey) {
+		const target = event.target as HTMLElement;
+		// Don't fire nav shortcuts when typing in inputs
+		if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+			if (event.key === 'Escape') globalShortcuts['Escape']();
 			return;
 		}
+
+		if (event.metaKey || event.ctrlKey) return;
+
+		const key = event.key;
 
 		if (pressedKeys.length > 0 && pressedKeys[0] === 'g') {
 			const nav = navItems.find(
@@ -79,13 +87,14 @@
 	}
 
 	onMount(async () => {
+		initTheme();
 		window.addEventListener('keydown', handleKeydown);
 
 		// Initialize app stores ONCE
 		await initializeApp();
 		initialized = true;
 
-		// Setup periodic refresh for stats (every 10 seconds)
+		// Periodic refresh every 10 s
 		refreshInterval = setInterval(async () => {
 			await refreshWorkflow();
 			await refreshStats();
@@ -94,9 +103,7 @@
 
 	onDestroy(() => {
 		window.removeEventListener('keydown', handleKeydown);
-		if (refreshInterval) {
-			clearInterval(refreshInterval);
-		}
+		if (refreshInterval) clearInterval(refreshInterval);
 		cleanupEventListeners();
 	});
 
@@ -104,188 +111,353 @@
 </script>
 
 <div class="app">
-	<header class="header">
-		<div class="logo">
-			<svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<circle cx="12" cy="12" r="10" />
-				<path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
-				<circle cx="12" cy="12" r="4" />
-			</svg>
-			<span class="logo-text">SL Studio</span>
-		</div>
-		<div class="status">
-			{#if $isLoading}
-				<span class="status-dot loading"></span>
-				<span class="status-text">Loading...</span>
-			{:else if $error}
-				<span class="status-dot error"></span>
-				<span class="status-text">Error</span>
-			{:else if $projectInitialized}
-				<span class="status-dot ready"></span>
-				<span class="status-text">Ready</span>
-			{:else}
-				<span class="status-dot"></span>
-				<span class="status-text">Not initialized</span>
-			{/if}
-		</div>
-	</header>
+	<!-- ------------------------------------------------------------------ -->
+	<!-- Left sidebar -->
+	<!-- ------------------------------------------------------------------ -->
+	<aside class="sidebar">
+		<div class="sidebar-top">
+			<!-- Logo -->
+			<div class="logo">
+				<svg
+					class="logo-icon"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					aria-hidden="true"
+				>
+					<circle cx="12" cy="12" r="10" />
+					<path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+					<circle cx="12" cy="12" r="4" />
+				</svg>
+				<span class="logo-text">SL Studio</span>
+			</div>
 
-	<nav class="nav">
-		{#each navItems as item}
-			<a
-				href={item.href}
-				class="nav-item"
-				class:active={$page.url.pathname === item.href}
-				aria-current={$page.url.pathname === item.href ? 'page' : undefined}
-				title="{item.label} ({item.shortcut})"
+			<!-- Navigation -->
+			<nav aria-label="Main navigation">
+				{#each navItems as item}
+					<a
+						href={item.href}
+						class="nav-item"
+						class:active={$page.url.pathname === item.href}
+						aria-current={$page.url.pathname === item.href ? 'page' : undefined}
+						title="{item.label} ({item.shortcut})"
+					>
+						<span class="nav-label">{item.label}</span>
+					</a>
+				{/each}
+			</nav>
+		</div>
+
+		<!-- Sidebar footer: status + theme toggle -->
+		<div class="sidebar-bottom">
+			<div class="status-row">
+				<span
+					class="status-dot"
+					class:ready={$projectInitialized && !$error}
+					class:loading={$isLoading}
+					class:error={!!$error}
+					aria-hidden="true"
+				></span>
+				<span class="status-text">
+					{#if $isLoading}Loading…{:else if $error}Error{:else if $projectInitialized}Ready{:else}Not initialized{/if}
+				</span>
+			</div>
+
+			<button
+				class="theme-toggle"
+				onclick={toggleTheme}
+				title="Toggle {$theme === 'dark' ? 'light' : 'dark'} mode"
+				aria-label="Toggle colour theme"
 			>
-				<span class="nav-label">{item.label}</span>
-			</a>
-		{/each}
-	</nav>
-
-	<main class="main">
-		{#if !initialized || $isLoading}
-			<div class="loading-overlay">
-				<div class="loading-spinner"></div>
-				<p>Initializing SL Studio...</p>
-				{#if $error}
-					<p class="error">{$error}</p>
+				{#if $theme === 'dark'}
+					<!-- Sun icon -->
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+						<circle cx="12" cy="12" r="5" />
+						<path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+					</svg>
+				{:else}
+					<!-- Moon icon -->
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+						<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+					</svg>
 				{/if}
-			</div>
-		{:else}
-			{@render children()}
-		{/if}
-	</main>
+			</button>
 
-	{#if showShortcuts}
-		<div class="shortcuts-overlay" onclick={() => (showShortcuts = false)}>
-			<div class="shortcuts-panel" onclick={(e) => e.stopPropagation()}>
-				<h2>Keyboard Shortcuts</h2>
-				<ul>
-					{#each navItems as item}
-						<li>
-							<kbd>G</kbd> + <kbd>{item.shortcut.replace('G ', '').replace(',', '')}</kbd>
-							<span>{item.label}</span>
-						</li>
-					{/each}
-					<li><kbd>?</kbd><span>Toggle shortcuts</span></li>
-					<li><kbd>Esc</kbd><span>Close overlays</span></li>
-				</ul>
-			</div>
+			<button
+				class="shortcuts-btn"
+				onclick={() => (showShortcuts = true)}
+				title="Keyboard shortcuts (?)"
+				aria-label="Show keyboard shortcuts"
+			>?</button>
 		</div>
-	{/if}
+	</aside>
 
-	<!-- Shared state display in footer -->
-	{#if $projectInitialized && $workflow}
-		<footer class="workflow-bar">
-			<span class="stage" class:active={$workflow.is_scanning}>
-				Scan: {$workflow.files_scanned}
-			</span>
-			<span class="stage" class:active={$workflow.is_extracting}>
-				Extract: {$workflow.files_extracted}
-			</span>
-			<span class="stage" class:active={$workflow.is_analyzing}>
-				Analyze: {$workflow.files_analyzed}
-			</span>
-			<span class="current-file">{$workflow.current_file || 'Idle'}</span>
-		</footer>
-	{/if}
+	<!-- ------------------------------------------------------------------ -->
+	<!-- Main content area -->
+	<!-- ------------------------------------------------------------------ -->
+	<div class="content">
+		<main class="main" id="main-content">
+			{#if !initialized || $isLoading}
+				<div class="loading-overlay">
+					<div class="loading-spinner" aria-label="Loading" role="status"></div>
+					<p>Initialising SL Studio…</p>
+					{#if $error}
+						<p class="load-error">{$error}</p>
+					{/if}
+				</div>
+			{:else}
+				{@render children()}
+			{/if}
+		</main>
+
+		<!-- Workflow footer bar — only shown when a project is active -->
+		{#if $projectInitialized && $workflow}
+			<footer class="workflow-bar" aria-label="Workflow status">
+				<span class="stage" class:active={$workflow.is_scanning}>
+					Scan: {$workflow.files_scanned}
+				</span>
+				<span class="stage" class:active={$workflow.is_extracting}>
+					Extract: {$workflow.files_extracted}
+				</span>
+				<span class="stage" class:active={$workflow.is_analyzing}>
+					Analyze: {$workflow.files_analyzed}
+				</span>
+				<span class="current-file">{$workflow.current_file || 'Idle'}</span>
+			</footer>
+		{/if}
+	</div>
 </div>
 
+<!-- -------------------------------------------------------------------- -->
+<!-- Keyboard shortcuts overlay -->
+<!-- -------------------------------------------------------------------- -->
+{#if showShortcuts}
+	<div
+		class="shortcuts-overlay"
+		role="dialog"
+		aria-modal="true"
+		aria-label="Keyboard shortcuts"
+		tabindex="-1"
+		onclick={() => (showShortcuts = false)}
+		onkeydown={(e) => e.key === 'Escape' && (showShortcuts = false)}
+	>
+		<div
+			class="shortcuts-panel"
+			role="document"
+			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.stopPropagation()}
+		>
+			<div class="shortcuts-header">
+				<h2>Keyboard Shortcuts</h2>
+				<button
+					class="close-btn"
+					onclick={() => (showShortcuts = false)}
+					aria-label="Close shortcuts panel"
+				>×</button>
+			</div>
+			<ul>
+				{#each navItems as item}
+					<li>
+						<span class="shortcut-keys">
+							<kbd>G</kbd> <kbd>{item.shortcut.replace('G ', '').replace(',', ',')}</kbd>
+						</span>
+						<span class="shortcut-label">{item.label}</span>
+					</li>
+				{/each}
+				<li>
+					<span class="shortcut-keys"><kbd>?</kbd></span>
+					<span class="shortcut-label">Toggle shortcuts</span>
+				</li>
+				<li>
+					<span class="shortcut-keys"><kbd>Esc</kbd></span>
+					<span class="shortcut-label">Close overlays</span>
+				</li>
+			</ul>
+		</div>
+	</div>
+{/if}
+
 <style>
+	/* ------------------------------------------------------------------ */
+	/* App shell */
+	/* ------------------------------------------------------------------ */
 	.app {
 		display: flex;
-		flex-direction: column;
 		height: 100vh;
-		background: #f5f5f5;
+		overflow: hidden;
+		background-color: var(--color-bg-app);
+		color: var(--color-text-primary);
 	}
 
-	.header {
+	/* ------------------------------------------------------------------ */
+	/* Sidebar */
+	/* ------------------------------------------------------------------ */
+	.sidebar {
+		width: var(--sidebar-width);
+		flex-shrink: 0;
 		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 0.75rem 1rem;
-		background: #1a1a2e;
-		color: white;
+		flex-direction: column;
+		background-color: var(--color-bg-sidebar);
+		border-right: 1px solid var(--color-border);
+		overflow: hidden;
 	}
 
+	.sidebar-top {
+		flex: 1;
+		overflow-y: auto;
+		padding: var(--space-3) 0 var(--space-2);
+	}
+
+	/* Logo */
 	.logo {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: var(--space-2);
+		padding: var(--space-2) var(--space-4) var(--space-4);
 	}
 
 	.logo-icon {
-		width: 24px;
-		height: 24px;
+		width: 22px;
+		height: 22px;
+		color: var(--color-accent);
+		flex-shrink: 0;
 	}
 
 	.logo-text {
-		font-size: 1.125rem;
+		font-size: var(--text-base);
+		font-weight: 700;
+		color: #fff;
+		letter-spacing: -0.01em;
+	}
+
+	/* Nav items */
+	.nav-item {
+		display: flex;
+		align-items: center;
+		padding: var(--space-2) var(--space-4);
+		text-decoration: none;
+		color: rgba(255, 255, 255, 0.65);
+		font-size: var(--text-sm);
+		font-weight: 450;
+		border-radius: 0;
+		transition:
+			background-color var(--transition-fast),
+			color var(--transition-fast);
+		border-left: 3px solid transparent;
+	}
+
+	.nav-item:hover {
+		background-color: var(--color-bg-sidebar-hover);
+		color: #fff;
+	}
+
+	.nav-item.active {
+		background-color: var(--color-bg-sidebar-active);
+		color: var(--color-accent);
+		border-left-color: var(--color-accent);
 		font-weight: 600;
 	}
 
-	.status {
+	/* Sidebar bottom: status + controls */
+	.sidebar-bottom {
+		padding: var(--space-3) var(--space-3) var(--space-3);
+		border-top: 1px solid rgba(255, 255, 255, 0.08);
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		font-size: 0.875rem;
+		gap: var(--space-2);
+	}
+
+	.status-row {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		min-width: 0;
 	}
 
 	.status-dot {
-		width: 8px;
-		height: 8px;
+		width: 7px;
+		height: 7px;
 		border-radius: 50%;
-		background: #6b7280;
+		background: var(--color-status-unverified);
+		flex-shrink: 0;
 	}
 
 	.status-dot.ready {
-		background: #22c55e;
+		background: var(--color-status-ready);
 	}
 
 	.status-dot.loading {
-		background: #eab308;
+		background: var(--color-status-loading);
 		animation: pulse 1s infinite;
 	}
 
 	.status-dot.error {
-		background: #ef4444;
+		background: var(--color-severity-high);
 	}
 
-	.nav {
+	.status-text {
+		font-size: var(--text-xs);
+		color: rgba(255, 255, 255, 0.5);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.theme-toggle,
+	.shortcuts-btn {
+		background: none;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		color: rgba(255, 255, 255, 0.55);
+		border-radius: var(--radius-sm);
+		width: 26px;
+		height: 26px;
+		cursor: pointer;
 		display: flex;
-		gap: 0.25rem;
-		padding: 0.5rem 1rem;
-		background: white;
-		border-bottom: 1px solid #e5e7eb;
-		overflow-x: auto;
+		align-items: center;
+		justify-content: center;
+		font-size: var(--text-xs);
+		flex-shrink: 0;
+		transition:
+			color var(--transition-fast),
+			border-color var(--transition-fast),
+			background-color var(--transition-fast);
 	}
 
-	.nav-item {
-		padding: 0.5rem 0.75rem;
-		border-radius: 0.375rem;
-		text-decoration: none;
-		color: #374151;
-		font-size: 0.875rem;
-		transition: all 0.15s;
+	.theme-toggle:hover,
+	.shortcuts-btn:hover {
+		color: #fff;
+		border-color: rgba(255, 255, 255, 0.3);
+		background-color: rgba(255, 255, 255, 0.06);
 	}
 
-	.nav-item:hover {
-		background: #f3f4f6;
+	.theme-toggle svg {
+		width: 14px;
+		height: 14px;
 	}
 
-	.nav-item.active {
-		background: #1a1a2e;
-		color: white;
+	/* ------------------------------------------------------------------ */
+	/* Content column */
+	/* ------------------------------------------------------------------ */
+	.content {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+		overflow: hidden;
 	}
 
 	.main {
 		flex: 1;
-		overflow: auto;
+		overflow-y: auto;
+		background-color: var(--color-bg-page);
 		position: relative;
 	}
 
+	/* ------------------------------------------------------------------ */
+	/* Loading state */
+	/* ------------------------------------------------------------------ */
 	.loading-overlay {
 		position: absolute;
 		inset: 0;
@@ -293,19 +465,163 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		background: white;
-		gap: 1rem;
+		background-color: var(--color-bg-page);
+		gap: var(--space-4);
+		color: var(--color-text-secondary);
 	}
 
 	.loading-spinner {
-		width: 40px;
-		height: 40px;
-		border: 3px solid #e5e7eb;
-		border-top-color: #1a1a2e;
+		width: 36px;
+		height: 36px;
+		border: 3px solid var(--color-border);
+		border-top-color: var(--color-accent);
 		border-radius: 50%;
-		animation: spin 1s linear infinite;
+		animation: spin 0.9s linear infinite;
 	}
 
+	.load-error {
+		color: var(--color-severity-high);
+		font-size: var(--text-sm);
+	}
+
+	/* ------------------------------------------------------------------ */
+	/* Workflow footer bar */
+	/* ------------------------------------------------------------------ */
+	.workflow-bar {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		padding: 0 var(--space-4);
+		height: var(--footer-height);
+		background-color: var(--color-bg-footer);
+		border-top: 1px solid var(--color-border);
+		font-size: var(--text-xs);
+		color: rgba(255, 255, 255, 0.55);
+		flex-shrink: 0;
+	}
+
+	.stage {
+		padding: 2px var(--space-2);
+		background: rgba(255, 255, 255, 0.07);
+		border-radius: var(--radius-sm);
+		white-space: nowrap;
+	}
+
+	.stage.active {
+		background: var(--color-status-ready);
+		color: #fff;
+	}
+
+	.current-file {
+		flex: 1;
+		text-align: right;
+		opacity: 0.6;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	/* ------------------------------------------------------------------ */
+	/* Shortcuts overlay */
+	/* ------------------------------------------------------------------ */
+	.shortcuts-overlay {
+		position: fixed;
+		inset: 0;
+		background: var(--color-bg-overlay);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 200;
+		backdrop-filter: blur(2px);
+	}
+
+	.shortcuts-panel {
+		background: var(--color-bg-card);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-xl);
+		padding: var(--space-6);
+		max-width: 420px;
+		width: calc(100% - var(--space-8));
+		box-shadow: var(--shadow-lg);
+		max-height: 80vh;
+		overflow-y: auto;
+	}
+
+	.shortcuts-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: var(--space-4);
+	}
+
+	.shortcuts-header h2 {
+		margin: 0;
+		font-size: var(--text-lg);
+		font-weight: 600;
+		color: var(--color-text-primary);
+	}
+
+	.close-btn {
+		background: none;
+		border: none;
+		color: var(--color-text-muted);
+		font-size: 1.5rem;
+		cursor: pointer;
+		line-height: 1;
+		padding: 0 var(--space-1);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: var(--radius-sm);
+		transition: color var(--transition-fast);
+	}
+
+	.close-btn:hover {
+		color: var(--color-text-primary);
+	}
+
+	.shortcuts-panel ul {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+
+	.shortcuts-panel li {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		padding: var(--space-1) 0;
+	}
+
+	.shortcut-keys {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+		min-width: 80px;
+	}
+
+	.shortcut-label {
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+
+	kbd {
+		background-color: var(--color-bg-elevated);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		padding: 1px 6px;
+		font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+		font-size: var(--text-xs);
+		color: var(--color-text-primary);
+		white-space: nowrap;
+	}
+
+	/* ------------------------------------------------------------------ */
+	/* Animations */
+	/* ------------------------------------------------------------------ */
 	@keyframes spin {
 		to {
 			transform: rotate(360deg);
@@ -318,82 +634,7 @@
 			opacity: 1;
 		}
 		50% {
-			opacity: 0.5;
+			opacity: 0.4;
 		}
-	}
-
-	.error {
-		color: #ef4444;
-	}
-
-	.shortcuts-overlay {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 100;
-	}
-
-	.shortcuts-panel {
-		background: white;
-		padding: 1.5rem;
-		border-radius: 0.5rem;
-		max-width: 400px;
-		width: 100%;
-	}
-
-	.shortcuts-panel h2 {
-		margin: 0 0 1rem;
-		font-size: 1.125rem;
-	}
-
-	.shortcuts-panel ul {
-		list-style: none;
-		padding: 0;
-		margin: 0;
-	}
-
-	.shortcuts-panel li {
-		display: flex;
-		gap: 0.5rem;
-		padding: 0.25rem 0;
-	}
-
-	.shortcuts-panel kbd {
-		background: #f3f4f6;
-		padding: 0.125rem 0.375rem;
-		border-radius: 0.25rem;
-		font-family: monospace;
-		font-size: 0.75rem;
-	}
-
-	.workflow-bar {
-		display: flex;
-		gap: 1rem;
-		padding: 0.5rem 1rem;
-		background: #1a1a2e;
-		color: white;
-		font-size: 0.75rem;
-	}
-
-	.stage {
-		padding: 0.25rem 0.5rem;
-		background: rgba(255, 255, 255, 0.1);
-		border-radius: 0.25rem;
-	}
-
-	.stage.active {
-		background: #22c55e;
-	}
-
-	.current-file {
-		flex: 1;
-		text-align: right;
-		opacity: 0.7;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 </style>

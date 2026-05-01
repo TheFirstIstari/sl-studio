@@ -199,7 +199,7 @@
 		bottom: 10px;
 		right: 10px;
 		background: rgba(0, 0, 0, 0.9);
-		color: #fff;
+		color: var(--color-text-inverse);
 		padding: 1rem;
 		border-radius: 8px;
 		font-family: monospace;
@@ -211,7 +211,7 @@
 	h3 {
 		margin: 0 0 0.75rem 0;
 		font-size: 14px;
-		color: #4a9eff;
+		color: var(--color-status-info);
 	}
 
 	.controls {
@@ -223,16 +223,16 @@
 	.controls button {
 		flex: 1;
 		padding: 0.5rem;
-		background: #333;
-		color: #fff;
-		border: 1px solid #555;
+		background: var(--color-bg-elevated);
+		color: var(--color-text-inverse);
+		border: 1px solid var(--color-border);
 		border-radius: 4px;
 		cursor: pointer;
 		font-size: 11px;
 	}
 
 	.controls button:hover:not(:disabled) {
-		background: #444;
+		background: var(--color-bg-elevated);
 	}
 
 	.controls button:disabled {
@@ -247,7 +247,7 @@
 	}
 
 	.stat-card {
-		background: #222;
+		background: var(--color-bg-input);
 		padding: 0.5rem;
 		border-radius: 4px;
 		text-align: center;
@@ -256,14 +256,14 @@
 	.stat-card .label {
 		display: block;
 		font-size: 10px;
-		color: #888;
+		color: var(--color-text-muted);
 	}
 
 	.stat-card .value {
 		display: block;
 		font-size: 14px;
 		font-weight: bold;
-		color: #4ade80;
+		color: var(--color-status-confirmed);
 	}
 
 	.metrics-table {
@@ -280,11 +280,11 @@
 	td {
 		padding: 0.25rem 0.5rem;
 		text-align: left;
-		border-bottom: 1px solid #333;
+		border-bottom: 1px solid var(--color-border);
 	}
 
 	th {
-		color: #888;
+		color: var(--color-text-muted);
 		font-weight: normal;
 	}
 
@@ -293,13 +293,13 @@
 		align-items: center;
 		gap: 0.5rem;
 		margin-top: 0.75rem;
-		color: #f97316;
+		color: var(--color-severity-medium-high);
 	}
 
 	.pulse {
 		width: 8px;
 		height: 8px;
-		background: #f97316;
+		background: var(--color-severity-medium-high);
 		border-radius: 50%;
 		animation: pulse 1s infinite;
 	}

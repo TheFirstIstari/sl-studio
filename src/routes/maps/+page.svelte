@@ -154,7 +154,7 @@
 					onchange={reloadMap}
 				/>
 			</div>
-			<button class="refresh-btn" onclick={reloadMap}>
+			<button class="refresh-btn" onclick={reloadMap} aria-label="Refresh map">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 					<path d="M23 4v6h-6" />
 					<path d="M1 20v-6h6" />
@@ -291,21 +291,21 @@
 
 	.control-group label {
 		font-size: 0.875rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 	}
 
 	.control-group input {
 		width: 60px;
 		padding: 0.5rem;
-		background-color: #16213e;
-		border: 1px solid #0f3460;
+		background-color: var(--color-bg-card);
+		border: 1px solid var(--color-border);
 		border-radius: 6px;
-		color: #eaeaea;
+		color: var(--color-text-primary);
 		font-size: 0.875rem;
 	}
 
 	.range-separator {
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		font-size: 0.875rem;
 	}
 
@@ -315,17 +315,17 @@
 		justify-content: center;
 		width: 36px;
 		height: 36px;
-		background-color: #16213e;
-		border: 1px solid #0f3460;
+		background-color: var(--color-bg-card);
+		border: 1px solid var(--color-border);
 		border-radius: 6px;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		cursor: pointer;
 		transition: all 0.2s;
 	}
 
 	.refresh-btn:hover {
-		border-color: #e94560;
-		color: #eaeaea;
+		border-color: var(--color-accent);
+		color: var(--color-text-primary);
 	}
 
 	.refresh-btn svg {
@@ -341,19 +341,19 @@
 		align-items: center;
 		justify-content: center;
 		text-align: center;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 	}
 
 	.empty-icon {
 		width: 48px;
 		height: 48px;
-		color: #6b7280;
+		color: var(--color-text-muted);
 		margin-bottom: 1rem;
 	}
 
 	.empty-hint {
 		font-size: 0.875rem;
-		color: #6b7280;
+		color: var(--color-text-muted);
 		margin-top: 0.5rem;
 	}
 
@@ -368,20 +368,20 @@
 
 	.map {
 		flex: 1;
-		background-color: #16213e;
+		background-color: var(--color-bg-card);
 	}
 
 	.locations-panel {
 		width: 280px;
-		background-color: #16213e;
-		border-left: 1px solid #0f3460;
+		background-color: var(--color-bg-card);
+		border-left: 1px solid var(--color-border);
 		padding: 1rem;
 		overflow-y: auto;
 	}
 
 	.locations-panel h2 {
 		font-size: 1rem;
-		color: #eaeaea;
+		color: var(--color-text-primary);
 		margin-bottom: 1rem;
 	}
 
@@ -396,8 +396,8 @@
 		align-items: flex-start;
 		gap: 0.75rem;
 		padding: 0.75rem;
-		background-color: #1a1a2e;
-		border: 1px solid #0f3460;
+		background-color: var(--color-bg-input);
+		border: 1px solid var(--color-border);
 		border-radius: 6px;
 		cursor: pointer;
 		transition: all 0.2s;
@@ -406,12 +406,12 @@
 	}
 
 	.location-item:hover {
-		border-color: #e94560;
+		border-color: var(--color-accent);
 	}
 
 	.location-item.selected {
-		border-color: #e94560;
-		background-color: #0f3460;
+		border-color: var(--color-accent);
+		background-color: var(--color-bg-elevated);
 	}
 
 	.location-dot {
@@ -429,7 +429,7 @@
 
 	.location-name {
 		font-size: 0.875rem;
-		color: #eaeaea;
+		color: var(--color-text-primary);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -439,7 +439,7 @@
 		display: flex;
 		gap: 0.5rem;
 		font-size: 0.75rem;
-		color: #6b7280;
+		color: var(--color-text-muted);
 	}
 
 	.detail-panel {
@@ -448,8 +448,8 @@
 		top: 0;
 		bottom: 0;
 		width: 350px;
-		background-color: #16213e;
-		border-left: 1px solid #0f3460;
+		background-color: var(--color-bg-card);
+		border-left: 1px solid var(--color-border);
 		padding: 1.5rem;
 		overflow-y: auto;
 	}
@@ -463,7 +463,7 @@
 
 	.detail-header h2 {
 		font-size: 1.25rem;
-		color: #e94560;
+		color: var(--color-accent);
 	}
 
 	.close-btn {
@@ -471,31 +471,31 @@
 		height: 32px;
 		background: none;
 		border: none;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		font-size: 1.5rem;
 		cursor: pointer;
 		border-radius: 4px;
 	}
 
 	.close-btn:hover {
-		background-color: #0f3460;
-		color: #eaeaea;
+		background-color: var(--color-bg-elevated);
+		color: var(--color-text-primary);
 	}
 
 	.detail-row {
 		display: flex;
 		justify-content: space-between;
 		padding: 0.75rem 0;
-		border-bottom: 1px solid #0f3460;
+		border-bottom: 1px solid var(--color-border);
 	}
 
 	.detail-label {
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		font-size: 0.875rem;
 	}
 
 	.detail-value {
-		color: #eaeaea;
+		color: var(--color-text-primary);
 		font-size: 0.875rem;
 		font-weight: 500;
 	}
@@ -504,7 +504,7 @@
 		padding: 0.25rem 0.5rem;
 		border-radius: 4px;
 		font-size: 0.75rem;
-		color: #ffffff;
+		color: var(--color-text-inverse);
 	}
 
 	.detail-section {
@@ -513,12 +513,12 @@
 
 	.detail-section h3 {
 		font-size: 0.875rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		margin-bottom: 0.5rem;
 	}
 
 	.detail-section p {
-		color: #eaeaea;
+		color: var(--color-text-primary);
 		font-size: 0.875rem;
 		line-height: 1.5;
 	}
@@ -529,6 +529,6 @@
 	}
 
 	:global(.leaflet-container) {
-		background-color: #16213e;
+		background-color: var(--color-bg-card);
 	}
 </style>

@@ -212,8 +212,8 @@
 	}
 
 	.error-message {
-		background: #f44336;
-		color: white;
+		background: var(--color-severity-high);
+		color: var(--color-text-inverse);
 		padding: 0.75rem;
 		border-radius: 4px;
 		margin-bottom: 1rem;
@@ -228,7 +228,7 @@
 
 	.project-card {
 		flex: 1;
-		background: var(--card-bg, #16213e);
+		background: var(--color-bg-card);
 		border-radius: 8px;
 		padding: 1.5rem;
 	}
@@ -241,13 +241,13 @@
 		display: flex;
 		align-items: center;
 		font-weight: bold;
-		color: #666;
+		color: var(--color-text-muted);
 	}
 
 	.select-btn {
 		padding: 0.75rem 1.5rem;
-		background: #4a9eff;
-		color: white;
+		background: var(--color-status-info);
+		color: var(--color-text-inverse);
 		border: none;
 		border-radius: 4px;
 		cursor: pointer;
@@ -255,20 +255,20 @@
 	}
 
 	.select-btn:hover {
-		background: #3a8eef;
+		background: var(--color-status-info);
 	}
 
 	.selected-path {
 		font-size: 0.875rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		word-break: break-all;
 	}
 
 	.compare-btn {
 		width: 100%;
 		padding: 1rem;
-		background: #4caf50;
-		color: white;
+		background: var(--color-status-confirmed);
+		color: var(--color-text-inverse);
 		border: none;
 		border-radius: 4px;
 		font-size: 1.1rem;
@@ -277,7 +277,7 @@
 	}
 
 	.compare-btn:hover:not(:disabled) {
-		background: #43a047;
+		background: var(--color-status-confirmed);
 	}
 
 	.compare-btn:disabled {
@@ -286,7 +286,7 @@
 	}
 
 	.comparison-results {
-		background: var(--card-bg, #16213e);
+		background: var(--color-bg-card);
 		border-radius: 8px;
 		padding: 1.5rem;
 	}
@@ -297,7 +297,7 @@
 
 	.score-bar {
 		height: 24px;
-		background: #0f3460;
+		background: var(--color-bg-elevated);
 		border-radius: 12px;
 		overflow: hidden;
 		margin: 0.5rem 0;
@@ -305,20 +305,20 @@
 
 	.score-fill {
 		height: 100%;
-		background: linear-gradient(90deg, #4a9eff, #4caf50);
+		background: linear-gradient(90deg, var(--color-status-info), var(--color-status-confirmed));
 		transition: width 0.3s ease;
 	}
 
 	.timeline-correlation {
 		margin-bottom: 1.5rem;
 		padding: 1rem;
-		background: #1a1a2e;
+		background: var(--color-bg-input);
 		border-radius: 4px;
 	}
 
 	.date-range {
 		font-size: 0.875rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 	}
 
 	.entity-overlap {
@@ -335,22 +335,22 @@
 	td {
 		padding: 0.75rem;
 		text-align: left;
-		border-bottom: 1px solid #0f3460;
+		border-bottom: 1px solid var(--color-border);
 	}
 
 	th {
-		background: #1a1a2e;
+		background: var(--color-bg-input);
 		font-weight: 600;
 	}
 
 	.no-overlap {
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		font-style: italic;
 	}
 
 	.more {
 		margin-top: 0.5rem;
-		color: #9ca3af;
+		color: var(--color-text-secondary);
 		font-size: 0.875rem;
 	}
 </style>

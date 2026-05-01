@@ -177,7 +177,7 @@
 	}
 
 	.export-form {
-		background: var(--card-bg, #16213e);
+		background: var(--color-bg-card);
 		border-radius: 8px;
 		padding: 1.5rem;
 	}
@@ -202,17 +202,17 @@
 	input {
 		width: 100%;
 		padding: 0.5rem;
-		border: 1px solid #0f3460;
+		border: 1px solid var(--color-border);
 		border-radius: 4px;
-		background: #1a1a2e;
-		color: #fff;
+		background: var(--color-bg-input);
+		color: var(--color-text-inverse);
 	}
 
 	.export-btn {
 		width: 100%;
 		padding: 0.75rem;
-		background: #4a9eff;
-		color: white;
+		background: var(--color-status-info);
+		color: var(--color-text-inverse);
 		border: none;
 		border-radius: 4px;
 		font-size: 1rem;
@@ -221,7 +221,7 @@
 	}
 
 	.export-btn:hover:not(:disabled) {
-		background: #3a8eef;
+		background: var(--color-status-info);
 	}
 
 	.export-btn:disabled {
@@ -232,7 +232,7 @@
 	.status-message {
 		margin-top: 1rem;
 		padding: 0.75rem;
-		background: #1a1a2e;
+		background: var(--color-bg-input);
 		border-radius: 4px;
 		text-align: center;
 	}
@@ -255,18 +255,18 @@
 	td {
 		padding: 0.75rem;
 		text-align: left;
-		border-bottom: 1px solid #0f3460;
+		border-bottom: 1px solid var(--color-border);
 	}
 
 	th {
-		background: var(--card-bg, #16213e);
+		background: var(--color-bg-card);
 	}
 
 	.success {
-		color: #4caf50;
+		color: var(--color-status-confirmed);
 	}
 
 	.failed {
-		color: #f44336;
+		color: var(--color-severity-high);
 	}
 </style>

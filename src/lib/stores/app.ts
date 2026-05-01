@@ -293,3 +293,41 @@ export const hasProject: Readable<boolean> = derived(
 	config,
 	($config) => !!$config?.project?.evidence_root
 );
+
+// ---------------------------------------------------------------------------
+// Theme store — persisted in localStorage, applied to document.documentElement
+// ---------------------------------------------------------------------------
+type Theme = 'dark' | 'light';
+
+const THEME_KEY = 'sl-studio-theme';
+
+function getInitialTheme(): Theme {
+	if (typeof window === 'undefined') return 'dark';
+	const stored = localStorage.getItem(THEME_KEY) as Theme | null;
+	if (stored === 'light' || stored === 'dark') return stored;
+	return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+
+function applyTheme(t: Theme) {
+	if (typeof document !== 'undefined') {
+		document.documentElement.dataset.theme = t;
+	}
+}
+
+export const theme = writable<Theme>('dark');
+
+export function initTheme() {
+	const initial = getInitialTheme();
+	theme.set(initial);
+	applyTheme(initial);
+	theme.subscribe((t) => {
+		applyTheme(t);
+		if (typeof window !== 'undefined') {
+			localStorage.setItem(THEME_KEY, t);
+		}
+	});
+}
+
+export function toggleTheme() {
+	theme.update((t) => (t === 'dark' ? 'light' : 'dark'));
+}

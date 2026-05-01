@@ -90,6 +90,36 @@
 		</div>
 	</section>
 
+	{#if $stats && ($stats.total_facts > 0 || $stats.total_entities > 0)}
+		<section class="dashboard-section">
+			<h2>
+				Project summary
+				<a href="/stats" class="section-link" title="Full statistics page">Stats →</a>
+			</h2>
+			<div class="stat-grid">
+				<StatCard
+					value={$stats.total_facts ?? 0}
+					label="Total facts"
+					variant="info"
+				/>
+				<StatCard
+					value={$stats.total_entities ?? 0}
+					label="Entity mentions"
+				/>
+				<StatCard
+					value={$stats.average_quality != null ? ($stats.average_quality * 100).toFixed(0) + '%' : 'N/A'}
+					label="Avg quality"
+					variant={$stats.average_quality != null && $stats.average_quality >= 0.7 ? 'success' : 'warning'}
+				/>
+				<StatCard
+					value={$isLoading ? '...' : ($stats?.partial_count ?? 0)}
+					label="Needs review"
+					variant={($stats?.partial_count ?? 0) > 0 ? 'warning' : 'success'}
+				/>
+			</div>
+		</section>
+	{/if}
+
 	<section class="dashboard-section">
 		<h2>Quick actions</h2>
 		<div class="action-buttons">
@@ -129,6 +159,20 @@
 		font-weight: 600;
 		margin: 0 0 var(--space-3);
 		color: var(--color-text-secondary);
+		display: flex;
+		align-items: baseline;
+		gap: var(--space-3);
+	}
+
+	.section-link {
+		font-size: var(--text-xs);
+		font-weight: 400;
+		color: var(--color-accent);
+		text-decoration: none;
+	}
+
+	.section-link:hover {
+		text-decoration: underline;
 	}
 
 	.info-grid {

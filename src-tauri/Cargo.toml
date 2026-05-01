@@ -42,7 +42,7 @@ rayon = "1.10"
 
 sysinfo = "0.32"
 
-dirs = "5"
+dirs = "6"
 walkdir = "2"
 
 reqwest = { version = "0.12", features = ["stream", "json"] }
@@ -56,11 +56,12 @@ anyhow = "1"
 pdf-extract = "0.7"
 printpdf = "0.7"
 ocrs = "0.12"
-image = "0.25"
+image = { version = "0.25", default-features = false, features = [
+    "jpeg", "png", "bmp", "tiff", "gif", "webp",
+] }
 zip = "2"
 # symphonia = { version = "0.5", features = ["all"] }
 llama_cpp = { version = "0.3", features = ["metal"] }
-rand = "0.8"
 mupdf = "0.6"
 whatlang = "0.16"
 
