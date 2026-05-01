@@ -26,7 +26,6 @@
 	let search = $state('');
 
 	let threshold = $state(0.8);
-	let requireSameType = $state(true);
 
 	function key(s: EntityMatchSuggestion): string {
 		return `${s.entity_type}:${s.canonical_id}:${s.alias_id}`;
@@ -129,10 +128,6 @@
 					disabled={running}
 				/>
 				<span class="range-value">{threshold.toFixed(2)}</span>
-			</label>
-			<label class="inline-control">
-				<input type="checkbox" bind:checked={requireSameType} disabled />
-				Same type only
 			</label>
 		{/snippet}
 	</FilterBar>

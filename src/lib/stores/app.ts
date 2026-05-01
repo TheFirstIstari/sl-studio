@@ -122,7 +122,6 @@ export const error = writable<string | null>(null);
 // Event listeners for background tasks
 let unlistenExtraction: UnlistenFn | null = null;
 let unlistenAnalysis: UnlistenFn | null = null;
-let unlistenWorkflow: UnlistenFn | null = null;
 
 // Initialize all stores - called once in layout
 export async function initializeApp() {
@@ -216,10 +215,10 @@ export async function setupEventListeners() {
 			});
 		});
 
-		// Listen for workflow state changes
-		unlistenWorkflow = await listen<WorkflowState>('workflow_state', (event) => {
-			workflow.set(event.payload);
-		});
+		// Workflow state is polled every 10 s by the layout (see
+		// refreshWorkflow) because the backend updates state atomically in
+		// commands rather than broadcasting an event. Polling is sufficient
+		// for a UI that only needs best-effort freshness.
 	} catch (e) {
 		console.error('Failed to setup event listeners:', e);
 	}
@@ -234,10 +233,6 @@ export async function cleanupEventListeners() {
 	if (unlistenAnalysis) {
 		unlistenAnalysis();
 		unlistenAnalysis = null;
-	}
-	if (unlistenWorkflow) {
-		unlistenWorkflow();
-		unlistenWorkflow = null;
 	}
 }
 

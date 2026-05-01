@@ -8,6 +8,7 @@
 -->
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/core';
+	import { openUrl } from '@tauri-apps/plugin-opener';
 	import { onMount } from 'svelte';
 	import { PageHeader, StatCard, FilterBar } from '$lib/components';
 
@@ -180,13 +181,20 @@
 		return 'badge-none';
 	}
 
-	function openInMaps() {
+	async function openInMaps() {
 		if (!hasGps || !metadata) return;
 		const lat = metadata.gps_latitude!;
 		const lon = metadata.gps_longitude!;
 		// Open coordinates in OpenStreetMap (privacy-preserving, no API key).
+		// Use the Tauri opener plugin so the URL is launched in the user's
+		// default browser — window.open is blocked by the webview CSP.
 		const url = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}&zoom=15`;
-		window.open(url, '_blank');
+		try {
+			await openUrl(url);
+		} catch (e) {
+			console.error('Failed to open URL:', e);
+			error = `Failed to open browser: ${e}`;
+		}
 	}
 
 	function rawEntries(raw: Record<string, string>): [string, string][] {

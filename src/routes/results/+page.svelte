@@ -135,6 +135,64 @@
 		}
 	}
 
+	// ── Link to chain ────────────────────────────────────────────────────────
+	// FR-CHAIN: attach a fact (or many facts) to an evidence chain. A single
+	// modal handles both the single-fact path (from the detail panel) and the
+	// bulk path (from the selection toolbar).
+	interface ChainSummary {
+		id: number;
+		chain_name: string;
+		chain_type: string;
+		item_count: number;
+	}
+	let chainsList = $state<ChainSummary[]>([]);
+	let showLinkChain = $state(false);
+	let linkChainIds = $state<number[]>([]); // intelligence ids to link
+	let selectedChainId = $state<number | null>(null);
+	let linkRelType = $state('related');
+	let linkStrength = $state(0.8);
+	let linking = $state(false);
+
+	async function openLinkModal(ids: number[]) {
+		linkChainIds = ids;
+		showLinkChain = true;
+		selectedChainId = null;
+		try {
+			chainsList = await invoke<ChainSummary[]>('list_evidence_chains', {
+				limit: 500,
+				offset: 0
+			});
+		} catch (e) {
+			console.error('Failed to load chains:', e);
+			error = String(e);
+		}
+	}
+
+	async function confirmLinkToChain() {
+		if (!selectedChainId || linkChainIds.length === 0) return;
+		linking = true;
+		try {
+			for (const id of linkChainIds) {
+				await invoke('add_to_evidence_chain', {
+					chainId: selectedChainId,
+					intelligenceId: id,
+					relationshipType: linkRelType,
+					strength: linkStrength,
+					notes: null,
+					linkedBy: null
+				});
+			}
+			showLinkChain = false;
+			linkChainIds = [];
+			error = `Linked ${linkChainIds.length} fact(s) to chain.`;
+		} catch (e) {
+			console.error('Link to chain failed:', e);
+			error = `Link failed: ${e}`;
+		} finally {
+			linking = false;
+		}
+	}
+
 	let activeFilterCount = $derived.by(() => {
 		let count = 0;
 		if (filter) count++;
@@ -616,13 +674,20 @@
 								Export
 							</button>
 							<button
+								class="bulk-btn"
+								onclick={() => openLinkModal(Array.from(selectedIds))}
+								title="Attach the selected facts to an evidence chain"
+							>
+								Link to chain
+							</button>
+							<button
 								class="bulk-btn danger"
 								onclick={async () => {
 									if (selectedIds.size === 0) return;
 									if (!confirm(`Delete ${selectedIds.size} selected fact(s)?`)) return;
 									try {
 										const ids = Array.from(selectedIds);
-										const count = await invoke<number>('delete_facts', { ids });
+										await invoke<number>('delete_facts', { ids });
 										// Refresh facts
 										await loadFacts();
 										selectedIds = new Set();
@@ -705,7 +770,16 @@
 
 			{#if selectedFact}
 				<div class="fact-detail">
-					<h2>Fact Details</h2>
+					<div class="detail-header">
+						<h2>Fact Details</h2>
+						<button
+							class="btn sm primary"
+							onclick={() => selectedFact && openLinkModal([selectedFact.id])}
+							title="Attach this fact to an evidence chain"
+						>
+							Link to chain
+						</button>
+					</div>
 
 					<div class="detail-row">
 						<span class="detail-label">Filename:</span>
@@ -766,6 +840,64 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Link to chain modal -->
+<Modal
+	open={showLinkChain}
+	title={`Link ${linkChainIds.length} fact${linkChainIds.length === 1 ? '' : 's'} to chain`}
+	onclose={() => (showLinkChain = false)}
+>
+	{#snippet body()}
+		{#if chainsList.length === 0}
+			<p class="empty-state">
+				No evidence chains yet. Create one from the Chains page first.
+			</p>
+		{:else}
+			<div class="link-form">
+				<label>
+					Target chain
+					<select bind:value={selectedChainId}>
+						<option value={null}>Select a chain...</option>
+						{#each chainsList as c (c.id)}
+							<option value={c.id}>{c.chain_name} ({c.chain_type}, {c.item_count} items)</option>
+						{/each}
+					</select>
+				</label>
+				<label>
+					Relationship type
+					<select bind:value={linkRelType}>
+						<option value="related">Related</option>
+						<option value="causes">Causes</option>
+						<option value="follows">Follows</option>
+						<option value="precedes">Precedes</option>
+						<option value="corroborates">Corroborates</option>
+						<option value="contradicts">Contradicts</option>
+					</select>
+				</label>
+				<label>
+					Link strength ({linkStrength.toFixed(2)})
+					<input
+						type="range"
+						min="0"
+						max="1"
+						step="0.05"
+						bind:value={linkStrength}
+					/>
+				</label>
+			</div>
+		{/if}
+	{/snippet}
+	{#snippet footer()}
+		<button class="btn ghost" onclick={() => (showLinkChain = false)}>Cancel</button>
+		<button
+			class="btn primary"
+			onclick={confirmLinkToChain}
+			disabled={linking || !selectedChainId || chainsList.length === 0}
+		>
+			{linking ? 'Linking...' : 'Link'}
+		</button>
+	{/snippet}
+</Modal>
 
 <style>
 	.error-banner {
@@ -1359,5 +1491,43 @@
 
 	.conf-badge.high {
 		background-color: var(--color-status-confirmed);
+	}
+
+	/* Link-to-chain modal */
+	.detail-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: var(--space-3);
+		margin-bottom: var(--space-3);
+	}
+
+	.detail-header h2 {
+		margin: 0;
+	}
+
+	.link-form {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+
+	.link-form label {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		font-size: var(--text-sm);
+		color: var(--color-text-secondary);
+	}
+
+	.link-form select,
+	.link-form input {
+		background: var(--color-bg-input);
+		border: 1px solid var(--color-border);
+		color: var(--color-text-primary);
+		padding: var(--space-2) var(--space-3);
+		border-radius: var(--radius-md);
+		font-size: var(--text-sm);
+		font-family: inherit;
 	}
 </style>

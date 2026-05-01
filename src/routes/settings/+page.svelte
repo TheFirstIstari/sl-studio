@@ -67,10 +67,6 @@
 		registryDb: '',
 		intelligenceDb: '',
 		modelPath: '',
-		contextSize: 8192,
-		cpuWorkers: 6,
-		vramAllocation: 0.4,
-		batchSize: 6,
 		gpuBackend: 'cpu'
 	});
 
@@ -135,10 +131,6 @@
 					registryDb: loaded.project?.registry_db || '',
 					intelligenceDb: loaded.project?.intelligence_db || '',
 					modelPath: loaded.model?.local_path || '',
-					contextSize: loaded.model?.context_length || 8192,
-					cpuWorkers: loaded.hardware?.cpu_workers || 6,
-					vramAllocation: loaded.hardware?.gpu_memory_fraction ?? 0.4,
-					batchSize: loaded.processing?.batch_size || 6,
 					gpuBackend: loaded.hardware?.gpu_backend || 'cpu'
 				};
 			}
@@ -150,8 +142,6 @@
 				if (!config.gpuBackend || config.gpuBackend === 'cpu') {
 					config.gpuBackend = recommendedBackend;
 				}
-				config.cpuWorkers = hwStatus.cpu_threads || 8;
-				config.batchSize = hwStatus.scaling?.batch_size || 24;
 			}
 
 			hardwareInfo = await invoke<typeof hardwareInfo>('get_hardware_info');
@@ -195,13 +185,13 @@
 					source: 'local',
 					id: 'qwen-2.5-7b',
 					quantization: 'awq',
-					context_length: config.contextSize,
+					context_length: 8192,
 					downloaded: false,
 					local_path: config.modelPath
 				},
 				hardware: {
-					gpu_backend: 'metal', // Auto-detected
-					gpu_memory_fraction: 0.8, // Auto-detected (80%)
+					gpu_backend: config.gpuBackend, // User-selected (or detected)
+					gpu_memory_fraction: 0.8,
 					cpu_workers: hwInfo.cpu_workers, // Auto-detected
 					ocr_provider: 'onnx',
 					whisper_size: 'base'
