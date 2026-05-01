@@ -432,7 +432,7 @@
 						aria-label="Delete preset"
 						title="Delete preset"
 					>
-						×
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
 					</button>
 				</div>
 			{/each}
@@ -838,10 +838,16 @@
 		border: none;
 		border-left: 1px solid var(--color-border);
 		color: var(--color-text-muted);
-		padding: var(--space-1) var(--space-3);
-		font-size: var(--text-base);
+		padding: var(--space-1) var(--space-2);
 		cursor: pointer;
-		line-height: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.preset-delete svg {
+		width: 14px;
+		height: 14px;
 	}
 
 	.preset-delete:hover {

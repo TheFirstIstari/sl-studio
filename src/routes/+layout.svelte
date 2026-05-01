@@ -254,7 +254,9 @@
 					class="close-btn"
 					onclick={() => (showShortcuts = false)}
 					aria-label="Close shortcuts panel"
-				>×</button>
+				>
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+			</button>
 			</div>
 			<ul>
 				{#each navItems as item}
@@ -565,15 +567,18 @@
 		background: none;
 		border: none;
 		color: var(--color-text-muted);
-		font-size: 1.5rem;
 		cursor: pointer;
-		line-height: 1;
-		padding: 0 var(--space-1);
+		padding: var(--space-1);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		border-radius: var(--radius-sm);
 		transition: color var(--transition-fast);
+	}
+
+	.close-btn svg {
+		width: 18px;
+		height: 18px;
 	}
 
 	.close-btn:hover {

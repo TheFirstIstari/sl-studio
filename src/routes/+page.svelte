@@ -22,7 +22,9 @@
 	{#if $error}
 		<div class="error-banner" role="alert">
 			<span>{$error}</span>
-			<button class="dismiss" onclick={dismissError} aria-label="Dismiss error">×</button>
+			<button class="dismiss" onclick={dismissError} aria-label="Dismiss error">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+			</button>
 		</div>
 	{/if}
 
@@ -145,9 +147,17 @@
 		background: none;
 		border: none;
 		color: inherit;
-		font-size: 1.25rem;
 		cursor: pointer;
-		padding: 0 var(--space-1);
+		padding: var(--space-1);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: var(--radius-sm);
+	}
+
+	.error-banner .dismiss svg {
+		width: 16px;
+		height: 16px;
 	}
 
 	.dashboard-section {

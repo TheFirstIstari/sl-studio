@@ -538,7 +538,9 @@
 				<div class="side-panel">
 					<div class="panel-header">
 						<h2>Selection</h2>
-						<button class="close-btn" onclick={() => (selectedNode = null)}>×</button>
+						<button class="close-btn" onclick={() => (selectedNode = null)} aria-label="Close">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+					</button>
 					</div>
 
 					<div class="selection-info">
@@ -739,9 +741,16 @@
 		background: none;
 		border: none;
 		color: var(--color-text-secondary);
-		font-size: 1.25rem;
 		cursor: pointer;
 		border-radius: 4px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.close-btn svg {
+		width: 16px;
+		height: 16px;
 	}
 
 	.close-btn:hover {

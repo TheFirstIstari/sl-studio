@@ -335,7 +335,11 @@
 	{#if $workflow}
 		<div class="workflow-bar">
 			<div class="workflow-stage" class:done={$workflow.files_scanned > 0}>
-				<div class="stage-indicator">{$workflow.files_scanned > 0 ? '✓' : '1'}</div>
+				<div class="stage-indicator">
+					{#if $workflow.files_scanned > 0}
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+					{:else}1{/if}
+				</div>
 				<div class="stage-info">
 					<span class="stage-label">Scanned</span>
 					<span class="stage-count">{$workflow.files_scanned} files</span>
@@ -343,7 +347,11 @@
 			</div>
 			<div class="workflow-connector"></div>
 			<div class="workflow-stage" class:done={$workflow.files_extracted > 0}>
-				<div class="stage-indicator">{$workflow.files_extracted > 0 ? '✓' : '2'}</div>
+				<div class="stage-indicator">
+					{#if $workflow.files_extracted > 0}
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+					{:else}2{/if}
+				</div>
 				<div class="stage-info">
 					<span class="stage-label">Extracted</span>
 					<span class="stage-count">{$workflow.files_extracted} files</span>
@@ -351,7 +359,11 @@
 			</div>
 			<div class="workflow-connector"></div>
 			<div class="workflow-stage" class:done={$workflow.files_analyzed > 0}>
-				<div class="stage-indicator">{$workflow.files_analyzed > 0 ? '✓' : '3'}</div>
+				<div class="stage-indicator">
+					{#if $workflow.files_analyzed > 0}
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+					{:else}3{/if}
+				</div>
 				<div class="stage-info">
 					<span class="stage-label">Analyzed</span>
 					<span class="stage-count">{$workflow.files_analyzed} facts</span>
@@ -401,7 +413,7 @@
 					</div>
 				{:else if registryProgress.phase === 'complete'}
 					<div class="status-badge success">
-						<span class="badge-icon">✓</span>
+						<span class="badge-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
 						<span class="badge-text">{registryProgress.processed} files scanned</span>
 					</div>
 				{:else if registryProgress.phase === 'error'}
@@ -443,7 +455,7 @@
 					</div>
 				{:else if extractionProgress.phase === 'complete'}
 					<div class="status-badge success">
-						<span class="badge-icon">✓</span>
+						<span class="badge-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
 						<span class="badge-text">{extractionProgress.success_count} extracted</span>
 						{#if extractionProgress.error_count > 0}
 							<span class="badge-error">• {extractionProgress.error_count} failed</span>
@@ -494,7 +506,7 @@
 					<div class="progress-detail">{analysisProgress.processed}/{analysisProgress.total}</div>
 				{:else if analysisProgress.phase === 'complete'}
 					<div class="status-badge success">
-						<span class="badge-icon">✓</span>
+						<span class="badge-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
 						<span class="badge-text">{analysisProgress.current_file}</span>
 					</div>
 				{:else if analysisProgress.phase === 'error'}
@@ -616,6 +628,11 @@
 		font-size: 0.75rem;
 		font-weight: 600;
 		color: var(--color-text-muted);
+	}
+
+	.stage-indicator svg {
+		width: 14px;
+		height: 14px;
 	}
 
 	.workflow-stage.done .stage-indicator {
@@ -791,7 +808,13 @@
 	}
 
 	.badge-icon {
-		font-weight: 700;
+		display: flex;
+		align-items: center;
+	}
+
+	.badge-icon svg {
+		width: 14px;
+		height: 14px;
 	}
 
 	.badge-error {
