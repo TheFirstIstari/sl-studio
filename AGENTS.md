@@ -95,6 +95,9 @@ src-tauri/
 ## Testing
 
 - Rust unit tests: `cargo test` inside `src-tauri/`
+  - If `database_test` tests fail intermittently when run in parallel, use
+    `cargo test -- --test-threads=1` to serialise them (each test uses its own
+    `TempDir` but concurrent I/O can cause flakiness on some machines).
 - Frontend E2E (Playwright): `npm test` — requires a built app
 - No integration test suite yet; manual smoke-test via `npm run tauri dev`
 

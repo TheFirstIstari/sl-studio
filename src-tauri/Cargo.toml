@@ -8,7 +8,7 @@ license = "AGPL-3.0-only"
 
 [lib]
 name = "steinline_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+crate-type = ["cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -23,7 +23,7 @@ tauri-plugin-shell = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -45,16 +45,13 @@ sysinfo = "0.32"
 dirs = "5"
 walkdir = "2"
 
-reqwest = { version = "0.12", features = ["stream", "json", "blocking"] }
+reqwest = { version = "0.12", features = ["stream", "json"] }
 tokio-util = "0.7"
-futures = "0.3"
 
 chrono = { version = "0.4", features = ["serde"] }
 
 thiserror = "1"
 anyhow = "1"
-
-num_cpus = "1"
 
 pdf-extract = "0.7"
 printpdf = "0.7"
@@ -90,6 +87,7 @@ devtools = ["tauri/devtools"]
 [profile.dev]
 opt-level = 0
 debug = true
+split-debuginfo = "unpacked"  # macOS: avoids dsymutil pass on every incremental build
 
 [profile.test]
 opt-level = 0

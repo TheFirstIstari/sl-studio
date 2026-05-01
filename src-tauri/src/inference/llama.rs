@@ -36,7 +36,7 @@ pub struct LlamaConfig {
 impl Default for LlamaConfig {
     fn default() -> Self {
         // Use 4 threads (physical cores) for Apple Silicon - more doesn't help
-        let n_threads = (num_cpus::get() / 2).max(4) as u32;
+        let n_threads = (std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8) / 2).max(4) as u32;
         LlamaConfig {
             model_path: String::new(),
             context_size: 4096, // Must match model's native context

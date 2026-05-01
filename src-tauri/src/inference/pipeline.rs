@@ -157,7 +157,7 @@ pub struct PipelineRunner {
 
 impl PipelineRunner {
     pub fn new(model_path: Option<String>) -> Self {
-        let n_threads = num_cpus::get() as u32;
+        let n_threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4) as u32;
         let model_config = LlamaConfig {
             model_path: model_path.unwrap_or_default(),
             context_size: 16384,

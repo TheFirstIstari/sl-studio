@@ -1,0 +1,15 @@
+# Cargo workspace configuration
+# See: https://doc.rust-lang.org/cargo/reference/config.html
+
+[build]
+# Uncomment to use a faster linker on aarch64-apple-darwin.
+# Install lld via: brew install llvm
+# Then set the path below and uncomment these lines:
+#
+# [target.aarch64-apple-darwin]
+# rustflags = ["-C", "link-arg=-fuse-ld=/opt/homebrew/opt/llvm/bin/ld64.lld"]
+
+# Rust compiler flags applied to all targets in dev/test builds.
+# (Release flags are configured per-profile in src-tauri/Cargo.toml)
+[target.aarch64-apple-darwin]
+rustflags = []

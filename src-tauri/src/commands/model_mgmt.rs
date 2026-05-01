@@ -204,7 +204,7 @@ pub async fn download_model(
         .build()
         .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
 
-    let response = client
+    let mut response = client
         .get(&download_url)
         .header("Accept", "application/octet-stream")
         .header("User-Agent", "SL-Studio/0.2.0")
@@ -223,13 +223,10 @@ pub async fn download_model(
     let mut file =
         std::fs::File::create(&output_path).map_err(|e| format!("Failed to create file: {}", e))?;
 
-    use futures::stream::StreamExt;
     use std::io::Write;
-    let mut stream = response.bytes_stream();
     let mut bytes_downloaded = 0u64;
 
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|e| format!("Download error: {}", e))?;
+    while let Some(chunk) = response.chunk().await.map_err(|e| format!("Download error: {}", e))? {
         file.write_all(&chunk)
             .map_err(|e| format!("Failed to write: {}", e))?;
 

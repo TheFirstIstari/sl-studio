@@ -147,7 +147,7 @@ impl Default for AppConfig {
             hardware: HardwareConfig {
                 gpu_backend: GpuBackend::Cpu,
                 gpu_memory_fraction: 0.40,
-                cpu_workers: (num_cpus::get() as i32 - 2).max(1) as u32,
+                cpu_workers: (std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4) as i32 - 2).max(1) as u32,
                 auto_scale_workers: true,
                 batch_size: 6,
                 auto_scale_batch: true,

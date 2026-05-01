@@ -107,7 +107,7 @@ impl Default for ProjectFile {
             hardware: ProjectHardware {
                 gpu_backend: "cpu".to_string(),
                 gpu_memory_fraction: 0.45,
-                cpu_workers: num_cpus::get() as u32,
+                cpu_workers: std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4) as u32,
                 ocr_provider: "onnx".to_string(),
                 whisper_size: "base".to_string(),
             },
