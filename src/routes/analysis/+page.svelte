@@ -157,19 +157,25 @@
 
 	// Actions
 
+	// Busy state is sourced from the backend workflow via the global
+	// store. The backend BusyGuard is the authoritative mutex — it sets
+	// is_scanning / is_extracting / is_analyzing on entry and clears on
+	// drop (including on error or panic). We only use local booleans
+	// for the duration of each await so we can disable our own button
+	// before the next poll tick.
+	const busy = $derived(
+		!!($workflow?.is_scanning || $workflow?.is_extracting || $workflow?.is_analyzing) ||
+			scanning ||
+			extracting ||
+			analyzing
+	);
+
 	async function startScan() {
 		if (!$config?.project?.evidence_root) {
 			registryProgress.phase = 'error';
 			registryProgress.current_file = 'Please configure evidence folder first';
 			return;
 		}
-		// Update processing state
-		await invoke('update_processing_state', {
-			is_scanning: true,
-			is_extracting: false,
-			is_analyzing: false,
-			current_file: 'Starting scan...'
-		});
 		scanning = true;
 		registryProgress = {
 			phase: 'Initializing...',
@@ -178,36 +184,19 @@
 			total: 0,
 			current_file: ''
 		};
-		const scanTimeout = setTimeout(() => {
-			if (scanning) registryProgress.current_file = 'Scan still running...';
-		}, 300000);
 		try {
 			const result = await invoke<number>('start_registry');
 			registryProgress.phase = 'complete';
 			registryProgress.processed = result;
-			scanning = false;
-			// Clear processing state
-			await invoke('update_processing_state', {
-				is_scanning: false,
-				processed: result,
-				total: result
-			});
-			clearTimeout(scanTimeout);
 		} catch (e) {
 			registryProgress.phase = 'error';
 			registryProgress.current_file = `Error: ${e}`;
+		} finally {
 			scanning = false;
 		}
 	}
 
 	async function extractAllFiles() {
-		// Update processing state
-		await invoke('update_processing_state', {
-			is_scanning: false,
-			is_extracting: true,
-			is_analyzing: false,
-			current_file: 'Starting extraction...'
-		});
 		extracting = true;
 		extractionProgress = {
 			phase: 'Loading...',
@@ -222,7 +211,6 @@
 			if (queue.length === 0) {
 				extractionProgress.phase = 'complete';
 				extractionProgress.current_file = 'No files need extraction';
-				extracting = false;
 				return;
 			}
 			extractionProgress.total = queue.length;
@@ -252,13 +240,6 @@
 			analysisProgress.current_file = 'No model configured. Please download a model in Settings.';
 			return;
 		}
-		// Update processing state
-		await invoke('update_processing_state', {
-			is_scanning: false,
-			is_extracting: false,
-			is_analyzing: true,
-			current_file: 'Loading model...'
-		});
 		analyzing = true;
 		analysisProgress = { phase: 'Loading model...', current_file: '', processed: 0, total: 0 };
 		try {
@@ -289,7 +270,6 @@
 			if (queue.length === 0) {
 				analysisProgress.phase = 'complete';
 				analysisProgress.current_file = 'No files need analysis';
-				analyzing = false;
 				return;
 			}
 			analysisProgress.total = queue.length;
@@ -299,12 +279,6 @@
 			analysisProgress.processed = queue.length;
 			analysisProgress.phase = 'complete';
 			analysisProgress.current_file = `Analyzed ${queue.length} files`;
-			// Clear processing state
-			await invoke('update_processing_state', {
-				is_analyzing: false,
-				processed: queue.length,
-				total: queue.length
-			});
 		} catch (e) {
 			analysisProgress.phase = 'error';
 			analysisProgress.current_file = `Error: ${e}`;
@@ -427,7 +401,8 @@
 				<button
 					class="btn btn-primary"
 					onclick={startScan}
-					disabled={scanning || extracting || analyzing}
+					disabled={busy}
+					title={busy && !scanning ? 'Another operation is in progress' : undefined}
 				>
 					{scanning ? 'Scanning...' : 'Start Scan'}
 				</button>
@@ -475,7 +450,8 @@
 					<button
 						class="btn btn-primary"
 						onclick={extractAllFiles}
-						disabled={scanning || extracting || analyzing}
+						disabled={busy}
+						title={busy && !extracting ? 'Another operation is in progress' : undefined}
 					>
 						Extract All
 					</button>
@@ -523,7 +499,8 @@
 					<button
 						class="btn btn-primary"
 						onclick={analyzeExtractedFiles}
-						disabled={scanning || extracting || analyzing || !$config?.model?.local_path}
+						disabled={busy || !$config?.model?.local_path}
+						title={busy && !analyzing ? 'Another operation is in progress' : undefined}
 					>
 						Analyze Files
 					</button>

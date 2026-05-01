@@ -1,7 +1,99 @@
 use crate::commands::require_db;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tauri::State;
+
+/// One-at-a-time gate for the three long-running operations (scan,
+/// extract, analyze). The user workflow is confusing if two of these
+/// run concurrently — and they also fight for CPU, database writers,
+/// and the cancel flag. The guard:
+///
+///   1. Refuses to acquire if any of the flags is already set.
+///   2. Sets the caller's flag on construction.
+///   3. Clears it (and progress state) on drop, even on panic or early
+///      return. This is strictly more robust than asking the frontend
+///      to call `update_processing_state` before and after.
+///
+/// Usage inside a command:
+///
+///     let _guard = BusyGuard::acquire(&state, Operation::Scan)?;
+///     // ... long-running work ...
+///     // guard drops here, clearing state
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Operation {
+    Scan,
+    Extract,
+    Analyze,
+}
+
+impl Operation {
+    fn label(self) -> &'static str {
+        match self {
+            Operation::Scan => "Scanning",
+            Operation::Extract => "Extracting",
+            Operation::Analyze => "Analyzing",
+        }
+    }
+}
+
+pub struct BusyGuard {
+    state: Arc<std::sync::Mutex<crate::ProcessingState>>,
+    op: Operation,
+}
+
+impl BusyGuard {
+    /// Acquire the exclusive slot. Returns an error whose message
+    /// names the active operation so the frontend can surface it.
+    pub fn acquire(state: &State<AppState>, op: Operation) -> Result<Self, String> {
+        let mut proc = state.processing.lock().map_err(|e| e.to_string())?;
+        if proc.is_scanning || proc.is_extracting || proc.is_analyzing {
+            let active = if proc.is_scanning {
+                Operation::Scan
+            } else if proc.is_extracting {
+                Operation::Extract
+            } else {
+                Operation::Analyze
+            };
+            return Err(format!(
+                "Cannot start {}: {} is already in progress. Wait for it to finish or cancel it first.",
+                op.label().to_lowercase(),
+                active.label().to_lowercase()
+            ));
+        }
+        match op {
+            Operation::Scan => proc.is_scanning = true,
+            Operation::Extract => proc.is_extracting = true,
+            Operation::Analyze => proc.is_analyzing = true,
+        }
+        // Reset progress counters for the fresh run.
+        proc.scan_progress = 0.0;
+        proc.extract_progress = 0.0;
+        proc.analyze_progress = 0.0;
+        proc.processed_count = 0;
+        proc.total_count = 0;
+        proc.current_file.clear();
+        drop(proc);
+
+        Ok(Self {
+            state: state.processing_arc(),
+            op,
+        })
+    }
+}
+
+impl Drop for BusyGuard {
+    fn drop(&mut self) {
+        if let Ok(mut proc) = self.state.lock() {
+            match self.op {
+                Operation::Scan => proc.is_scanning = false,
+                Operation::Extract => proc.is_extracting = false,
+                Operation::Analyze => proc.is_analyzing = false,
+            }
+            proc.current_file.clear();
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Stats {

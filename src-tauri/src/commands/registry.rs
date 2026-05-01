@@ -1,4 +1,5 @@
 use crate::commands::require_db;
+use crate::commands::workflow::{BusyGuard, Operation};
 use crate::core::{self, RegistryProgress, RegistryWorker};
 use crate::extractors;
 use crate::AppState;
@@ -7,6 +8,10 @@ use tracing::info;
 
 #[tauri::command]
 pub async fn start_registry(app: AppHandle, state: State<'_, AppState>) -> Result<usize, String> {
+    // Mutual-exclusion gate: scan/extract/analyze cannot run
+    // concurrently. The guard auto-clears the flag on drop.
+    let _guard = BusyGuard::acquire(&state, Operation::Scan)?;
+
     let (evidence_root, registry_db, intelligence_db) = {
         let config_guard = state
             .config

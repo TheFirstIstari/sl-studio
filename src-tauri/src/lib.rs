@@ -48,8 +48,18 @@ pub struct AppState {
     /// Written once during `init_reasoner`, read by all inference commands.
     pub reasoner: RwLock<Option<Arc<Reasoner>>>,
     pub cancel_flag: AtomicBool,
-    /// Updated frequently during batch runs; Mutex is appropriate here.
-    pub processing: Mutex<ProcessingState>,
+    /// Updated frequently during batch runs; Mutex wrapped in an Arc so
+    /// `BusyGuard` can hold its own owning handle and release the slot
+    /// from its `Drop` impl even if the command panics or returns early.
+    pub processing: Arc<Mutex<ProcessingState>>,
+}
+
+impl AppState {
+    /// Hand out an owned reference to the processing mutex. Used by
+    /// `BusyGuard` so the guard outlives the `State<AppState>` borrow.
+    pub fn processing_arc(&self) -> Arc<Mutex<ProcessingState>> {
+        Arc::clone(&self.processing)
+    }
 }
 
 impl Default for AppState {
@@ -67,7 +77,7 @@ impl Default for AppState {
             registry_worker: RwLock::new(None),
             reasoner: RwLock::new(None),
             cancel_flag: AtomicBool::new(false),
-            processing: Mutex::new(ProcessingState::default()),
+            processing: Arc::new(Mutex::new(ProcessingState::default())),
         }
     }
 }

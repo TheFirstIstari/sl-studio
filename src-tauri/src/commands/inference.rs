@@ -1,4 +1,5 @@
 use crate::commands::require_db;
+use crate::commands::workflow::{BusyGuard, Operation};
 use crate::core::IntelligenceEntry;
 use crate::inference::{self, Reasoner, ReasonerConfig};
 use crate::AppState;
@@ -137,6 +138,10 @@ pub async fn analyze_batch(
     state: State<'_, AppState>,
     fingerprints: Vec<String>,
 ) -> Result<Vec<inference::AnalysisResult>, String> {
+    // Mutual-exclusion gate: only one of scan/extract/analyze may run
+    // at a time. Guard auto-clears on drop.
+    let _guard = BusyGuard::acquire(&state, Operation::Analyze)?;
+
     let reasoner_arc = {
         let cached = state
             .reasoner

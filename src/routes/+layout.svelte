@@ -46,6 +46,19 @@
 	let initialized = $state(false);
 	let refreshInterval: ReturnType<typeof setInterval> | null = null;
 
+	// Single active backend operation (scan/extract/analyze). null when
+	// idle. Used to decorate the sidebar status and Analysis nav item so
+	// users can tell at a glance that work is in progress even if they
+	// have navigated away from the Analysis page.
+	const busyOp = $derived.by(() => {
+		const w = $workflow;
+		if (!w) return null;
+		if (w.is_scanning) return 'Scanning';
+		if (w.is_extracting) return 'Extracting';
+		if (w.is_analyzing) return 'Analyzing';
+		return null;
+	});
+
 	const globalShortcuts: Record<string, () => void> = {
 		'?': () => (showShortcuts = !showShortcuts),
 		Escape: () => (showShortcuts = false)
@@ -141,9 +154,12 @@
 						class="nav-item"
 						class:active={$page.url.pathname === item.href}
 						aria-current={$page.url.pathname === item.href ? 'page' : undefined}
-						title="{item.label} ({item.shortcut})"
+						title={item.href === '/analysis' && busyOp ? `${busyOp} in progress` : `${item.label} (${item.shortcut})`}
 					>
 						<span class="nav-label">{item.label}</span>
+						{#if item.href === '/analysis' && busyOp}
+							<span class="nav-busy-dot" aria-label="{busyOp} in progress"></span>
+						{/if}
 					</a>
 				{/each}
 			</nav>
@@ -154,13 +170,23 @@
 			<div class="status-row">
 				<span
 					class="status-dot"
-					class:ready={$projectInitialized && !$error}
-					class:loading={$isLoading}
+					class:ready={$projectInitialized && !$error && !busyOp}
+					class:loading={$isLoading || !!busyOp}
 					class:error={!!$error}
 					aria-hidden="true"
 				></span>
 				<span class="status-text">
-					{#if $isLoading}Loading…{:else if $error}Error{:else if $projectInitialized}Ready{:else}Not initialized{/if}
+					{#if $isLoading}
+						Loading…
+					{:else if $error}
+						Error
+					{:else if busyOp}
+						{busyOp}…
+					{:else if $projectInitialized}
+						Ready
+					{:else}
+						Not initialized
+					{/if}
 				</span>
 			</div>
 
@@ -359,6 +385,20 @@
 		color: var(--color-accent);
 		border-left-color: var(--color-accent);
 		font-weight: 600;
+	}
+
+	.nav-label {
+		flex: 1;
+	}
+
+	.nav-busy-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: var(--color-accent);
+		animation: pulse 1s infinite;
+		margin-left: var(--space-2);
+		flex-shrink: 0;
 	}
 
 	/* Sidebar bottom: status + controls */

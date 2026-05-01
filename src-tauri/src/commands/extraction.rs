@@ -1,4 +1,5 @@
 use crate::commands::require_db;
+use crate::commands::workflow::{BusyGuard, Operation};
 use crate::extractors;
 use crate::get_or_create_thread_pool;
 use crate::AppState;
@@ -101,6 +102,10 @@ pub async fn extract_batch(
 ) -> Result<Vec<ExtractionResult>, String> {
     use extractors::{Deconstructor, ExtractorConfig};
     use rayon::prelude::*;
+
+    // Mutual-exclusion gate: only one of scan/extract/analyze may run
+    // at a time. Guard auto-clears on drop.
+    let _guard = BusyGuard::acquire(&state, Operation::Extract)?;
 
     let workers = {
         if let Some(w) = cpu_workers {
