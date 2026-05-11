@@ -49,7 +49,7 @@ const DENIED_EXTENSIONS: &[&str] = &[
 pub struct Deconstructor {
     pdf: PdfExtractor,
     ocr: OcrExtractor,
-    audio: Option<AudioExtractor>,
+    audio: AudioExtractor,
 }
 
 impl Deconstructor {
@@ -57,8 +57,14 @@ impl Deconstructor {
         let pdf = PdfExtractor::new();
         let ocr = OcrExtractor::new().map_err(|e| ExtractionError::OcrError(e.to_string()))?;
 
-        let audio =
-            AudioExtractor::new().map_err(|e| ExtractionError::AudioError(e.to_string()))?;
+        // Whisper model path comes from the config's whisper_model_path field.
+        // If unset or the file is missing the extractor still works for metadata;
+        // transcription will return AudioError::ModelNotConfigured.
+        let whisper_model = _config
+            .whisper_model_path
+            .as_ref()
+            .map(|p| p.to_string_lossy().into_owned());
+        let audio = AudioExtractor::new(whisper_model);
 
         info!("Deconstructor initialized");
 
@@ -130,16 +136,11 @@ impl Deconstructor {
                 (text, "image".to_string())
             }
             "mp3" | "wav" | "mp4" | "m4a" | "m4v" | "ogg" | "flac" => {
-                if let Some(audio) = &self.audio {
-                    let text = audio
-                        .transcribe(path)
-                        .map_err(|e| ExtractionError::AudioError(e.to_string()))?;
-                    (text, "audio".to_string())
-                } else {
-                    return Err(ExtractionError::AudioError(
-                        "Audio transcription not available (whisper CLI not installed)".to_string(),
-                    ));
-                }
+                let text = self
+                    .audio
+                    .transcribe(path)
+                    .map_err(|e| ExtractionError::AudioError(e.to_string()))?;
+                (text, "audio".to_string())
             }
             "txt" | "md" | "json" | "xml" | "csv" => {
                 let text = std::fs::read_to_string(path)?;
@@ -244,7 +245,7 @@ impl Deconstructor {
     }
 
     pub fn is_audio_available(&self) -> bool {
-        self.audio.is_some()
+        self.audio.is_available()
     }
 
     /// Extract text from a scanned PDF by rendering pages and running OCR

@@ -36,6 +36,7 @@
 		total: number;
 		success_count: number;
 		error_count: number;
+		skipped_audio_count: number;
 	}
 
 	interface AnalysisProgress {
@@ -92,7 +93,8 @@
 		processed: 0,
 		total: 0,
 		success_count: 0,
-		error_count: 0
+		error_count: 0,
+		skipped_audio_count: 0
 	});
 	let analysisProgress = $state<AnalysisProgress>({
 		phase: '',
@@ -204,7 +206,8 @@
 			processed: 0,
 			total: 0,
 			success_count: 0,
-			error_count: 0
+			error_count: 0,
+			skipped_audio_count: 0
 		};
 		try {
 			const queue = await invoke<RegistryFile[]>('get_extraction_queue', { limit: 10000 });
@@ -221,7 +224,15 @@
 				cpuWorkers: $config?.hardware?.cpu_workers || 6
 			});
 			extractionProgress.success_count = results.filter((r) => r.success).length;
-			extractionProgress.error_count = results.filter((r) => !r.success).length;
+			const audioSkips = results.filter(
+				(r) =>
+					!r.success &&
+					(r.error?.includes('Whisper model not configured') ||
+						r.error?.includes('ModelNotConfigured') ||
+						r.error?.includes('model not configured'))
+			).length;
+			extractionProgress.skipped_audio_count = audioSkips;
+			extractionProgress.error_count = results.filter((r) => !r.success).length - audioSkips;
 			extractionProgress.processed = results.length;
 			extractionProgress.phase = 'complete';
 			extractionProgress.current_file = `Extracted ${extractionProgress.success_count}/${results.length} files`;
@@ -435,7 +446,21 @@
 						{#if extractionProgress.error_count > 0}
 							<span class="badge-error">• {extractionProgress.error_count} failed</span>
 						{/if}
+						{#if extractionProgress.skipped_audio_count > 0}
+							<span class="badge-audio-skip">• {extractionProgress.skipped_audio_count} audio skipped</span>
+						{/if}
 					</div>
+					{#if extractionProgress.skipped_audio_count > 0}
+						<div class="audio-skip-banner" role="status">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+								<path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/>
+							</svg>
+							<span>
+								<strong>{extractionProgress.skipped_audio_count} audio file{extractionProgress.skipped_audio_count === 1 ? '' : 's'} skipped</strong>
+								— no Whisper model configured. Set a model path in Settings to enable transcription.
+							</span>
+						</div>
+					{/if}
 				{:else if extractionProgress.phase === 'error'}
 					<div class="status-badge error">{extractionProgress.current_file}</div>
 				{:else}
@@ -796,6 +821,37 @@
 
 	.badge-error {
 		opacity: 0.7;
+	}
+
+	.badge-audio-skip {
+		color: #a855f7;
+		opacity: 0.9;
+	}
+
+	.audio-skip-banner {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
+		margin-top: 0.75rem;
+		padding: 0.625rem 0.875rem;
+		border-radius: var(--radius-md);
+		background: rgba(168, 85, 247, 0.08);
+		border: 1px solid rgba(168, 85, 247, 0.25);
+		font-size: var(--text-sm);
+		color: var(--color-text-secondary);
+		line-height: 1.4;
+	}
+
+	.audio-skip-banner svg {
+		width: 16px;
+		height: 16px;
+		flex-shrink: 0;
+		color: #a855f7;
+		margin-top: 2px;
+	}
+
+	.audio-skip-banner strong {
+		color: #a855f7;
 	}
 
 	/* Model Status */

@@ -5,6 +5,8 @@
 //!   `kamadak-exif` crate.
 //! - **PDFs**: Document Information Dictionary (Title, Author, Subject,
 //!   Keywords, Creator, Producer, CreationDate, ModDate) via `lopdf`.
+//! - **Audio** (mp3/wav/m4a/ogg/flac): duration, sample rate, channels,
+//!   and codec via symphonia (see `extractors::audio`).
 //!
 //! Returns a `DocumentMetadata` struct with both raw key/value pairs
 //! and a small set of normalized fields (author, created_at, etc.) so
@@ -15,6 +17,8 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, warn};
+
+use crate::extractors::audio::AudioExtractor;
 
 #[derive(Error, Debug)]
 pub enum MetadataError {
@@ -28,11 +32,13 @@ pub enum MetadataError {
     Exif(String),
     #[error("pdf parse error: {0}")]
     Pdf(String),
+    #[error("audio metadata error: {0}")]
+    Audio(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DocumentMetadata {
-    /// Type of metadata: "exif", "pdf", or "none".
+    /// Type of metadata: "exif", "pdf", "audio", or "none".
     pub source: String,
     /// Normalized fields (best-effort across formats).
     pub title: Option<String>,
@@ -46,6 +52,19 @@ pub struct DocumentMetadata {
     pub camera_model: Option<String>,
     pub gps_latitude: Option<f64>,
     pub gps_longitude: Option<f64>,
+    // ── Audio-specific fields (populated when source == "audio") ────────────
+    /// Duration in seconds.
+    pub audio_duration_seconds: Option<f64>,
+    /// Native sample rate in Hz (e.g. 44100, 48000).
+    pub audio_sample_rate: Option<u32>,
+    /// Number of audio channels (1 = mono, 2 = stereo).
+    pub audio_channels: Option<u32>,
+    /// Human-readable container format (e.g. "MP3", "FLAC", "WAV").
+    pub audio_format: Option<String>,
+    /// Codec identifier as reported by symphonia (e.g. "mp3", "aac").
+    pub audio_codec: Option<String>,
+    /// Bit-depth, if available (e.g. 16, 24).
+    pub audio_bits_per_sample: Option<u32>,
     /// All raw key/value pairs as detected. The keys are
     /// implementation-specific (e.g. `Image.Make`, `pdf:Author`).
     pub raw: std::collections::BTreeMap<String, String>,
@@ -74,6 +93,9 @@ pub fn extract_metadata(path: &Path) -> Result<DocumentMetadata, MetadataError> 
             extract_image_metadata(path)
         }
         "pdf" => extract_pdf_metadata(path),
+        "mp3" | "wav" | "m4a" | "m4v" | "mp4" | "ogg" | "flac" => {
+            extract_audio_metadata(path)
+        }
         _ => Ok(DocumentMetadata {
             source: "none".to_string(),
             ..Default::default()
@@ -202,6 +224,69 @@ pub fn extract_pdf_metadata(path: &Path) -> Result<DocumentMetadata, MetadataErr
     }
 
     Ok(meta)
+}
+
+/// Extract audio metadata (duration, sample rate, channels, codec) via symphonia.
+pub fn extract_audio_metadata(path: &Path) -> Result<DocumentMetadata, MetadataError> {
+    let extractor = AudioExtractor::default();
+    let audio = extractor
+        .get_metadata(path)
+        .map_err(|e| MetadataError::Audio(e.to_string()))?;
+
+    let mut raw = std::collections::BTreeMap::new();
+    if let Some(sr) = audio.sample_rate {
+        raw.insert("sample_rate".to_string(), format!("{} Hz", sr));
+    }
+    if let Some(ch) = audio.channels {
+        raw.insert(
+            "channels".to_string(),
+            match ch {
+                1 => "Mono".to_string(),
+                2 => "Stereo".to_string(),
+                n => format!("{} channels", n),
+            },
+        );
+    }
+    if let Some(bps) = audio.bits_per_sample {
+        raw.insert("bits_per_sample".to_string(), format!("{}-bit", bps));
+    }
+    if let Some(dur) = audio.duration_seconds {
+        let h = (dur / 3600.0) as u64;
+        let m = ((dur % 3600.0) / 60.0) as u64;
+        let s = (dur % 60.0) as u64;
+        raw.insert(
+            "duration".to_string(),
+            if h > 0 {
+                format!("{:02}:{:02}:{:02}", h, m, s)
+            } else {
+                format!("{:02}:{:02}", m, s)
+            },
+        );
+    }
+    raw.insert("format".to_string(), audio.format.clone());
+    if !audio.codec.is_empty() {
+        raw.insert("codec".to_string(), audio.codec.clone());
+    }
+    raw.insert(
+        "file_size".to_string(),
+        format!("{} bytes", audio.file_size_bytes),
+    );
+
+    Ok(DocumentMetadata {
+        source: "audio".to_string(),
+        audio_duration_seconds: audio.duration_seconds,
+        audio_sample_rate: audio.sample_rate,
+        audio_channels: audio.channels,
+        audio_format: Some(audio.format),
+        audio_codec: if audio.codec.is_empty() {
+            None
+        } else {
+            Some(audio.codec)
+        },
+        audio_bits_per_sample: audio.bits_per_sample,
+        raw,
+        ..Default::default()
+    })
 }
 
 /// Pull a UTF-8 string out of a lopdf::Object that might be a String or

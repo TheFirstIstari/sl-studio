@@ -24,7 +24,7 @@
 	}
 
 	interface DocumentMetadata {
-		source: string; // "exif" | "pdf" | "none"
+		source: string; // "exif" | "pdf" | "audio" | "none"
 		title: string | null;
 		author: string | null;
 		subject: string | null;
@@ -36,6 +36,13 @@
 		camera_model: string | null;
 		gps_latitude: number | null;
 		gps_longitude: number | null;
+		// Audio-specific fields
+		audio_duration_seconds: number | null;
+		audio_sample_rate: number | null;
+		audio_channels: number | null;
+		audio_format: string | null;
+		audio_codec: string | null;
+		audio_bits_per_sample: number | null;
 		raw: Record<string, string>;
 	}
 
@@ -66,11 +73,15 @@
 		})
 	);
 
-	// Count files with supported metadata formats
+	// Count files with supported metadata formats (images, PDFs, and audio)
 	let supportedCount = $derived(
 		files.filter((f) => {
 			const ext = f.file_name.split('.').pop()?.toLowerCase() ?? '';
-			return ['jpg', 'jpeg', 'png', 'tiff', 'tif', 'heic', 'heif', 'webp', 'pdf'].includes(ext);
+			return [
+				'jpg', 'jpeg', 'png', 'tiff', 'tif', 'heic', 'heif', 'webp',
+				'pdf',
+				'mp3', 'wav', 'm4a', 'mp4', 'ogg', 'flac'
+			].includes(ext);
 		}).length
 	);
 
@@ -172,13 +183,29 @@
 	function sourceLabel(source: string): string {
 		if (source === 'exif') return 'EXIF';
 		if (source === 'pdf') return 'PDF Info';
+		if (source === 'audio') return 'Audio';
 		return 'None';
 	}
 
 	function sourceBadgeClass(source: string): string {
 		if (source === 'exif') return 'badge-exif';
 		if (source === 'pdf') return 'badge-pdf';
+		if (source === 'audio') return 'badge-audio';
 		return 'badge-none';
+	}
+
+	function formatDuration(seconds: number): string {
+		const h = Math.floor(seconds / 3600);
+		const m = Math.floor((seconds % 3600) / 60);
+		const s = Math.floor(seconds % 60);
+		if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+		return `${m}:${String(s).padStart(2, '0')}`;
+	}
+
+	function formatChannels(n: number): string {
+		if (n === 1) return 'Mono';
+		if (n === 2) return 'Stereo';
+		return `${n} channels`;
 	}
 
 	async function openInMaps() {
@@ -205,7 +232,7 @@
 <div class="metadata page">
 	<PageHeader
 		title="Metadata"
-		subtitle="Extract and inspect EXIF and document metadata from evidence files"
+		subtitle="Extract and inspect EXIF, document, and audio metadata from evidence files"
 	>
 		{#snippet actions()}
 			<button class="btn ghost sm" onclick={loadFiles} disabled={loading}>
@@ -361,10 +388,34 @@
 									<button class="btn ghost sm" onclick={openInMaps}>View on map</button>
 								</dd>
 							{/if}
+							{#if metadata.source === 'audio'}
+								{#if metadata.audio_format}
+									<dt>Format</dt>
+									<dd>{metadata.audio_format}{metadata.audio_codec ? ` (${metadata.audio_codec})` : ''}</dd>
+								{/if}
+								{#if metadata.audio_duration_seconds !== null}
+									<dt>Duration</dt>
+									<dd>{formatDuration(metadata.audio_duration_seconds!)}</dd>
+								{/if}
+								{#if metadata.audio_sample_rate !== null}
+									<dt>Sample Rate</dt>
+									<dd>{metadata.audio_sample_rate!.toLocaleString()} Hz</dd>
+								{/if}
+								{#if metadata.audio_channels !== null}
+									<dt>Channels</dt>
+									<dd>{formatChannels(metadata.audio_channels!)}</dd>
+								{/if}
+								{#if metadata.audio_bits_per_sample !== null}
+									<dt>Bit Depth</dt>
+									<dd>{metadata.audio_bits_per_sample}-bit</dd>
+								{/if}
+							{/if}
 						</dl>
 
-						{#if !metadata.title && !metadata.author && !metadata.created_at && !metadata.camera_model && !hasGps}
+						{#if !metadata.title && !metadata.author && !metadata.created_at && !metadata.camera_model && !hasGps && metadata.source !== 'audio'}
 							<p class="no-meta-note">No normalized fields found in this file's metadata.</p>
+						{:else if metadata.source === 'audio' && metadata.audio_duration_seconds === null && metadata.audio_sample_rate === null}
+							<p class="no-meta-note">Audio file detected but no stream properties could be read.</p>
 						{/if}
 					</div>
 
@@ -586,6 +637,12 @@
 		background: rgba(233, 69, 96, 0.15);
 		color: var(--color-accent);
 		border: 1px solid rgba(233, 69, 96, 0.3);
+	}
+
+	.badge-audio {
+		background: rgba(168, 85, 247, 0.15);
+		color: #a855f7;
+		border: 1px solid rgba(168, 85, 247, 0.3);
 	}
 
 	.badge-none {

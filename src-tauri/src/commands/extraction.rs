@@ -57,6 +57,8 @@ pub struct ExtractionProgress {
     pub phase: String,
     pub success_count: usize,
     pub error_count: usize,
+    /// Number of audio files skipped because no whisper model is configured.
+    pub skipped_audio_count: usize,
 }
 
 #[tauri::command]
@@ -277,13 +279,25 @@ pub async fn extract_batch(
 
     let mut success_count = 0;
     let mut error_count = 0;
+    let mut skipped_audio_count = 0;
     let processed = all_results.len();
 
     for result in &all_results {
         if result.success {
             success_count += 1;
         } else {
-            error_count += 1;
+            // Distinguish "no whisper model" from real errors so the UI can
+            // show a targeted banner rather than a generic error count.
+            let is_audio_skip = result.error.as_deref().map_or(false, |e| {
+                e.contains("model not configured")
+                    || e.contains("ModelNotConfigured")
+                    || e.contains("Whisper model not configured")
+            });
+            if is_audio_skip {
+                skipped_audio_count += 1;
+            } else {
+                error_count += 1;
+            }
         }
     }
 
@@ -294,6 +308,7 @@ pub async fn extract_batch(
         phase: "Complete".to_string(),
         success_count,
         error_count,
+        skipped_audio_count,
     };
     app.emit("extraction_progress", progress).ok();
 
@@ -309,10 +324,11 @@ pub async fn extract_batch(
         let _ = db.log_audit(
             "extract_batch",
             &format!(
-                "total={},success={},errors={},cache_hits={}",
+                "total={},success={},errors={},skipped_audio={},cache_hits={}",
                 all_results.len(),
                 success_count,
                 error_count,
+                skipped_audio_count,
                 cache_hits
             ),
             None,

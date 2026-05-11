@@ -60,7 +60,14 @@ image = { version = "0.25", default-features = false, features = [
     "jpeg", "png", "bmp", "tiff", "gif", "webp",
 ] }
 zip = "2"
-# symphonia = { version = "0.5", features = ["all"] }
+# Audio: symphonia decodes mp3/wav/m4a/ogg/flac to raw PCM, whisper-rs
+# runs in-process whisper.cpp inference on Apple Silicon via Metal.
+symphonia = { version = "0.5", default-features = false, features = [
+    "aac", "alac", "flac", "mp3", "pcm", "vorbis",
+    "isomp4", "ogg", "wav",
+    "opt-simd",
+] }
+whisper-rs = { version = "0.14", features = ["metal", "tracing_backend"] }
 llama_cpp = { version = "0.3", features = ["metal"] }
 mupdf = "0.6"
 whatlang = "0.16"
