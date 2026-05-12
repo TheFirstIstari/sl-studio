@@ -32,6 +32,7 @@ export interface HardwareConfig {
 	auto_scale_batch: boolean;
 	ocr_provider: string;
 	whisper_size: string;
+	whisper_model_path: string | null;
 }
 
 export interface ProcessingConfig {

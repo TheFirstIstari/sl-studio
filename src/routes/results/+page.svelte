@@ -4,7 +4,7 @@
 	import { listen } from '@tauri-apps/api/event';
 
 	// Use shared stores
-	import { stats, workflow, refreshStats, refreshWorkflow } from '$lib/stores/app';
+	import { refreshWorkflow } from '$lib/stores/app';
 	import { PageHeader, FilterBar, Modal } from '$lib/components';
 	import { getSeverityColor, getCategoryIcon } from '$lib/utils';
 

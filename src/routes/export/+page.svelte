@@ -119,7 +119,7 @@
 				<option value="timeline-json">Timeline (JSON)</option>
 				<option value="full-report">Full Report (JSON)</option>
 				<option value="pdf-report">PDF Report</option>
-				<option value="excel-data">Excel Data (JSON)</option>
+				<option value="excel-data">Excel-compatible Data (JSON)</option>
 			</select>
 		</div>
 

@@ -133,7 +133,7 @@
 					intelligenceDb: loaded.project?.intelligence_db || '',
 					modelPath: loaded.model?.local_path || '',
 					gpuBackend: loaded.hardware?.gpu_backend || 'cpu',
-					whisperModelPath: (loaded.hardware as any)?.whisper_model_path || ''
+					whisperModelPath: loaded.hardware?.whisper_model_path || ''
 				};
 			}
 

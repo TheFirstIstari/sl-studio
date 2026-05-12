@@ -3,16 +3,8 @@
 	import { listen } from '@tauri-apps/api/event';
 	import { onMount, onDestroy } from 'svelte';
 
-	// Use shared stores for config, hardware, workflow, and model state
-	import {
-		config,
-		hardware,
-		hardwareInfo,
-		modelLoaded,
-		workflow,
-		refreshWorkflow,
-		refreshStats
-	} from '$lib/stores/app';
+	// Use shared stores for config, workflow, and model state
+	import { config, modelLoaded, workflow } from '$lib/stores/app';
 	import { PageHeader } from '$lib/components';
 
 	// Types
@@ -537,7 +529,9 @@
 		<section class="panel stats-panel">
 			<div class="panel-header">
 				<h2>Extraction Statistics</h2>
-				<button class="btn-icon" onclick={loadExtractionStats} title="Refresh">↻</button>
+				<button class="btn-icon" onclick={loadExtractionStats} title="Refresh">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" width="16" height="16"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+				</button>
 			</div>
 
 			{#if extractionStats}
