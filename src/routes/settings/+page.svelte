@@ -67,7 +67,8 @@
 		registryDb: '',
 		intelligenceDb: '',
 		modelPath: '',
-		gpuBackend: 'cpu'
+		gpuBackend: 'cpu',
+		whisperModelPath: ''
 	});
 
 	let recommendedBackend = $state('cpu');
@@ -131,7 +132,8 @@
 					registryDb: loaded.project?.registry_db || '',
 					intelligenceDb: loaded.project?.intelligence_db || '',
 					modelPath: loaded.model?.local_path || '',
-					gpuBackend: loaded.hardware?.gpu_backend || 'cpu'
+					gpuBackend: loaded.hardware?.gpu_backend || 'cpu',
+					whisperModelPath: (loaded.hardware as any)?.whisper_model_path || ''
 				};
 			}
 
@@ -194,7 +196,8 @@
 					gpu_memory_fraction: 0.8,
 					cpu_workers: hwInfo.cpu_workers, // Auto-detected
 					ocr_provider: 'onnx',
-					whisper_size: 'base'
+					whisper_size: 'base',
+					whisper_model_path: config.whisperModelPath || null
 				},
 				processing: {
 					batch_size: hwInfo.recommended_batch_size, // Auto-detected
@@ -268,6 +271,23 @@
 			}
 		} catch (e) {
 			console.error('Error selecting model:', e);
+		}
+	}
+
+	async function selectWhisperModel() {
+		try {
+			const selected = await open({
+				directory: false,
+				multiple: false,
+				title: 'Select Whisper Model File',
+				filters: [{ name: 'Whisper Models', extensions: ['bin'] }]
+			});
+
+			if (selected) {
+				config.whisperModelPath = selected as string;
+			}
+		} catch (e) {
+			console.error('Error selecting whisper model:', e);
 		}
 	}
 
@@ -435,6 +455,25 @@
 					<label for="gpu-backend">GPU Backend</label>
 					<div class="display-value" id="gpu-backend">{recommendedBackend}</div>
 					<p class="hint">Automatically detected</p>
+				</div>
+
+				<div class="form-group">
+					<label for="whisperModelPath">Whisper Model</label>
+					<div class="input-with-button">
+						<input
+							type="text"
+							id="whisperModelPath"
+							bind:value={config.whisperModelPath}
+							placeholder="/path/to/ggml-base.en.bin"
+							readonly
+						/>
+						<button class="browse-btn" onclick={selectWhisperModel}>Browse</button>
+					</div>
+					<p class="hint">
+						{config.whisperModelPath
+							? `Selected: ${config.whisperModelPath}`
+							: 'No model selected — audio transcription will be skipped'}
+					</p>
 				</div>
 			</section>
 

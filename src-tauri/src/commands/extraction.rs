@@ -182,7 +182,13 @@ pub async fn extract_batch(
     }
 
     let deconstructor = {
-        let config = ExtractorConfig::default();
+        let whisper_model_path = state
+            .config
+            .read()
+            .ok()
+            .and_then(|c| c.hardware.whisper_model_path.clone())
+            .map(std::path::PathBuf::from);
+        let config = ExtractorConfig { use_gpu_ocr: false, whisper_model_path };
         Deconstructor::new(config).map_err(|e| format!("Failed to create Deconstructor: {}", e))?
     };
 

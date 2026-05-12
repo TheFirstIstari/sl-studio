@@ -56,6 +56,8 @@ pub struct HardwareConfig {
     pub ocr_provider: String,
     #[serde(default = "default_whisper_size")]
     pub whisper_size: String,
+    #[serde(default)]
+    pub whisper_model_path: Option<String>,
 }
 
 fn default_gpu_backend() -> GpuBackend {
@@ -153,6 +155,7 @@ impl Default for AppConfig {
                 auto_scale_batch: true,
                 ocr_provider: "onnx".to_string(),
                 whisper_size: "base".to_string(),
+                whisper_model_path: None,
             },
             processing: ProcessingConfig {
                 batch_size: 6,

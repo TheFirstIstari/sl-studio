@@ -11,6 +11,7 @@
 //! out of scope here.
 
 use crate::extractors::pdf::PdfError;
+use lopdf::Document as LopdfDocument;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -37,32 +38,117 @@ pub struct KeyValuePair {
 
 /// Extract AcroForm field name/value pairs from a fillable PDF.
 ///
-/// # Current status
-///
-/// `mupdf-rs` 0.6 (our pinned version) only exposes `Page::run_widgets`, which
-/// *renders* widgets to a device — it does not give us iterable access to
-/// AcroForm field metadata (name, value, type). The underlying MuPDF C API
-/// supports it (`pdf_first_widget` / `pdf_next_widget`), but no safe Rust
-/// binding exists in this version.
-///
-/// Rather than pull in `lopdf` as a parallel parser (it ships as a transitive
-/// dep but adding it as a direct dep would split parsing across two stacks
-/// for a feature with no current consumer), we keep the API surface stable
-/// and return an empty `Vec`. Frontend callers can wire to this command
-/// today; when we upgrade `mupdf-rs` (or vendor a small extension over
-/// `mupdf-sys`) the implementation will fill in without an API break.
-///
-/// Returns `Ok(vec![])` — never an error — when no fields are found or when
-/// the PDF has no AcroForm. A genuine open/parse failure surfaces as
-/// [`PdfError`].
+/// Uses `lopdf` to walk the AcroForm field tree. Returns `Ok(vec![])` when
+/// the PDF has no AcroForm or no fields. A genuine open/parse failure
+/// surfaces as [`PdfError`].
 pub fn extract_pdf_form_fields(path: &Path) -> Result<Vec<FormField>, PdfError> {
-    // Validate that the file at least opens cleanly so a caller passing a
-    // bad path still gets a useful error rather than a silent empty Vec.
-    let _doc = mupdf::Document::open(path.to_string_lossy().as_ref())
+    let doc = LopdfDocument::load(path)
         .map_err(|e| PdfError::ExtractionError(format!("Failed to open PDF: {}", e)))?;
 
-    // mupdf-rs 0.6: no widget iteration API. See module docs.
-    Ok(Vec::new())
+    // Walk the AcroForm fields array from the document catalog.
+    let fields_array = {
+        let catalog = doc.catalog()
+            .map_err(|e| PdfError::ExtractionError(format!("No catalog: {}", e)))?;
+        match catalog.get(b"AcroForm") {
+            Ok(acroform_obj) => {
+                let acroform_id = acroform_obj.as_reference()
+                    .map_err(|e| PdfError::ExtractionError(format!("AcroForm ref: {}", e)))?;
+                let acroform_dict = doc.get_dictionary(acroform_id)
+                    .map_err(|e| PdfError::ExtractionError(format!("AcroForm dict: {}", e)))?;
+                match acroform_dict.get(b"Fields") {
+                    Ok(f) => f.as_array()
+                        .map_err(|e| PdfError::ExtractionError(format!("Fields array: {}", e)))?
+                        .clone(),
+                    Err(_) => return Ok(Vec::new()),
+                }
+            }
+            Err(_) => return Ok(Vec::new()),
+        }
+    };
+
+    let mut results = Vec::new();
+    for field_obj in &fields_array {
+        let field_id = match field_obj.as_reference() {
+            Ok(id) => id,
+            Err(_) => continue,
+        };
+        collect_fields(&doc, field_id, None, &mut results);
+    }
+
+    Ok(results)
+}
+
+/// Recursively walk a field node (and its Kids) collecting terminal fields.
+fn collect_fields(
+    doc: &LopdfDocument,
+    field_id: lopdf::ObjectId,
+    parent_name: Option<&str>,
+    out: &mut Vec<FormField>,
+) {
+    let dict = match doc.get_dictionary(field_id) {
+        Ok(d) => d,
+        Err(_) => return,
+    };
+
+    // Build full dotted name: parent.T
+    let partial = dict
+        .get(b"T")
+        .ok()
+        .and_then(|o| o.as_string().ok().map(|s| s.into_owned()));
+    let full_name = match (parent_name, partial.as_deref()) {
+        (Some(p), Some(n)) => format!("{}.{}", p, n),
+        (None, Some(n)) => n.to_owned(),
+        (Some(p), None) => p.to_owned(),
+        (None, None) => String::new(),
+    };
+
+    // If it has Kids, recurse — this is an intermediate node.
+    if let Ok(kids) = dict.get(b"Kids").and_then(|o| o.as_array()) {
+        let kids = kids.clone();
+        for kid in &kids {
+            if let Ok(kid_id) = kid.as_reference() {
+                collect_fields(doc, kid_id, Some(&full_name), out);
+            }
+        }
+        return;
+    }
+
+    // Terminal field — extract FT, V, and page number.
+    let field_type = dict
+        .get(b"FT")
+        .ok()
+        .and_then(|o| o.as_name_str().ok().map(|s| s.to_lowercase()))
+        .unwrap_or_else(|| "text".to_string());
+
+    let value = dict
+        .get(b"V")
+        .ok()
+        .and_then(|o| match o {
+            lopdf::Object::String(bytes, _) => Some(String::from_utf8_lossy(bytes).into_owned()),
+            lopdf::Object::Name(n) => Some(String::from_utf8_lossy(n).into_owned()),
+            lopdf::Object::Boolean(b) => Some(if *b { "true" } else { "false" }.to_string()),
+            _ => None,
+        })
+        .unwrap_or_default();
+
+    // Best-effort page number from the widget's /P reference.
+    let page = dict
+        .get(b"P")
+        .ok()
+        .and_then(|o| o.as_reference().ok())
+        .and_then(|page_id| {
+            doc.page_iter()
+                .position(|id| id == page_id)
+                .map(|i| i as u32 + 1)
+        })
+        .unwrap_or(0);
+
+    out.push(FormField {
+        name: full_name,
+        value,
+        field_type,
+        page,
+    });
 }
 
 fn kv_regex() -> &'static Regex {
@@ -174,13 +260,11 @@ Status: Active
     }
 
     #[test]
-    #[ignore = "requires AcroForm PDF fixture; mupdf 0.6 has no widget iteration API"]
+    #[ignore = "requires AcroForm PDF fixture; add tests/fixtures/sample_form.pdf to enable"]
     fn form_fields_returns_empty_for_non_form_pdf() {
-        // Placeholder: when a real fillable PDF fixture is added under
-        // tests/fixtures/, point this at it. For now the function always
-        // returns Ok(vec![]) so we cannot meaningfully test extraction.
+        // Point at a real fillable PDF fixture to test field extraction.
         let path = PathBuf::from("tests/fixtures/sample_form.pdf");
         let fields = extract_pdf_form_fields(&path).expect("open ok");
-        assert!(fields.is_empty());
+        assert!(!fields.is_empty());
     }
 }

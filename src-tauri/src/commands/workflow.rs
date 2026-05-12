@@ -17,9 +17,15 @@ use tauri::State;
 ///
 /// Usage inside a command:
 ///
-///     let _guard = BusyGuard::acquire(&state, Operation::Scan)?;
-///     // ... long-running work ...
-///     // guard drops here, clearing state
+/// ```no_run
+/// # use crate::commands::workflow::{BusyGuard, Operation};
+/// # fn example(state: &tauri::State<crate::AppState>) -> Result<(), String> {
+/// let _guard = BusyGuard::acquire(state, Operation::Scan)?;
+/// // ... long-running work ...
+/// // guard drops here, clearing state
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Operation {
     Scan,
