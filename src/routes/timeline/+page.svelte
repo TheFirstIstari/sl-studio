@@ -148,7 +148,7 @@
 
 	<div class="filter-bar">
 		<div class="filter-section">
-			<label class="filter-label">Zoom</label>
+			<span class="filter-label">Zoom</span>
 			<div class="zoom-controls">
 				<button class="zoom-btn" class:active={zoomLevel === 'day'} onclick={() => setZoom('day')}
 					>Day</button
@@ -168,7 +168,7 @@
 		</div>
 
 		<div class="filter-section">
-			<label class="filter-label">Date Range</label>
+			<span class="filter-label">Date Range</span>
 			<div class="date-inputs">
 				<input
 					type="date"
@@ -187,7 +187,7 @@
 		</div>
 
 		<div class="filter-section">
-			<label class="filter-label">Category</label>
+			<span class="filter-label">Category</span>
 			<div class="category-filters">
 				{#each categories as category}
 					<button
@@ -202,7 +202,7 @@
 		</div>
 
 		<div class="filter-section">
-			<label class="filter-label">Severity: {severityMin} - {severityMax}</label>
+			<span class="filter-label">Severity: {severityMin} - {severityMax}</span>
 			<div class="severity-range">
 				<input type="range" class="severity-slider" min="0" max="10" bind:value={severityMin} />
 				<input type="range" class="severity-slider" min="0" max="10" bind:value={severityMax} />
@@ -210,8 +210,9 @@
 		</div>
 
 		<div class="filter-section">
-			<label class="filter-label">Entity</label>
+			<label class="filter-label" for="entity-filter">Entity</label>
 			<input
+				id="entity-filter"
 				type="text"
 				class="entity-input"
 				placeholder="Search entity..."
@@ -310,8 +311,14 @@
 			<div class="detail-header">
 				<h2>Event Details</h2>
 				<button class="close-btn" onclick={() => (selectedEvent = null)} aria-label="Close">
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
-			</button>
+					<svg
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg
+					>
+				</button>
 			</div>
 			<div class="detail-content">
 				<div class="detail-row">

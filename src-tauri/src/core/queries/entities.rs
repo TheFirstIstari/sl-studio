@@ -4,6 +4,7 @@ use super::super::database::Database;
 use super::super::database::*;
 
 impl Database {
+    #[allow(clippy::type_complexity)]
     pub fn get_corroboration_candidates(
         &self,
         intelligence_id: i64,
@@ -44,7 +45,6 @@ impl Database {
     /// Build a deduped list of (id, type, value) entity tuples for the
     /// resolution scanner. Distinct by (entity_type, lower(value)) so we
     /// don't churn on per-document duplicates that already exist by design.
-
     pub fn list_distinct_entities(&self, limit: i64) -> Result<Vec<(i64, String, String)>> {
         let conn = self.intel_conn()?;
         let mut stmt = conn.prepare(
@@ -160,7 +160,6 @@ impl Database {
     /// `entities` / `intelligence` tables. Returns the distinct node ids and
     /// the edge list (weight = co-occurrence count) for edges where the
     /// co-occurrence is at least `min_cooccurrence`.
-
     pub fn get_entity_centrality(
         &self,
         entity_type: Option<&str>,
@@ -223,7 +222,6 @@ impl Database {
     /// Get entities connected to a given entity through shared evidence.
     /// Currently returns direct connections (distance=1) only.
     /// The `depth` parameter is reserved for future recursive traversal implementation.
-
     pub fn get_connected_entities(
         &self,
         entity_id: i64,

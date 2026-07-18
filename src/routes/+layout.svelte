@@ -151,7 +151,9 @@
 						class="nav-item"
 						class:active={$page.url.pathname === item.href}
 						aria-current={$page.url.pathname === item.href ? 'page' : undefined}
-						title={item.href === '/analysis' && busyOp ? `${busyOp} in progress` : `${item.label} (${item.shortcut})`}
+						title={item.href === '/analysis' && busyOp
+							? `${busyOp} in progress`
+							: `${item.label} (${item.shortcut})`}
 					>
 						<span class="nav-label">{item.label}</span>
 						{#if item.href === '/analysis' && busyOp}
@@ -195,13 +197,27 @@
 			>
 				{#if $theme === 'dark'}
 					<!-- Sun icon -->
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+					<svg
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						aria-hidden="true"
+					>
 						<circle cx="12" cy="12" r="5" />
-						<path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+						<path
+							d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+						/>
 					</svg>
 				{:else}
 					<!-- Moon icon -->
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+					<svg
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						aria-hidden="true"
+					>
 						<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
 					</svg>
 				{/if}
@@ -211,8 +227,8 @@
 				class="shortcuts-btn"
 				onclick={() => (showShortcuts = true)}
 				title="Keyboard shortcuts (?)"
-				aria-label="Show keyboard shortcuts"
-			>?</button>
+				aria-label="Show keyboard shortcuts">?</button
+			>
 		</div>
 	</aside>
 
@@ -267,7 +283,9 @@
 	>
 		<div
 			class="shortcuts-panel"
-			role="document"
+			role="dialog"
+			aria-label="Shortcuts list"
+			tabindex="-1"
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => e.stopPropagation()}
 		>
@@ -278,8 +296,14 @@
 					onclick={() => (showShortcuts = false)}
 					aria-label="Close shortcuts panel"
 				>
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
-			</button>
+					<svg
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg
+					>
+				</button>
 			</div>
 			<ul>
 				{#each navItems as item}

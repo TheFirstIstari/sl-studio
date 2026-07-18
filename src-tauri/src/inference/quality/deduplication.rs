@@ -210,7 +210,7 @@ pub fn find_duplicate_groups(
     }
 
     // Sort largest-first so the UI shows the highest-impact groups first.
-    out.sort_by(|a, b| b.member_ids.len().cmp(&a.member_ids.len()));
+    out.sort_by_key(|b| std::cmp::Reverse(b.member_ids.len()));
     out
 }
 

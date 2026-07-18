@@ -78,9 +78,21 @@
 		files.filter((f) => {
 			const ext = f.file_name.split('.').pop()?.toLowerCase() ?? '';
 			return [
-				'jpg', 'jpeg', 'png', 'tiff', 'tif', 'heic', 'heif', 'webp',
+				'jpg',
+				'jpeg',
+				'png',
+				'tiff',
+				'tif',
+				'heic',
+				'heif',
+				'webp',
 				'pdf',
-				'mp3', 'wav', 'm4a', 'mp4', 'ogg', 'flac'
+				'mp3',
+				'wav',
+				'm4a',
+				'mp4',
+				'ogg',
+				'flac'
 			].includes(ext);
 		}).length
 	);
@@ -391,7 +403,11 @@
 							{#if metadata.source === 'audio'}
 								{#if metadata.audio_format}
 									<dt>Format</dt>
-									<dd>{metadata.audio_format}{metadata.audio_codec ? ` (${metadata.audio_codec})` : ''}</dd>
+									<dd>
+										{metadata.audio_format}{metadata.audio_codec
+											? ` (${metadata.audio_codec})`
+											: ''}
+									</dd>
 								{/if}
 								{#if metadata.audio_duration_seconds !== null}
 									<dt>Duration</dt>
@@ -415,7 +431,9 @@
 						{#if !metadata.title && !metadata.author && !metadata.created_at && !metadata.camera_model && !hasGps && metadata.source !== 'audio'}
 							<p class="no-meta-note">No normalized fields found in this file's metadata.</p>
 						{:else if metadata.source === 'audio' && metadata.audio_duration_seconds === null && metadata.audio_sample_rate === null}
-							<p class="no-meta-note">Audio file detected but no stream properties could be read.</p>
+							<p class="no-meta-note">
+								Audio file detected but no stream properties could be read.
+							</p>
 						{/if}
 					</div>
 

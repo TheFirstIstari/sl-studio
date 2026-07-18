@@ -41,17 +41,13 @@ impl ExtractionQuality {
         let confidence = llm_confidence.clamp(0.0, 1.0);
 
         // Text coverage: ratio of fact summary length to source text length (simplified)
-        let text_coverage = (fact.summary.len() as f32 / source_text.len().max(1) as f32)
-            .min(1.0)
-            .max(0.0);
+        let text_coverage = (fact.summary.len() as f32 / source_text.len().max(1) as f32).clamp(0.0, 1.0);
 
         // Entity density: number of entities per 1000 characters
         let entity_density = (entities.len() as f32 / source_text.len().max(1) as f32) * 1000.0;
 
         // Quote quality: based on quote length relative to fact summary (simplified)
-        let quote_quality = (quote_length as f32 / fact.summary.len().max(1) as f32)
-            .min(1.0)
-            .max(0.0);
+        let quote_quality = (quote_length as f32 / fact.summary.len().max(1) as f32).clamp(0.0, 1.0);
 
         // Weighted average (weights can be adjusted)
         let overall = (confidence * 0.4)

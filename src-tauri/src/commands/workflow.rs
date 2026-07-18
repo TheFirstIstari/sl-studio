@@ -18,8 +18,9 @@ use tauri::State;
 /// Usage inside a command:
 ///
 /// ```no_run
-/// # use crate::commands::workflow::{BusyGuard, Operation};
-/// # fn example(state: &tauri::State<crate::AppState>) -> Result<(), String> {
+/// # use steinline_lib::commands::workflow::{BusyGuard, Operation};
+/// # use steinline_lib::AppState;
+/// # fn example(state: &tauri::State<AppState>) -> Result<(), String> {
 /// let _guard = BusyGuard::acquire(state, Operation::Scan)?;
 /// // ... long-running work ...
 /// // guard drops here, clearing state
@@ -142,6 +143,7 @@ pub fn get_stats(state: State<AppState>) -> Result<Stats, String> {
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn update_processing_state(
     state: State<AppState>,
     is_scanning: Option<bool>,

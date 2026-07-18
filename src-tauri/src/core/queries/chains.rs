@@ -147,6 +147,14 @@ impl Database {
         Ok(())
     }
 
+    /// The `evidence_chains` and `evidence_chain_links` tables do not have
+    /// soft-delete columns, so this performs a hard delete. This is
+    /// intentional — chains are user-curated groupings, not forensic
+    /// evidence, and can be recreated if needed.
+    ///
+    /// Per NFR-FOR-006, database operations on evidence tables MUST use
+    /// soft deletes — set `is_deleted = TRUE` and stamp `deleted_at`
+    /// rather than removing the row.
     pub fn remove_from_chain(&self, chain_id: i64, intelligence_id: i64) -> Result<()> {
         let conn = self.intel_conn()?;
         conn.execute(
@@ -156,11 +164,12 @@ impl Database {
         Ok(())
     }
 
-    /// Soft-delete an intelligence row.
+    /// Delete an evidence chain and all its links.
     ///
-    /// Per NFR-FOR-006, database operations MUST use soft deletes — set
-    /// `is_deleted = TRUE` and stamp `deleted_at` rather than removing the row.
-
+    /// The `evidence_chains` and `evidence_chain_links` tables do not have
+    /// soft-delete columns, so this performs a hard delete. This is intentional
+    /// — chains are user-curated groupings, not forensic evidence, and can be
+    /// recreated if needed.
     pub fn delete_chain(&self, chain_id: i64) -> Result<()> {
         let conn = self.intel_conn()?;
         conn.execute(
@@ -360,7 +369,7 @@ impl Database {
             }
         }
 
-        chains.sort_by(|a, b| b.related_count.cmp(&a.related_count));
+        chains.sort_by_key(|b| std::cmp::Reverse(b.related_count));
 
         let total_time = fetch_start.elapsed();
         info!(

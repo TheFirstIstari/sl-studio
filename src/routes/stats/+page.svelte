@@ -145,7 +145,14 @@
 					datasets: [
 						{
 							data: [],
-							backgroundColor: [cssVar('--color-accent'), cssVar('--color-entity-person'), cssVar('--color-entity-org'), cssVar('--color-entity-location'), cssVar('--color-entity-date'), cssVar('--color-severity-medium-high')]
+							backgroundColor: [
+								cssVar('--color-accent'),
+								cssVar('--color-entity-person'),
+								cssVar('--color-entity-org'),
+								cssVar('--color-entity-location'),
+								cssVar('--color-entity-date'),
+								cssVar('--color-severity-medium-high')
+							]
 						}
 					]
 				},

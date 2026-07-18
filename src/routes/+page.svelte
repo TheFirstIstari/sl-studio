@@ -23,7 +23,13 @@
 		<div class="error-banner" role="alert">
 			<span>{$error}</span>
 			<button class="dismiss" onclick={dismissError} aria-label="Dismiss error">
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+				<svg
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg
+				>
 			</button>
 		</div>
 	{/if}
@@ -99,19 +105,16 @@
 				<a href="/stats" class="section-link" title="Full statistics page">Stats →</a>
 			</h2>
 			<div class="stat-grid">
+				<StatCard value={$stats.total_facts ?? 0} label="Total facts" variant="info" />
+				<StatCard value={$stats.total_entities ?? 0} label="Entity mentions" />
 				<StatCard
-					value={$stats.total_facts ?? 0}
-					label="Total facts"
-					variant="info"
-				/>
-				<StatCard
-					value={$stats.total_entities ?? 0}
-					label="Entity mentions"
-				/>
-				<StatCard
-					value={$stats.average_quality != null ? ($stats.average_quality * 100).toFixed(0) + '%' : 'N/A'}
+					value={$stats.average_quality != null
+						? ($stats.average_quality * 100).toFixed(0) + '%'
+						: 'N/A'}
 					label="Avg quality"
-					variant={$stats.average_quality != null && $stats.average_quality >= 0.7 ? 'success' : 'warning'}
+					variant={$stats.average_quality != null && $stats.average_quality >= 0.7
+						? 'success'
+						: 'warning'}
 				/>
 				<StatCard
 					value={$isLoading ? '...' : ($stats?.partial_count ?? 0)}

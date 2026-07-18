@@ -490,7 +490,13 @@
 						aria-label="Delete preset"
 						title="Delete preset"
 					>
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg
+						>
 					</button>
 				</div>
 			{/each}
@@ -511,7 +517,6 @@
 					bind:value={newPresetName}
 					placeholder="e.g. High-severity financial"
 					class="form-input"
-					autofocus
 				/>
 			</label>
 			<p class="form-hint">Existing presets with the same name will be overwritten.</p>
@@ -709,13 +714,13 @@
 
 				{#each filteredFacts as fact}
 					<div class="fact-card" class:selected={selectedFact?.id === fact.id}>
-						<label class="fact-checkbox" onclick={(e) => e.stopPropagation()}>
+						<div class="fact-checkbox" role="presentation">
 							<input
 								type="checkbox"
 								checked={selectedIds.has(fact.id)}
 								onchange={() => toggleSelect(fact.id)}
 							/>
-						</label>
+						</div>
 						<button class="fact-content" onclick={() => (selectedFact = fact)}>
 							<div class="fact-header">
 								<svg
@@ -849,9 +854,7 @@
 >
 	{#snippet body()}
 		{#if chainsList.length === 0}
-			<p class="empty-state">
-				No evidence chains yet. Create one from the Chains page first.
-			</p>
+			<p class="empty-state">No evidence chains yet. Create one from the Chains page first.</p>
 		{:else}
 			<div class="link-form">
 				<label>
@@ -876,13 +879,7 @@
 				</label>
 				<label>
 					Link strength ({linkStrength.toFixed(2)})
-					<input
-						type="range"
-						min="0"
-						max="1"
-						step="0.05"
-						bind:value={linkStrength}
-					/>
+					<input type="range" min="0" max="1" step="0.05" bind:value={linkStrength} />
 				</label>
 			</div>
 		{/if}

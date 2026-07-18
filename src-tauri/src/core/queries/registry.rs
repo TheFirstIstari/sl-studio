@@ -71,7 +71,6 @@ impl Database {
     }
 
     /// Update a file's registry entry after processing
-
     pub fn update_registry_entry(
         &self,
         fingerprint: &str,
@@ -96,7 +95,6 @@ impl Database {
     }
 
     /// Get files ordered by processing priority for incremental processing
-
     pub fn get_priority_queue(&self, limit: i64) -> Result<Vec<RegistryEntry>> {
         let conn = self.reg_conn()?;
         let mut stmt = conn.prepare(
@@ -134,7 +132,6 @@ impl Database {
     }
 
     /// Scan for new or modified files and update registry
-
     pub fn scan_for_changes(
         &self,
         evidence_root: &str,
@@ -244,7 +241,6 @@ impl Database {
     }
 
     /// Hash a file for change detection
-
     fn hash_file(&self, path: &Path) -> std::io::Result<String> {
         use std::fs::File;
         use std::io::Read;
@@ -473,7 +469,6 @@ impl Database {
     }
 
     /// Get files that have extracted text but haven't been analyzed
-
     pub fn get_analysis_queue(&self, limit: i64) -> Result<Vec<RegistryEntry>> {
         let conn = self.reg_conn()?;
         let mut stmt = conn.prepare(
@@ -512,7 +507,6 @@ impl Database {
     }
 
     /// Mark a file as having extracted text
-
     pub fn mark_extracted(&self, fingerprint: &str, is_partial: bool) -> Result<()> {
         let conn = self.reg_conn()?;
         conn.execute(
@@ -527,7 +521,6 @@ impl Database {
     }
 
     /// Get extracted text from text_cache
-
     pub fn get_extracted_text(&self, fingerprint: &str) -> Result<Option<String>> {
         let conn = self.reg_conn()?;
         let mut stmt =
@@ -542,7 +535,6 @@ impl Database {
     }
 
     /// Get registry entry by fingerprint
-
     pub fn get_registry_entry(&self, fingerprint: &str) -> Result<RegistryEntry> {
         let conn = self.reg_conn()?;
         let mut stmt = conn.prepare(

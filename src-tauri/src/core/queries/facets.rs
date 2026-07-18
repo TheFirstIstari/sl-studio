@@ -17,7 +17,7 @@ impl Database {
 
     /// Returns (id, page, name, state_json, updated_at) tuples sorted by
     /// most-recently-updated first.
-
+    #[allow(clippy::type_complexity)]
     pub fn list_facet_presets(
         &self,
         page: &str,

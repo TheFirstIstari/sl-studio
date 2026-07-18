@@ -84,16 +84,11 @@ pub struct AudioMetadata {
 // ── AudioExtractor ────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct AudioExtractor {
     /// Absolute path to a ggml whisper model file.  `None` means "no model
     /// configured"; `get_metadata` still works but `transcribe` returns an error.
     pub model_path: Option<String>,
-}
-
-impl Default for AudioExtractor {
-    fn default() -> Self {
-        AudioExtractor { model_path: None }
-    }
 }
 
 impl AudioExtractor {

@@ -26,7 +26,6 @@ impl Database {
     /// Merge a duplicate group: soft-delete every member that is not the
     /// keeper and (optionally) annotate the keeper with the merge.
     /// Returns the number of rows soft-deleted.
-
     pub fn merge_duplicate_facts(&self, keeper_id: i64, member_ids: &[i64]) -> Result<usize> {
         let conn = self.intel_conn()?;
         let mut deleted = 0usize;

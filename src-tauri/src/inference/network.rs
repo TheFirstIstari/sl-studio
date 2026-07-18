@@ -69,12 +69,12 @@ fn build_adjacency(
 // Community detection (connected components / union-find)
 // ---------------------------------------------------------------------------
 
-struct DSU {
+struct Dsu {
     parent: Vec<usize>,
     rank: Vec<u32>,
 }
 
-impl DSU {
+impl Dsu {
     fn new(n: usize) -> Self {
         Self {
             parent: (0..n).collect(),
@@ -126,7 +126,7 @@ pub fn detect_communities(
     for (i, &id) in node_ids.iter().enumerate() {
         idx.entry(id).or_insert(i);
     }
-    let mut dsu = DSU::new(n);
+    let mut dsu = Dsu::new(n);
     for e in edges {
         if let (Some(&u), Some(&v)) = (idx.get(&e.a), idx.get(&e.b)) {
             if u != v {

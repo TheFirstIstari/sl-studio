@@ -109,3 +109,4 @@ src-tauri/
 2. `npm run check` — must be clean
 3. `npm run lint` — no errors
 4. Optional: `npm run format:check`
+

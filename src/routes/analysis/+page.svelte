@@ -314,7 +314,13 @@
 			<div class="workflow-stage" class:done={$workflow.files_scanned > 0}>
 				<div class="stage-indicator">
 					{#if $workflow.files_scanned > 0}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="3"
+							aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg
+						>
 					{:else}1{/if}
 				</div>
 				<div class="stage-info">
@@ -326,7 +332,13 @@
 			<div class="workflow-stage" class:done={$workflow.files_extracted > 0}>
 				<div class="stage-indicator">
 					{#if $workflow.files_extracted > 0}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="3"
+							aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg
+						>
 					{:else}2{/if}
 				</div>
 				<div class="stage-info">
@@ -338,7 +350,13 @@
 			<div class="workflow-stage" class:done={$workflow.files_analyzed > 0}>
 				<div class="stage-indicator">
 					{#if $workflow.files_analyzed > 0}
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="3"
+							aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg
+						>
 					{:else}3{/if}
 				</div>
 				<div class="stage-info">
@@ -390,7 +408,15 @@
 					</div>
 				{:else if registryProgress.phase === 'complete'}
 					<div class="status-badge success">
-						<span class="badge-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
+						<span class="badge-icon"
+							><svg
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="3"
+								aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg
+							></span
+						>
 						<span class="badge-text">{registryProgress.processed} files scanned</span>
 					</div>
 				{:else if registryProgress.phase === 'error'}
@@ -433,22 +459,45 @@
 					</div>
 				{:else if extractionProgress.phase === 'complete'}
 					<div class="status-badge success">
-						<span class="badge-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
+						<span class="badge-icon"
+							><svg
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="3"
+								aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg
+							></span
+						>
 						<span class="badge-text">{extractionProgress.success_count} extracted</span>
 						{#if extractionProgress.error_count > 0}
 							<span class="badge-error">• {extractionProgress.error_count} failed</span>
 						{/if}
 						{#if extractionProgress.skipped_audio_count > 0}
-							<span class="badge-audio-skip">• {extractionProgress.skipped_audio_count} audio skipped</span>
+							<span class="badge-audio-skip"
+								>• {extractionProgress.skipped_audio_count} audio skipped</span
+							>
 						{/if}
 					</div>
 					{#if extractionProgress.skipped_audio_count > 0}
 						<div class="audio-skip-banner" role="status">
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-								<path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/>
+							<svg
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								aria-hidden="true"
+							>
+								<path
+									d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"
+								/>
 							</svg>
 							<span>
-								<strong>{extractionProgress.skipped_audio_count} audio file{extractionProgress.skipped_audio_count === 1 ? '' : 's'} skipped</strong>
+								<strong
+									>{extractionProgress.skipped_audio_count} audio file{extractionProgress.skipped_audio_count ===
+									1
+										? ''
+										: 's'} skipped</strong
+								>
 								— no Whisper model configured. Set a model path in Settings to enable transcription.
 							</span>
 						</div>
@@ -499,7 +548,15 @@
 					<div class="progress-detail">{analysisProgress.processed}/{analysisProgress.total}</div>
 				{:else if analysisProgress.phase === 'complete'}
 					<div class="status-badge success">
-						<span class="badge-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
+						<span class="badge-icon"
+							><svg
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="3"
+								aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg
+							></span
+						>
 						<span class="badge-text">{analysisProgress.current_file}</span>
 					</div>
 				{:else if analysisProgress.phase === 'error'}
@@ -530,7 +587,20 @@
 			<div class="panel-header">
 				<h2>Extraction Statistics</h2>
 				<button class="btn-icon" onclick={loadExtractionStats} title="Refresh">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" width="16" height="16"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+					<svg
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						aria-hidden="true"
+						width="16"
+						height="16"
+						><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path
+							d="M21 3v5h-5"
+						/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path
+							d="M8 16H3v5"
+						/></svg
+					>
 				</button>
 			</div>
 
@@ -578,8 +648,6 @@
 </div>
 
 <style>
-	
-
 	.analysis-container {
 		max-width: 1400px;
 		padding: 1.5rem;

@@ -149,11 +149,11 @@ impl Database {
     fn run_migrations(&self) -> Result<()> {
         {
             let mut conn = self.reg_conn()?;
-            run_migrations(&mut *conn, &registry_migrations())?;
+            run_migrations(&mut conn, &registry_migrations())?;
         }
         {
             let mut conn = self.intel_conn()?;
-            run_migrations(&mut *conn, &intelligence_migrations())?;
+            run_migrations(&mut conn, &intelligence_migrations())?;
         }
         Ok(())
     }

@@ -294,7 +294,7 @@ impl PipelineRunner {
         let sample_count = size.min(paragraphs.len());
         let stride = paragraphs.len().max(1) / sample_count.max(1);
         let selected: Vec<&str> = (0..sample_count)
-            .map(|i| paragraphs[(i * stride).min(paragraphs.len() - 1)].as_ref())
+            .map(|i| paragraphs[(i * stride).min(paragraphs.len() - 1)])
             .collect();
 
         selected.join("\n\n")

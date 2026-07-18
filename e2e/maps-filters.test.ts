@@ -61,7 +61,6 @@ test.describe('Maps Severity Filter', () => {
 			const initialMatch = initialText.match(/Locations \((\d+) of (\d+)\)/);
 
 			if (initialMatch) {
-				const filteredCount = parseInt(initialMatch[1]);
 				const totalCount = parseInt(initialMatch[2]);
 
 				// Apply severity filter

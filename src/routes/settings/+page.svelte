@@ -588,7 +588,6 @@
 	}
 
 	input[type='text'],
-	input[type='number'],
 	select {
 		width: 100%;
 		padding: 0.625rem 0.875rem;
@@ -607,19 +606,6 @@
 	select:focus {
 		outline: none;
 		border-color: var(--color-accent);
-	}
-
-	input[type='range'] {
-		width: 100%;
-		accent-color: var(--color-accent);
-	}
-
-	.range-value {
-		display: inline-block;
-		margin-left: 0.5rem;
-		font-size: 0.875rem;
-		color: var(--color-accent);
-		font-weight: 600;
 	}
 
 	.display-value {

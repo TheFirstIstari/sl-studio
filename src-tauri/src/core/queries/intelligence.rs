@@ -167,7 +167,6 @@ impl Database {
     ///
     /// Returns only non-deleted intelligence rows projected down to the
     /// fields the dedup engine actually needs.
-
     /// Update the detected source language (ISO 639-3) for a single
     /// intelligence row. Used by FR-LANG to populate the column after
     /// extraction-time language detection. Returns the number of rows

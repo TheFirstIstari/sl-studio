@@ -49,3 +49,7 @@ src-tauri/src/inference/~
 swebok-v4.txt
 specguide.txt
 rfc2119.txt
+
+# MemPalace per-project files (issue #185)
+mempalace.yaml
+entities.json

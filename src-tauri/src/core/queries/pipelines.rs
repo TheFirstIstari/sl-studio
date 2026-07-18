@@ -28,7 +28,7 @@ impl Database {
 
     /// Returns (id, name, description, passes_json, is_builtin) for every
     /// stored pipeline, newest-updated first.
-
+    #[allow(clippy::type_complexity)]
     pub fn list_pipelines(&self) -> Result<Vec<(String, String, String, String, bool)>> {
         let conn = self.intel_conn()?;
         let mut stmt = conn.prepare(
@@ -49,6 +49,7 @@ impl Database {
         rows.collect()
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn get_pipeline(&self, id: &str) -> Result<Option<(String, String, String, String, bool)>> {
         let conn = self.intel_conn()?;
         let mut stmt = conn.prepare(

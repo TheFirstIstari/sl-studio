@@ -21,6 +21,7 @@ pub struct ExtractionStats {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct ExtractionResult {
     pub fingerprint: String,
     pub path: String,
@@ -32,21 +33,6 @@ pub struct ExtractionResult {
     pub extraction_text: Option<String>,
     #[serde(skip)]
     pub is_partial: bool,
-}
-
-impl Default for ExtractionResult {
-    fn default() -> Self {
-        Self {
-            fingerprint: String::new(),
-            path: String::new(),
-            success: false,
-            char_count: 0,
-            error: None,
-            quality: None,
-            extraction_text: None,
-            is_partial: false,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -294,7 +280,7 @@ pub async fn extract_batch(
         } else {
             // Distinguish "no whisper model" from real errors so the UI can
             // show a targeted banner rather than a generic error count.
-            let is_audio_skip = result.error.as_deref().map_or(false, |e| {
+            let is_audio_skip = result.error.as_deref().is_some_and(|e| {
                 e.contains("model not configured")
                     || e.contains("ModelNotConfigured")
                     || e.contains("Whisper model not configured")

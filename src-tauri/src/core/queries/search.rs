@@ -297,7 +297,6 @@ impl Database {
 
     /// Persist a pipeline. Acts as upsert (id is the primary key).
     /// `passes_json` is the JSON-serialized Vec<PipelinePass>.
-
     pub fn search_by_tags(
         &self,
         tags: &[String],
