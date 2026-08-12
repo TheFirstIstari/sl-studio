@@ -2,9 +2,11 @@
 
 ## Overview
 
-The models module (`models/mod.rs`, ~208 lines) manages GGUF model files for local LLM inference.
+The models module (`commands/mod.rs`, model management section) manages MLX models for local LLM inference via the `rapid-mlx` CLI.
 
 ## ModelManager
+
+Model management is handled through Tauri commands that invoke `rapid-mlx`:
 
 ```rust
 struct ModelManager {
@@ -14,56 +16,44 @@ struct ModelManager {
 
 ### Methods
 
-| Method                          | Description                       |
-| ------------------------------- | --------------------------------- |
-| `list_models()`                 | List all GGUF models in directory |
-| `select_model(path)`            | Set active model                  |
-| `delete_model(path)`            | Remove a model file               |
-| `detect_quantization(filename)` | Detect quantization from filename |
+| Method                              | Description                                |
+| ----------------------------------- | ------------------------------------------ |
+| `list_models()`                     | List all available MLX models              |
+| `select_model(model_name)`          | Set active MLX model                       |
+| `download_model(repo_id, filename)` | Pull model via `rapid-mlx pull`            |
+| `validate_model(model_name)`        | Validate model name or `.safetensors` file |
 
-## Quantization Types
+## Data Types
 
 ```rust
-enum Quantization {
-    Q4_0,
-    Q4_1,
-    Q4_K_M,
-    Q4_K_S,
-    Q5_0,
-    Q5_1,
-    Q5_K_M,
-    Q5_K_S,
-    Q6_K,
-    Q8_0,
-    F16,
-    F32,
+enum DType {
+    Float16,
+    BFloat16,
 }
 ```
 
-### Quantization Comparison
+### Data Type Comparison
 
-| Type   | Size     | Quality   | Speed   |
-| ------ | -------- | --------- | ------- |
-| Q4_K_M | ~4-5GB   | Good      | Fast    |
-| Q5_K_S | ~5-6GB   | Better    | Medium  |
-| Q8_0   | ~8-10GB  | Best      | Slow    |
-| F16    | ~14-16GB | Excellent | Slowest |
+| Type     | Size   | Quality | Speed  |
+| -------- | ------ | ------- | ------ |
+| Float16  | ~4-5GB | Good    | Fast   |
+| BFloat16 | ~5-6GB | Better  | Medium |
 
 ## Model Download
 
-Models can be downloaded from HuggingFace via the Settings page:
+Models can be downloaded via `rapid-mlx pull` from HuggingFace:
 
-1. Browse available models
-2. Select quantization level
+1. Browse available MLX models
+2. Select data type (float16 or bfloat16)
 3. Download with progress bar
-4. Model saved to `models_dir`
+4. Model cached by `rapid-mlx`
 
 ## Model Selection
 
-Users can select from downloaded models in Settings:
+Users can select from available MLX models in Settings:
 
-- List of available GGUF files
-- Model info (size, quantization)
+- List of available MLX models
+- Model info (size, dtype)
 - Active model indicator
 - Load/unload controls
 
@@ -73,19 +63,11 @@ For forensic document analysis with structured JSON extraction, these models are
 
 ### Primary Recommendations
 
-| Model                   | Size (Q4) | HuggingFace ID                       | Use Case                           |
-| ----------------------- | --------- | ------------------------------------ | ---------------------------------- |
-| **Qwen2.5-7B-Instruct** | ~4.5GB    | `Qwen/Qwen2.5-7B-Instruct-GGUF`      | Primary choice - clean JSON output |
-| **Qwen2.5-3B-Instruct** | ~2GB      | `Qwen/Qwen2.5-3B-Instruct-GGUF`      | Lightweight option                 |
-| **Phi-4 Mini**          | ~2.5GB    | `bartowski/Phi-4-mini-instruct-GGUF` | Good reasoning capabilities        |
-
-### Alternative Models
-
-| Model         | Size (Q4) | HuggingFace ID                         | Notes                                |
-| ------------- | --------- | -------------------------------------- | ------------------------------------ |
-| Phi-4 Mini    | ~2.5GB    | `bartowski/Phi-4-mini-instruct-GGUF`   | Good reasoning capabilities          |
-| Llama 3.2 3B  | ~2GB      | `bartowski/Llama-3.2-3B-Instruct-GGUF` | General purpose, needs prompt tuning |
-| Qwen 2.5 1.5B | ~1GB      | `bartowski/Qwen2.5-1.5B-Instruct-GGUF` | Lightweight option                   |
+| Model                   | Size   | MLX Model Name    | Use Case                         |
+| ----------------------- | ------ | ----------------- | -------------------------------- |
+| **Qwen 3.5 4B (4-bit)** | ~2.5GB | `qwen3.5-4b-4bit` | Recommended for 16GB Macs        |
+| **Qwen 3.5 9B (4-bit)** | ~5.5GB | `qwen3.5-9b-4bit` | Better quality for 32GB+ Macs    |
+| **Bonsai 27B (2-bit)**  | ~8GB   | `bonsai-27b-2bit` | High quality, requires 64GB+ RAM |
 
 ### Model Configuration
 
@@ -102,5 +84,5 @@ For best JSON extraction results:
 
 ### Known Limitations
 
-- **NuExtract 2.0**: Vision-only model - not supported by llama.cpp-rs backend
+- **NuExtract 2.0**: Vision-only model - not supported by MLX inference
 - **General instruction models**: May not follow JSON schema strictly without additional prompt engineering

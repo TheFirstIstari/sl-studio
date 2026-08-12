@@ -41,7 +41,7 @@ $HOME/
 # Rust toolchain files
 rust-toolchain.toml
 
-# Inference models (large GGUF files)
+# MLX model cache
 src-tauri/src/inference/~
 
 # Sample/reference files

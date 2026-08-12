@@ -11,6 +11,7 @@
 		filename: string;
 		size: number;
 		path: string;
+		mlx_model_name: string;
 	}
 
 	interface DownloadProgress {
@@ -41,23 +42,23 @@
 
 	const RECOMMENDED_MODELS = [
 		{
-			id: 'ggml-org/gemma-3-4b-it-GGUF',
-			name: 'Gemma 3 4B Instruct',
+			id: 'qwen3.5-4b-4bit',
+			name: 'Qwen 3.5 4B (4-bit)',
 			size: '~2.5GB',
-			quantization: 'Q4_K_M',
-			note: 'Recommended for 16GB Macs - 131K context, QAT quantization'
+			dtype: 'float16',
+			note: 'Recommended for 16GB Macs'
 		},
 		{
-			id: 'TheBloke/Mistral-7B-Instruct-v0.2-GGUF',
-			name: 'Mistral 7B Instruct',
-			size: '~4.1GB',
-			quantization: 'Q4_K_M'
+			id: 'qwen3.5-9b-4bit',
+			name: 'Qwen 3.5 9B (4-bit)',
+			size: '~5.5GB',
+			dtype: 'float16'
 		},
 		{
-			id: 'TheBloke/Llama-2-7B-Chat-GGUF',
-			name: 'Llama 2 7B Chat',
-			size: '~3.8GB',
-			quantization: 'Q4_K_M'
+			id: 'bonsai-27b-2bit',
+			name: 'Bonsai 27B (2-bit)',
+			size: '~8GB',
+			dtype: 'float16'
 		}
 	];
 
@@ -66,12 +67,10 @@
 		evidenceRoot: '',
 		registryDb: '',
 		intelligenceDb: '',
-		modelPath: '',
-		gpuBackend: 'cpu',
+		mlxModelName: '',
 		whisperModelPath: ''
 	});
 
-	let recommendedBackend = $state('cpu');
 	let loading = $state(true);
 	let saving = $state(false);
 	let statusMessage = $state('');
@@ -131,21 +130,15 @@
 					evidenceRoot: loaded.project?.evidence_root || '',
 					registryDb: loaded.project?.registry_db || '',
 					intelligenceDb: loaded.project?.intelligence_db || '',
-					modelPath: loaded.model?.local_path || '',
-					gpuBackend: loaded.hardware?.gpu_backend || 'cpu',
+					mlxModelName: loaded.model?.mlx_model_name || '',
 					whisperModelPath: loaded.hardware?.whisper_model_path || ''
 				};
 			}
 
 			const hwStatus = await invoke<HardwareStatus>('detect_hardware');
 			if (hwStatus) {
-				recommendedBackend = hwStatus.recommended_backend || 'cpu';
-				// If config doesn't have gpu_backend set yet, use recommended
-				if (!config.gpuBackend || config.gpuBackend === 'cpu') {
-					config.gpuBackend = recommendedBackend;
-				}
+				// Hardware status available for future GPU config
 			}
-
 			hardwareInfo = await invoke<typeof hardwareInfo>('get_hardware_info');
 
 			downloadedModels = await invoke<ModelInfo[]>('list_downloaded_models');
@@ -176,7 +169,7 @@
 			const hwInfo = await invoke<HardwareInfo>('get_hardware_info');
 
 			const configData = {
-				version: '0.2.0',
+				version: '0.3.0',
 				project: {
 					name: config.projectName,
 					evidence_root: config.evidenceRoot,
@@ -185,16 +178,20 @@
 				},
 				model: {
 					source: 'local',
-					id: 'qwen-2.5-7b',
-					quantization: 'awq',
+					id: config.mlxModelName || 'qwen3.5-4b-4bit',
+					mlx_model_name: config.mlxModelName || 'qwen3.5-4b-4bit',
+					dtype: 'float16',
 					context_length: 8192,
 					downloaded: false,
-					local_path: config.modelPath
+					local_path: ''
 				},
 				hardware: {
-					gpu_backend: config.gpuBackend, // User-selected (or detected)
+					gpu_backend: 'metal',
 					gpu_memory_fraction: 0.8,
-					cpu_workers: hwInfo.cpu_workers, // Auto-detected
+					cpu_workers: hwInfo.cpu_workers,
+					auto_scale_workers: true,
+					batch_size: hwInfo.recommended_batch_size,
+					auto_scale_batch: true,
 					ocr_provider: 'onnx',
 					whisper_size: 'base',
 					whisper_model_path: config.whisperModelPath || null
@@ -246,7 +243,7 @@
 				filename: ''
 			});
 
-			config.modelPath = result.path;
+			config.mlxModelName = result.mlx_model_name;
 			downloadedModels = await invoke<ModelInfo[]>('list_downloaded_models');
 			statusMessage = `Model downloaded: ${result.filename}`;
 		} catch (e) {
@@ -262,12 +259,12 @@
 			const selected = await open({
 				directory: false,
 				multiple: false,
-				title: 'Select GGUF Model File',
-				filters: [{ name: 'GGUF Models', extensions: ['gguf'] }]
+				title: 'Select MLX Model File',
+				filters: [{ name: 'MLX Models', extensions: ['safetensors'] }]
 			});
 
 			if (selected) {
-				config.modelPath = selected as string;
+				config.mlxModelName = selected as string;
 			}
 		} catch (e) {
 			console.error('Error selecting model:', e);
@@ -415,18 +412,18 @@
 				</div>
 
 				<div class="form-group">
-					<label for="modelPath">Or Select Local Model</label>
+					<label for="mlxModelName">Or Enter MLX Model Name</label>
 					<div class="input-with-button">
 						<input
 							type="text"
-							id="modelPath"
-							bind:value={config.modelPath}
-							placeholder="/path/to/model.gguf"
+							id="mlxModelName"
+							bind:value={config.mlxModelName}
+							placeholder="e.g. qwen3.5-4b-4bit"
 							readonly
 						/>
 						<button class="browse-btn" onclick={selectModelFile}>Browse</button>
 					</div>
-					<p class="hint">Currently selected: {config.modelPath || 'None'}</p>
+					<p class="hint">Currently selected: {config.mlxModelName || 'None'}</p>
 				</div>
 
 				{#if downloadedModels.length > 0}
@@ -436,8 +433,8 @@
 							{#each downloadedModels as model}
 								<button
 									class="model-item"
-									class:selected={config.modelPath === model.path}
-									onclick={() => (config.modelPath = model.path)}
+									class:selected={config.mlxModelName === model.mlx_model_name}
+									onclick={() => (config.mlxModelName = model.mlx_model_name)}
 								>
 									<span class="model-name">{model.filename}</span>
 									<span class="model-size">{formatBytes(model.size)}</span>
@@ -453,7 +450,6 @@
 
 				<div class="form-group">
 					<label for="gpu-backend">GPU Backend</label>
-					<div class="display-value" id="gpu-backend">{recommendedBackend}</div>
 					<p class="hint">Automatically detected</p>
 				</div>
 
@@ -464,7 +460,7 @@
 							type="text"
 							id="whisperModelPath"
 							bind:value={config.whisperModelPath}
-							placeholder="/path/to/ggml-base.en.bin"
+							placeholder="e.g. ggml-base.en.bin"
 							readonly
 						/>
 						<button class="browse-btn" onclick={selectWhisperModel}>Browse</button>
@@ -606,15 +602,6 @@
 	select:focus {
 		outline: none;
 		border-color: var(--color-accent);
-	}
-
-	.display-value {
-		background: var(--color-bg-input);
-		padding: 0.625rem 0.875rem;
-		border-radius: 6px;
-		color: var(--color-accent);
-		font-weight: 600;
-		font-size: 1rem;
 	}
 
 	.input-with-button {

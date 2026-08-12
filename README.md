@@ -7,7 +7,7 @@ All processing runs locally — no cloud dependencies.
 ## Features
 
 - Ingest PDFs, images, audio, DOCX, and plain-text evidence files
-- Local LLM inference (llama.cpp, GGUF models, Metal GPU on Apple Silicon)
+- Local LLM inference (rapid-mlx, MLX models, Metal GPU on Apple Silicon)
 - Multi-pass analysis pipelines (Basic Facts, Financial Crimes, Document Analysis, OCR, Audio)
 - Document metadata extraction: EXIF, PDF properties, language detection, structured fields
 - Fact deduplication, quality scoring, annotation, and tagging

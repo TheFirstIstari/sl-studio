@@ -68,9 +68,9 @@ This starts both the Vite dev server (port 1420) and the Tauri application.
 ### 2. Download LLM Model
 
 1. In **Settings**, go to Model section
-2. Select a model from the dropdown (Mistral 7B or Llama 2 7B)
-3. Click **Download Model** (~4GB, may take a while)
-4. Or manually download and set "Model Path" to the GGUF file
+2. Select a model from the dropdown (Qwen 3.5 4B or Qwen 3.5 9B)
+3. Click **Download Model** (~2.5GB, may take a while)
+4. Or manually enter an MLX model name (e.g., `qwen3.5-4b-4bit`)
 
 ### 3. Scan Evidence
 

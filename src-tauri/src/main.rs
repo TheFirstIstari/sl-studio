@@ -1,6 +1,6 @@
-// Prevents additional console window on Windows in release, DO NOT REMOVE!!
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// Tauri 2 binary entry point.
+// The heavy lifting lives in the `sl_studio` library crate.
 
 fn main() {
-    steinline_lib::run()
+    let _ = sl_studio::run();
 }

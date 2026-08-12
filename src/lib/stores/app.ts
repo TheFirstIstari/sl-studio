@@ -17,7 +17,8 @@ export interface ProjectConfig {
 export interface ModelConfig {
 	source: 'huggingface' | 'local';
 	id: string;
-	quantization: string;
+	mlx_model_name: string;
+	dtype: string;
 	context_length: number;
 	downloaded: boolean;
 	local_path: string;
@@ -59,7 +60,6 @@ export interface HardwareStatus {
 
 export interface HardwareInfo {
 	recommended_context: number;
-	recommended_gpu_layers: number;
 	recommended_batch_size: number;
 	worker_count: number;
 	backend: string;

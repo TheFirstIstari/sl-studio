@@ -1,45 +1,9 @@
-{
-	"$schema": "../gen/schemas/desktop-schema.json",
-	"identifier": "default",
-	"description": "Default capabilities for SL Studio",
-	"windows": ["main"],
-	"permissions": [
-		"core:default",
-		"core:window:default",
-		"core:window:allow-minimize",
-		"core:window:allow-maximize",
-		"core:window:allow-close",
-		"core:window:allow-set-title",
-		"core:event:default",
-		"opener:default",
-		"dialog:default",
-		"dialog:allow-open",
-		"dialog:allow-save",
-		"dialog:allow-message",
-		"fs:default",
-		{
-			"identifier": "fs:allow-read-text-file",
-			"allow": [
-				{ "path": "$APPDATA/**" },
-				{ "path": "$DOCUMENT/**" },
-				{ "path": "$HOME/.slstudio/**" }
-			]
-		},
-		{
-			"identifier": "fs:allow-write-text-file",
-			"allow": [{ "path": "$APPDATA/**" }, { "path": "$HOME/.slstudio/**" }]
-		},
-		{
-			"identifier": "fs:allow-exists",
-			"allow": [
-				{ "path": "$APPDATA/**" },
-				{ "path": "$DOCUMENT/**" },
-				{ "path": "$HOME/.slstudio/**" }
-			]
-		},
-		{
-			"identifier": "fs:allow-mkdir",
-			"allow": [{ "path": "$APPDATA/**" }, { "path": "$HOME/.slstudio/**" }]
-		}
-	]
-}
+[
+	{
+		"name": "default",
+		"identifier": "com.slstudio.desktop",
+		"description": "Default capabilities for SL Studio",
+		"local": true,
+		"permissions": ["core:default"]
+	}
+]

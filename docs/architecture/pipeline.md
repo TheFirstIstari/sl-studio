@@ -22,7 +22,7 @@ File Input
              │ Extracted Text
              ▼
 ┌─────────────────────────────┐
-│    Stage 2: Analysis       │ ← LLM inference via llama.cpp
+│    Stage 2: Analysis       │ ← LLM inference via rapid-mlx (MLX pipeline)
 │   (Reasoner + LLM Model)   │
 └────────────┬───────────────┘
              │
@@ -89,7 +89,7 @@ Each extraction is assessed for:
 
 ### Architecture
 
-The `Reasoner` combines the `Deconstructor` with an `LlamaModel` to perform AI-powered analysis:
+The `Reasoner` combines the `Deconstructor` with an `MlxPipeline` to perform AI-powered analysis:
 
 ```
 Extracted Text
@@ -107,7 +107,7 @@ Extracted Text
 │  └───┬────┘ │
 │      ▼      │
 │  ┌────────┐ │
-│  │ LLM    │ │ ← Run inference via llama.cpp
+│  │ LLM    │ │ ← Run inference via rapid-mlx
 │  └───┬────┘ │
 │      ▼      │
 │  ┌────────┐ │

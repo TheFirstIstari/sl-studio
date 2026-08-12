@@ -22,11 +22,11 @@ SL Studio processes evidence files (PDFs, images, audio/video) through a pipelin
 
 - **Local Processing**: All processing runs locally (privacy-first, no cloud dependencies)
 - **Rust Backend**: Native performance with parallel file hashing and extraction
-- **LLM Integration**: Local GGUF model inference for fact extraction via llama.cpp
+- **LLM Integration**: Local MLX model inference for fact extraction via rapid-mlx
 - **SQLite Storage**: Registry and Intelligence databases for evidence tracking
 - **Auto-scaling**: Automatically configures batch sizes and workers based on hardware
 - **Project Files**: Save/load investigation configurations as `.sls` files
-- **HuggingFace Integration**: Download GGUF models directly from HuggingFace
+- **HuggingFace Integration**: Download MLX models via rapid-mlx pull
 - **Metadata Extraction**: Extract EXIF data from images and metadata from PDFs
 - **Language Detection**: Automatic language detection using whatlang
 - **Structured Data Extraction**: Parse structured data from documents (PDF forms, metadata fields)
@@ -43,7 +43,7 @@ SL Studio processes evidence files (PDFs, images, audio/video) through a pipelin
 |                      Rust Backend                            |
 |  +-------------+  +-------------+  +--------------------+   |
 |  | Deconstructor|  | LLM Reasoner|  | Database Manager  |   |
-|  |(PDF/OCR/Audio)|| (llama.cpp) |  | (rusqlite)        |   |
+|  |(PDF/OCR/Audio)|| (MLX pipeline) |  | (rusqlite)        |   |
 |  +-------------+  +-------------+  +--------------------+   |
 |  +-------------+  +-------------+  +------------------+    |
 |  |GPU Detection|  |Auto-scaling |  | Metadata Extractor|   |
@@ -107,7 +107,7 @@ Extracts structured data from documents:
 | Maps     | Leaflet.js 1 (CARTO dark tiles)     |
 | OCR      | ocrs 0.12                           |
 | PDF      | pdf-extract 0.7, lopdf 0.33         |
-| LLM      | llama_cpp 0.3 (GGUF models)         |
+| LLM      | rapid-mlx (MLX models, float16)     |
 | Audio    | whisper.cpp (stub)                  |
 | Metadata | kamadak-exif 0.5, lopdf 0.33        |
 | Language | whatlang 0.16                       |
@@ -233,7 +233,7 @@ open smb://BENCHPI5._smb._tcp.local/SteinLine
 ```
 SteinLine/
 ├── evidence/        # Evidence files (shared)
-├── models/         # GGUF models (shared)
+├── models/         # MLX models (shared)
 ├── exports/        # Export reports (shared)
 └── local/          # Can be local on each machine (not on share)
     ├── registry.db
@@ -244,23 +244,21 @@ SteinLine/
 
 ## Model Download
 
-SL Studio can download GGUF models directly from HuggingFace.
+SL Studio can download MLX models via `rapid-mlx pull`.
 
 ### Available Models
 
-| Model               | Size   | Description     |
-| ------------------- | ------ | --------------- |
-| Mistral 7B Instruct | ~4.1GB | General purpose |
-| Llama 2 7B Chat     | ~3.8GB | Chat-focused    |
+| Model       | Size   | Description     |
+| ----------- | ------ | --------------- |
+| Qwen 3.5 4B | ~2.5GB | General purpose |
+| Qwen 3.5 9B | ~5.5GB | Higher quality  |
 
 ### Manual Download
 
-If the in-app download fails, manually download:
+If the in-app download fails, use `rapid-mlx pull` directly:
 
-1. Go to https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF
-2. Download a GGUF file (e.g., `Llama-2-7B-Chat.Q4_K_M.gguf`)
-3. Save to `~/Library/Application Support/slstudio/models/`
-4. In Settings, set "Model Path" to point to the file
+1. Run `rapid-mlx pull qwen3.5-4b-4bit` from a terminal
+2. In Settings, enter the model name in the "Model" field
 
 ## Configuration
 
@@ -303,11 +301,13 @@ SL Studio uses `.sls` JSON project files to store investigation settings:
 		"models_dir": "./models"
 	},
 	"model": {
-		"source": "huggingface",
-		"model_id": "TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
-		"quantization": "Q4_K_M",
-		"context_length": 16384,
-		"local_path": "./models/mistral-7b.gguf"
+		"source": "rapid-mlx",
+		"model_id": "default",
+		"mlx_model_name": "qwen3.5-4b-4bit",
+		"dtype": "float16",
+		"context_length": 4096,
+		"downloaded": true,
+		"local_path": ""
 	},
 	"hardware": {
 		"gpu_backend": "metal",
@@ -392,21 +392,21 @@ The application includes several optimizations for large-scale evidence processi
 
 ### Required Crates
 
-| Crate        | Version | Purpose                  |
-| ------------ | ------- | ------------------------ |
-| tauri        | 2.x     | Desktop framework        |
-| rusqlite     | 0.32    | SQLite database          |
-| pdf-extract  | 0.7     | PDF text extraction      |
-| lopdf        | 0.33    | PDF metadata/structure   |
-| ocrs         | 0.12    | OCR engine               |
-| kamadak-exif | 0.5     | EXIF metadata extraction |
-| whatlang     | 0.16    | Language detection       |
-| llama_cpp    | 0.3     | LLM inference            |
-| sysinfo      | 0.32    | Hardware detection       |
-| rayon        | 1.10    | Parallel processing      |
-| sha2         | 0.10    | File hashing             |
-| tracing      | 0.1     | Structured logging       |
-| chrono       | 0.4     | Date/time handling       |
+| Crate        | Version | Purpose                    |
+| ------------ | ------- | -------------------------- |
+| tauri        | 2.x     | Desktop framework          |
+| rusqlite     | 0.32    | SQLite database            |
+| pdf-extract  | 0.7     | PDF text extraction        |
+| lopdf        | 0.33    | PDF metadata/structure     |
+| ocrs         | 0.12    | OCR engine                 |
+| kamadak-exif | 0.5     | EXIF metadata extraction   |
+| whatlang     | 0.16    | Language detection         |
+| rapid-mlx    | CLI     | MLX inference (subprocess) |
+| sysinfo      | 0.32    | Hardware detection         |
+| rayon        | 1.10    | Parallel processing        |
+| sha2         | 0.10    | File hashing               |
+| tracing      | 0.1     | Structured logging         |
+| chrono       | 0.4     | Date/time handling         |
 
 ### Optional (Feature-gated)
 
@@ -424,7 +424,7 @@ This project is a Rust migration of the original Python/Qt `Project-SteinLine`.
 | Database  | sqlite3         | rusqlite          |
 | OCR       | EasyOCR         | ocrs              |
 | Audio     | Faster Whisper  | whisper.cpp       |
-| LLM       | vLLM (HTTP)     | llama.cpp (local) |
+| LLM       | vLLM (HTTP)     | rapid-mlx (local) |
 | Hardware  | psutil + pynvml | sysinfo           |
 
 ## License

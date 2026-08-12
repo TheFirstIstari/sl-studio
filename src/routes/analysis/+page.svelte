@@ -238,7 +238,7 @@
 	}
 
 	async function analyzeExtractedFiles() {
-		if (!$config?.model?.local_path) {
+		if (!$config?.model?.mlx_model_name) {
 			analysisProgress.phase = 'error';
 			analysisProgress.current_file = 'No model configured. Please download a model in Settings.';
 			return;
@@ -247,14 +247,14 @@
 		analysisProgress = { phase: 'Loading model...', current_file: '', processed: 0, total: 0 };
 		try {
 			if (!$modelLoaded) {
-				const models = await invoke<Array<{ path: string }>>('list_downloaded_models');
-				const modelPath = $config?.model?.local_path || (models.length > 0 ? models[0].path : null);
-				if (!modelPath)
-					throw new Error('No model file found. Please download a model in Settings.');
+				const models = await invoke<Array<{ mlx_model_name: string }>>('list_downloaded_models');
+				const modelName =
+					$config?.model?.mlx_model_name || (models.length > 0 ? models[0].mlx_model_name : null);
+				if (!modelName) throw new Error('No model found. Please select a model in Settings.');
 
 				// Validate model can be loaded before trying
 				try {
-					await invoke('validate_model', { modelPath });
+					await invoke('validate_model', { modelName });
 				} catch (e) {
 					modelLoaded.set(false);
 					throw new Error(
@@ -263,9 +263,8 @@
 				}
 
 				await invoke('init_reasoner', {
-					modelPath,
-					contextSize: $config?.model?.context_length || 8192,
-					gpuLayers: 32
+					modelName,
+					contextSize: $config?.model?.context_length || 8192
 				});
 				modelLoaded.set(true);
 			}
@@ -535,7 +534,11 @@
 
 			<div class="model-status">
 				<div class="model-badge" class:loaded={$modelLoaded}>
-					{$modelLoaded ? 'Model Loaded' : $config?.model?.local_path ? 'Model Ready' : 'No Model'}
+					{$modelLoaded
+						? 'Model Loaded'
+						: $config?.model?.mlx_model_name
+							? 'Model Ready'
+							: 'No Model'}
 				</div>
 			</div>
 
@@ -573,7 +576,7 @@
 					<button
 						class="btn btn-primary"
 						onclick={analyzeExtractedFiles}
-						disabled={busy || !$config?.model?.local_path}
+						disabled={busy || !$config?.model?.mlx_model_name}
 						title={busy && !analyzing ? 'Another operation is in progress' : undefined}
 					>
 						Analyze Files

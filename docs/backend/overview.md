@@ -21,7 +21,7 @@ src-tauri/src/
 │   └── deconstructor.rs # Unified orchestrator (209 lines)
 ├── inference/       # LLM reasoning
 │   ├── mod.rs
-│   ├── llama.rs     # LLM wrapper (103 lines)
+│   ├── mlx_pipeline.rs # MLX inference wrapper (87 lines)
 │   ├── pipeline.rs  # Multi-pass pipeline (355 lines)
 │   ├── reasoner.rs  # Neural reasoner (380 lines)
 │   ├── prompts/     # Prompt templates
