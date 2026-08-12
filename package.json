@@ -9,7 +9,7 @@
 		"preview": "vite preview",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"tauri": "PATH=\"$HOME/.cargo/bin:$PATH\" RUSTUP_HOME=\"$HOME/.rustup\" RUSTUP_TOOLCHAIN=\"stable-aarch64-apple-darwin\" CARGO_HOME=\"$HOME/.cargo\" tauri",
+		"tauri": "tauri",
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
 		"format": "prettier --write .",
