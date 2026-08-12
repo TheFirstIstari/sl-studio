@@ -14,9 +14,10 @@ rust = "stable-aarch64-apple-darwin"
 
 
 [tasks.ci_rust]
-description = "Run Rust CI (fmt, build - clippy warnings allowed)"
+description = "Run Rust CI (fmt, clippy, build)"
 run = [
     "cd src-tauri && cargo fmt --check",
+    "cd src-tauri && cargo clippy -- -D warnings",
     "cd src-tauri && cargo build --release 2>&1 | tail -5",
 ]
 
