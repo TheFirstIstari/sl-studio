@@ -3179,7 +3179,7 @@ steinline/
 | pdf-extract | 0.7     | PDF text extraction |
 | ocrs        | 2       | OCR engine          |
 | whisper-rs  | 1       | Audio transcription |
-| rapid-mlx   | CLI     | MLX inference         |
+| rapid-mlx   | CLI     | MLX inference       |
 
 ---
 
@@ -3289,16 +3289,16 @@ This section tracks issues identified during code review. Issues are organized b
 
 #### Backend (Rust)
 
-| ID     | File                                | Line      | Description                                          | Impact                                          | Status    |
-| ------ | ----------------------------------- | --------- | ---------------------------------------------------- | ----------------------------------------------- | --------- |
-| BE-001 | `src-tauri/src/lib.rs`              | 35        | `unwrap_or_default()` hides config errors            | Silent failures, hard to debug                  | **FIXED** |
-| BE-002 | `src-tauri/src/lib.rs`              | 1660      | `.expect()` causes panic on Tauri init               | Application crashes instead of graceful failure | **FIXED** |
-| BE-003 | `src-tauri/src/lib.rs`              | Multiple  | `.unwrap()` on mutex locks                           | Potential panics on lock poisoning              | -         |
-| BE-004 | `src-tauri/src/lib.rs`              | 106-107   | Hardcoded GPU stats (returns 0.0)                    | GPU monitoring shows incorrect data             | **FIXED** |
-| BE-005 | `src-tauri/src/lib.rs`              | 1014-1016 | `path` field incorrectly set to project name         | Data corruption, wrong paths stored             | **FIXED** |
-| BE-006 | `src-tauri/src/lib.rs`              | 876-1011  | Database leak in `compare_projects` (db2 not closed) | Resource leak, potential crashes                | **FIXED** |
-| BE-007 | `src-tauri/src/extractors/audio.rs` | 52-78     | Audio transcription completely stubbed               | No audio processing capability                  | **FIXED** |
-| BE-008 | `src-tauri/src/inference/mlx_pipeline.rs`  | 48-74     | LLM returns hardcoded responses                      | No actual LLM inference                         | **FIXED** |
+| ID     | File                                      | Line      | Description                                          | Impact                                          | Status    |
+| ------ | ----------------------------------------- | --------- | ---------------------------------------------------- | ----------------------------------------------- | --------- |
+| BE-001 | `src-tauri/src/lib.rs`                    | 35        | `unwrap_or_default()` hides config errors            | Silent failures, hard to debug                  | **FIXED** |
+| BE-002 | `src-tauri/src/lib.rs`                    | 1660      | `.expect()` causes panic on Tauri init               | Application crashes instead of graceful failure | **FIXED** |
+| BE-003 | `src-tauri/src/lib.rs`                    | Multiple  | `.unwrap()` on mutex locks                           | Potential panics on lock poisoning              | -         |
+| BE-004 | `src-tauri/src/lib.rs`                    | 106-107   | Hardcoded GPU stats (returns 0.0)                    | GPU monitoring shows incorrect data             | **FIXED** |
+| BE-005 | `src-tauri/src/lib.rs`                    | 1014-1016 | `path` field incorrectly set to project name         | Data corruption, wrong paths stored             | **FIXED** |
+| BE-006 | `src-tauri/src/lib.rs`                    | 876-1011  | Database leak in `compare_projects` (db2 not closed) | Resource leak, potential crashes                | **FIXED** |
+| BE-007 | `src-tauri/src/extractors/audio.rs`       | 52-78     | Audio transcription completely stubbed               | No audio processing capability                  | **FIXED** |
+| BE-008 | `src-tauri/src/inference/mlx_pipeline.rs` | 48-74     | LLM returns hardcoded responses                      | No actual LLM inference                         | **FIXED** |
 
 #### Configuration
 
@@ -3481,14 +3481,14 @@ This section tracks issues identified during code review. Issues are organized b
 
 ### Core Components
 
-| Component              | Status      | Notes                           |
-| ---------------------- | ----------- | ------------------------------- |
-| **Tauri Backend**      | ✅ Complete | Rust with Tauri 2               |
-| **SvelteKit Frontend** | ✅ Complete | 11 routes implemented           |
-| **LLM Integration**    | ✅ Complete | rapid-mlx (MLX models) |
-| **Database**           | ✅ Complete | SQLite with FTS5                |
-| **Model Download**     | ✅ Complete | HuggingFace integration         |
-| **Release Build**      | ✅ Complete | DMG and App bundle created      |
+| Component              | Status      | Notes                      |
+| ---------------------- | ----------- | -------------------------- |
+| **Tauri Backend**      | ✅ Complete | Rust with Tauri 2          |
+| **SvelteKit Frontend** | ✅ Complete | 11 routes implemented      |
+| **LLM Integration**    | ✅ Complete | rapid-mlx (MLX models)     |
+| **Database**           | ✅ Complete | SQLite with FTS5           |
+| **Model Download**     | ✅ Complete | HuggingFace integration    |
+| **Release Build**      | ✅ Complete | DMG and App bundle created |
 
 ### Implemented Pages (Frontend)
 
@@ -3508,13 +3508,13 @@ This section tracks issues identified during code review. Issues are organized b
 
 ### Backend Modules
 
-| Module            | Location                         | Status                          |
-| ----------------- | -------------------------------- | ------------------------------- |
-| **Extractors**    | `src-tauri/src/extractors/`      | ✅ PDF, OCR, document, audio    |
+| Module            | Location                         | Status                                 |
+| ----------------- | -------------------------------- | -------------------------------------- |
+| **Extractors**    | `src-tauri/src/extractors/`      | ✅ PDF, OCR, document, audio           |
 | **LLM Inference** | `src-tauri/src/inference/`       | ✅ Reasoner, pipeline, mlx_pipeline.rs |
-| **GPU Detection** | `src-tauri/src/gpu/`             | ✅ Hardware detection           |
-| **Database**      | `src-tauri/src/core/database.rs` | ✅ Full schema                  |
-| **Config**        | `src-tauri/src/config/`          | ✅ Project management           |
+| **GPU Detection** | `src-tauri/src/gpu/`             | ✅ Hardware detection                  |
+| **Database**      | `src-tauri/src/core/database.rs` | ✅ Full schema                         |
+| **Config**        | `src-tauri/src/config/`          | ✅ Project management                  |
 
 ### Build Artifacts
 
@@ -3547,7 +3547,7 @@ This section tracks issues identified during code review. Issues are organized b
 | ------------- | ------- |
 | **Tauri**     | 2.x     |
 | **SvelteKit** | 2.x     |
-| **rapid-mlx** | —         |
+| **rapid-mlx** | —       |
 | **rusqlite**  | 0.32    |
 | **Rust**      | stable  |
 
@@ -3846,7 +3846,7 @@ where F: FnOnce() -> CmdResult<T>
 | #   | ID                      | Severity | Category     | Work Estimate                                  |
 | --- | ----------------------- | -------- | ------------ | ---------------------------------------------- |
 | 1   | B-CRIT-003              | Critical | Backend      | 30 min — fix extraction quality score          |
-| 2   | B-CRIT-002              | Critical | Backend      | 15 min — fix MLX pipeline lock unwrap             |
+| 2   | B-CRIT-002              | Critical | Backend      | 15 min — fix MLX pipeline lock unwrap          |
 | 3   | B-CRIT-001              | Critical | Backend      | 10 min — fix pipeline.rs unwrap                |
 | 4   | C-HIGH-001              | High     | Compliance   | 2 h — wire log_audit() into key commands       |
 | 5   | B-HIGH-002 + R-002      | High     | Architecture | 1 h — extract require_db helper                |
