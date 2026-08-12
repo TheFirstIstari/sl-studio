@@ -7,7 +7,7 @@ if [ -f /etc/os-release ]; then
 fi
 if [[ "$DistID" == "ubuntu" || "$DistID" == "debian" ]]; then
   sudo apt-get update
-  sudo apt-get install -y libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev
+  sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev libsoup-3.0-dev
 elif [[ "$DistID" == "fedora" ]]; then
   sudo dnf install -y webkit2gtk-devel libappindicator-gtk3-devel librsvg2-devel gtk3-devel
 else
