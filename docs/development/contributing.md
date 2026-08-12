@@ -26,18 +26,18 @@
 2. Make your changes
 3. Run the full CI pipeline locally:
    ```bash
-   mise run ci
+   mise run run
    ```
 4. Ensure all tests pass:
    ```bash
    mise run test
-   mise run e2e
+   mise run test_e2e
    ```
 5. Ensure linting passes:
    ```bash
    mise run lint
-   mise run format:check
-   mise run check
+   mise run format
+   mise run lint_types
    ```
 6. Commit with a conventional commit message
 7. Push and create a pull request

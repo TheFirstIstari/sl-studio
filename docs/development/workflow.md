@@ -2,83 +2,51 @@
 
 ## Task Runner
 
-SL Studio uses `mise` as its task runner. All common commands are defined in `mise.toml`.
+SL Studio uses [mise](https://mise.run) as its task runner. All common commands
+are defined in `mise.toml`. Run `mise tasks` from the repo root to see the full
+list, or use `mise run <task-name>`.
 
 ## Common Tasks
 
 ### Development
 
 ```bash
-mise run dev              # Start dev server + Tauri app
-mise run dev_frontend     # Start frontend only (Vite)
-mise run dev_tauri        # Start Tauri app only
+mise run dev              # Start Tauri dev server + Vite hot-reload
 ```
 
 ### Building
 
 ```bash
-mise run build            # Build frontend + Tauri app
-mise run build_frontend   # Build frontend only
-mise run build_tauri      # Build Tauri app only
+mise run build            # Production Tauri build (npm run tauri build)
 ```
 
 ### Testing
 
 ```bash
-mise run test             # Run all Rust tests
-mise run test_quick       # Quick test run
-mise run e2e              # Run Playwright E2E tests
-mise run e2e_ui           # E2E tests with UI
+mise run test             # TypeScript checks + E2E tests
+mise run test_types       # TypeScript type check only
+mise run test_rust        # Rust unit tests only
+mise run test_e2e         # Playwright E2E tests (chromium, firefox, webkit)
 ```
 
 ### Linting & Formatting
 
 ```bash
-mise run lint             # Run ESLint + clippy
-mise run format           # Format code (Prettier + rustfmt)
-mise run format:check     # Check formatting
-mise run check            # TypeScript type check
+mise run lint             # ESLint + clippy
+mise run lint_types       # npm run check + npm run lint
+mise run lint_clippy      # cargo clippy -- -D warnings
+mise run format           # Prettier + rustfmt check (format:check + fmt --check)
+mise run format_fix       # Auto-fix: npm run format + cargo fmt
 ```
 
-### CI Pipeline
+### CI Pipeline (mirrors `.github/workflows/ci.yml`)
 
 ```bash
-mise run ci               # Run full CI pipeline
-mise run ci_frontend      # Frontend CI checks
-mise run ci_rust          # Rust CI checks
-mise run ci_test          # Rust tests
-```
-
-### Benchmarks
-
-```bash
-mise run benchmark          # Run all benchmarks
-mise run benchmark_quick    # Quick benchmark
-mise run benchmark_search   # Search parsing only
-mise run benchmark_entities # Entity overlap only
-mise run benchmark_strings  # String operations only
-mise run benchmark_collections # Collection operations only
-```
-
-### Release Bundles
-
-```bash
-mise run release_dmg      # Build macOS DMG
-mise run release_deb      # Build Linux DEB
-mise run release_appimage # Build Linux AppImage
-mise run release_msi      # Build Windows MSI
-```
-
-### Database
-
-```bash
-mise run db_inspect       # Inspect database schema
-```
-
-### Watch Mode
-
-```bash
-mise run watch            # Watch mode with bacon
+mise run run              # Full CI pass: format + frontend + rust CI + tests (alias: ci, check)
+mise run ci_rust          # Rust CI: fmt --check + clippy + build --release
+mise run ci_test          # Rust tests: cargo test
+mise run precommit        # Pre-commit: format check + type/lint (alias: pc)
+mise run prepush          # Pre-push: full CI (alias: push)
 ```
 
 ## Debugging
@@ -99,14 +67,12 @@ RUST_LOG=slstudio=trace mise run dev
 - Use `console.log()` for quick debugging
 - Use the PerformanceMonitor component for performance metrics
 
-### Database Inspection
+### Utilities
 
 ```bash
-# Open registry database
-sqlite3 ~/.local/share/slstudio/registry.db
-
-# Open intelligence database
-sqlite3 ~/.local/share/slstudio/intelligence.db
+mise run setup            # Install deps: cargo fetch + npm install
+mise run clean            # Clean build artifacts
+mise run open             # Open built application
 ```
 
 ## Code Style
@@ -115,8 +81,8 @@ sqlite3 ~/.local/share/slstudio/intelligence.db
 
 - Follow `rustfmt` defaults
 - No `unsafe_code` (forbidden in Cargo.toml)
-- All clippy warnings must be resolved
-- MSRV: 1.75
+- All clippy warnings must be resolved (`-D warnings`)
+- Use stable toolchain (managed by mise)
 
 ### TypeScript/Svelte
 
@@ -125,6 +91,7 @@ sqlite3 ~/.local/share/slstudio/intelligence.db
 - No trailing commas
 - 100 character print width
 - Strict TypeScript mode
+- Svelte 5 runes syntax
 
 ## Commit Messages
 
@@ -135,4 +102,6 @@ feat: add entity resolution
 fix: correct z-score calculation
 docs: update API reference
 chore(release): bump version to v0.3.0
+perf: optimize search query parsing
+test: add backup/restore E2E tests
 ```
