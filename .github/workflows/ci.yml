@@ -540,6 +540,7 @@ jobs:
     runs-on: [self-hosted, fedora]
     # Self-hosted runners may be offline; don't block CI when they are unavailable
     continue-on-error: true
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -569,6 +570,7 @@ jobs:
     runs-on: [self-hosted, fedora]
     # Self-hosted runners may be offline; don't block CI when they are unavailable
     continue-on-error: true
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -599,6 +601,7 @@ jobs:
     runs-on: [self-hosted, nixos]
     # Self-hosted runners may be offline; don't block CI when they are unavailable
     continue-on-error: true
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -628,6 +631,7 @@ jobs:
     runs-on: [self-hosted, nixos]
     # Self-hosted runners may be offline; don't block CI when they are unavailable
     continue-on-error: true
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
