@@ -8,12 +8,12 @@
 //   core/database.rs — SQLite Pool + migrations
 //   core/mod.rs       — module re-export
 //   extractors/       — PDF / image / audio / DOCX extractors
-//   inference/        — llama.cpp pipeline, reasoner, model registry
+//   inference/        — MLX pipeline, reasoner
 //   tauri/mod.rs      — AppState definition
 
 use anyhow::Context;
 use std::collections::HashMap;
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use tracing::info;
 
 mod app;
@@ -42,7 +42,10 @@ impl std::fmt::Display for AppError {
 impl std::error::Error for AppError {}
 
 impl serde::Serialize for AppError {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
         serializer.serialize_str(&self.0)
     }
 }
@@ -183,7 +186,8 @@ pub struct ProjectConfig {
 pub struct ModelConfig {
     pub source: String,
     pub id: String,
-    pub quantization: String,
+    pub mlx_model_name: String,
+    pub dtype: String,
     pub context_length: usize,
     pub downloaded: bool,
     pub local_path: String,
@@ -221,7 +225,6 @@ pub struct HardwareStatus {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct HardwareInfo {
     pub recommended_context: usize,
-    pub recommended_gpu_layers: usize,
     pub recommended_batch_size: usize,
     pub worker_count: usize,
     pub backend: String,
@@ -254,7 +257,7 @@ pub struct DownloadedModel {
     pub filename: String,
     pub size: u64,
     pub path: String,
-    pub mlx_model_name: String,  // e.g., "qwen3.5-4b-4bit"
+    pub mlx_model_name: String, // e.g., "qwen3.5-4b-4bit"
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -611,6 +614,7 @@ pub struct AppState {
     pub facts: HashMap<String, Fact>,
     pub chains: HashMap<String, Chain>,
     pub file_results: HashMap<String, FileResult>,
+    pub reasoner: Arc<Mutex<Option<inference::reasoner::Reasoner>>>,
 }
 
 // ── Database singleton ───────────────────────────────────────────
@@ -625,8 +629,7 @@ pub fn require_db() -> Result<core::database::Pool> {
             .unwrap_or_else(|_| std::path::PathBuf::from("."))
             .join("sl-studio.db");
         let db_path_str = db_path.to_string_lossy();
-        core::database::Pool::connect(&db_path_str)
-            .expect("Database initialisation failed")
+        core::database::Pool::connect(&db_path_str).expect("Database initialisation failed")
     });
     Ok(pool.clone())
 }
@@ -644,6 +647,7 @@ pub fn build_tauri_app() -> Result<AppState> {
         facts: HashMap::new(),
         chains: HashMap::new(),
         file_results: HashMap::new(),
+        reasoner: Arc::new(Mutex::new(None)),
     };
 
     Ok(app)

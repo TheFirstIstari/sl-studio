@@ -1,9 +1,4 @@
 // MLX pipeline for SL Studio — wraps the `rapid-mlx` CLI subprocess.
-//
-// The pipeline spawns `rapid-mlx serve <model_name>` as a background process
-// and communicates with it via the OpenAI-compatible HTTP API on localhost:8000.
-
-#![allow(dead_code)]
 
 use anyhow::Result;
 use std::process::Child;

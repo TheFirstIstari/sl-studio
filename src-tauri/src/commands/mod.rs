@@ -45,7 +45,8 @@ pub async fn load_config() -> Result<crate::AppConfig> {
         model: crate::ModelConfig {
             source: "local".to_string(),
             id: "default".to_string(),
-            quantization: "q4".to_string(),
+            mlx_model_name: "qwen3.5-4b-4bit".to_string(),
+            dtype: "float16".to_string(),
             context_length: 4096,
             downloaded: false,
             local_path: String::new(),
@@ -100,7 +101,10 @@ pub async fn start_registry() -> Result<i64> {
 
     let evidence_root = std::path::Path::new(&cfg.project.evidence_root);
     if !evidence_root.exists() {
-        warn!("Evidence root does not exist: {}", cfg.project.evidence_root);
+        warn!(
+            "Evidence root does not exist: {}",
+            cfg.project.evidence_root
+        );
         return Ok(0);
     }
 
@@ -115,9 +119,17 @@ pub async fn start_registry() -> Result<i64> {
                     path.to_string_lossy().hash(&mut h);
                     h.finish()
                 });
-                let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                let file_name = path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
                 let file_size = entry.metadata().map(|m| m.len()).unwrap_or(0) as i64;
-                let file_type = path.extension().and_then(|e| e.to_str()).unwrap_or("unknown").to_string();
+                let file_type = path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("unknown")
+                    .to_string();
 
                 db.execute(
                     "INSERT OR IGNORE INTO registry (fingerprint, path, file_size, file_type, file_name) VALUES (?, ?, ?, ?, ?)",
@@ -150,7 +162,10 @@ pub async fn get_extraction_queue(limit: usize) -> Result<Vec<crate::RegistryFil
 
 /// Extract text from a batch of files.
 #[tauri::command]
-pub async fn extract_batch(fingerprints: Vec<String>, cpu_workers: usize) -> Result<Vec<crate::ExtractionResult>> {
+pub async fn extract_batch(
+    fingerprints: Vec<String>,
+    cpu_workers: usize,
+) -> Result<Vec<crate::ExtractionResult>> {
     let db = require_db()?;
     let _ = cpu_workers; // reserved for parallel extraction
     let mut results = Vec::new();
@@ -192,11 +207,9 @@ pub async fn extract_batch(fingerprints: Vec<String>, cpu_workers: usize) -> Res
 #[tauri::command]
 pub async fn get_extraction_statistics() -> Result<crate::ExtractionStats> {
     let db = require_db()?;
-    let total_files: i64 = db.query_row(
-        "SELECT COUNT(*) FROM registry",
-        params![],
-        |row| row.get::<_, i64>(0),
-    )?;
+    let total_files: i64 = db.query_row("SELECT COUNT(*) FROM registry", params![], |row| {
+        row.get::<_, i64>(0)
+    })?;
     let total_characters: i64 = db.query_row(
         "SELECT COALESCE(SUM(LENGTH(extracted_text)), 0) FROM text_cache",
         params![],
@@ -221,7 +234,11 @@ pub async fn get_extraction_statistics() -> Result<crate::ExtractionStats> {
     Ok(crate::ExtractionStats {
         total_files: total_files as u64,
         total_characters: total_characters as u64,
-        average_characters: if total_files > 0 { total_characters as f64 / total_files as f64 } else { 0.0 },
+        average_characters: if total_files > 0 {
+            total_characters as f64 / total_files as f64
+        } else {
+            0.0
+        },
         average_quality: 0.0,
         partial_count: partial_count as u64,
         files_by_type,
@@ -286,7 +303,11 @@ pub async fn delete_facts(ids: Vec<u64>) -> Result<()> {
 
 /// Update a fact's verification status and optional review notes.
 #[tauri::command]
-pub async fn update_fact_verification(id: i64, status: String, review_notes: Option<String>) -> Result<()> {
+pub async fn update_fact_verification(
+    id: i64,
+    status: String,
+    review_notes: Option<String>,
+) -> Result<()> {
     let db = require_db()?;
     db.execute(
         "UPDATE intelligence SET verification_status = ?, review_notes = ?, updated_at = datetime('now') WHERE id = ?",
@@ -373,7 +394,10 @@ pub async fn export_facts_csv(min_weight: f64, limit: usize) -> Result<String> {
 
 /// Export entities as CSV string.
 #[tauri::command]
-pub async fn export_entities_csv(entity_type: Option<String>, min_confidence: f64) -> Result<String> {
+pub async fn export_entities_csv(
+    entity_type: Option<String>,
+    min_confidence: f64,
+) -> Result<String> {
     let db = require_db()?;
     let sql = match &entity_type {
         Some(_et) => "SELECT id, entity_type, value, confidence FROM entities WHERE entity_type = ? AND (confidence IS NULL OR confidence >= ?) ORDER BY value",
@@ -387,7 +411,9 @@ pub async fn export_entities_csv(entity_type: Option<String>, min_confidence: f6
                 row.get::<_, i64>(0)?,
                 csv_escape(&row.get::<_, String>(1)?),
                 csv_escape(&row.get::<_, String>(2)?),
-                row.get::<_, Option<f64>>(3)?.map(|v| v.to_string()).unwrap_or_default(),
+                row.get::<_, Option<f64>>(3)?
+                    .map(|v| v.to_string())
+                    .unwrap_or_default(),
             ))
         })?,
         None => db.query_map(sql, params![min_confidence], |row| {
@@ -396,7 +422,9 @@ pub async fn export_entities_csv(entity_type: Option<String>, min_confidence: f6
                 row.get::<_, i64>(0)?,
                 csv_escape(&row.get::<_, String>(1)?),
                 csv_escape(&row.get::<_, String>(2)?),
-                row.get::<_, Option<f64>>(3)?.map(|v| v.to_string()).unwrap_or_default(),
+                row.get::<_, Option<f64>>(3)?
+                    .map(|v| v.to_string())
+                    .unwrap_or_default(),
             ))
         })?,
     };
@@ -411,7 +439,10 @@ pub async fn export_entities_csv(entity_type: Option<String>, min_confidence: f6
 
 /// Export timeline as JSON.
 #[tauri::command]
-pub async fn export_timeline_json(start_date: Option<String>, end_date: Option<String>) -> Result<String> {
+pub async fn export_timeline_json(
+    start_date: Option<String>,
+    end_date: Option<String>,
+) -> Result<String> {
     let db = require_db()?;
     let sql = match (&start_date, &end_date) {
         (Some(_sd), Some(_ed)) => "SELECT id, fingerprint, filename, fact_summary, associated_date as date FROM intelligence WHERE is_deleted = FALSE AND associated_date >= ? AND associated_date <= ? ORDER BY date",
@@ -471,16 +502,13 @@ pub async fn export_full_report_json() -> Result<String> {
         params![],
         |row| row.get::<_, i64>(0),
     )?;
-    let entity_count: i64 = db.query_row(
-        "SELECT COUNT(*) FROM entities",
-        params![],
-        |row| row.get::<_, i64>(0),
-    )?;
-    let chain_count: i64 = db.query_row(
-        "SELECT COUNT(*) FROM evidence_chains",
-        params![],
-        |row| row.get::<_, i64>(0),
-    )?;
+    let entity_count: i64 = db.query_row("SELECT COUNT(*) FROM entities", params![], |row| {
+        row.get::<_, i64>(0)
+    })?;
+    let chain_count: i64 =
+        db.query_row("SELECT COUNT(*) FROM evidence_chains", params![], |row| {
+            row.get::<_, i64>(0)
+        })?;
 
     let report = serde_json::json!({
         "total_facts": fact_count,
@@ -589,7 +617,9 @@ pub async fn get_connected_entities(
 
 /// Detect entity communities using simple co-occurrence grouping.
 #[tauri::command]
-pub async fn detect_entity_communities(min_cooccurrence: usize) -> Result<Vec<crate::EntityCommunity>> {
+pub async fn detect_entity_communities(
+    min_cooccurrence: usize,
+) -> Result<Vec<crate::EntityCommunity>> {
     let _db = require_db()?;
     let _ = min_cooccurrence;
     // Stub: return empty — a real implementation would run Leiden/louvain.
@@ -717,11 +747,9 @@ pub async fn create_evidence_chain(
         "INSERT INTO evidence_chains (chain_name, chain_type, description, created_by) VALUES (?, ?, ?, ?)",
         params![name, chain_type, description, created_by],
     )?;
-    let id = db.query_row(
-        "SELECT last_insert_rowid()",
-        params![],
-        |row| row.get::<_, i64>(0),
-    )?;
+    let id = db.query_row("SELECT last_insert_rowid()", params![], |row| {
+        row.get::<_, i64>(0)
+    })?;
     info!("Created evidence chain: {} (id: {})", name, id);
     Ok(id)
 }
@@ -775,7 +803,10 @@ pub async fn get_evidence_chain(chain_id: i64) -> Result<Option<crate::EvidenceC
 #[tauri::command]
 pub async fn delete_evidence_chain(chain_id: i64) -> Result<()> {
     let db = require_db()?;
-    db.execute("DELETE FROM evidence_chains WHERE id = ?", params![chain_id])?;
+    db.execute(
+        "DELETE FROM evidence_chains WHERE id = ?",
+        params![chain_id],
+    )?;
     info!("Deleted evidence chain: {}", chain_id);
     Ok(())
 }
@@ -795,7 +826,10 @@ pub async fn add_to_evidence_chain(
         "INSERT INTO chain_items (chain_id, intelligence_id, relationship_type, relationship_strength, notes, linked_by) VALUES (?, ?, ?, ?, ?, ?)",
         params![chain_id, intelligence_id, relationship_type, strength, notes, linked_by],
     )?;
-    info!("Added intelligence {} to chain {}", intelligence_id, chain_id);
+    info!(
+        "Added intelligence {} to chain {}",
+        intelligence_id, chain_id
+    );
     Ok(())
 }
 
@@ -807,7 +841,10 @@ pub async fn remove_from_evidence_chain(chain_id: i64, intelligence_id: i64) -> 
         "DELETE FROM chain_items WHERE chain_id = ? AND intelligence_id = ?",
         params![chain_id, intelligence_id],
     )?;
-    info!("Removed intelligence {} from chain {}", intelligence_id, chain_id);
+    info!(
+        "Removed intelligence {} from chain {}",
+        intelligence_id, chain_id
+    );
     Ok(())
 }
 
@@ -950,7 +987,11 @@ pub async fn merge_duplicate_facts(keeper_id: i64, member_ids: Vec<i64>) -> Resu
             )?;
         }
     }
-    info!("Merged {} members into fact {}", member_ids.len(), keeper_id);
+    info!(
+        "Merged {} members into fact {}",
+        member_ids.len(),
+        keeper_id
+    );
     Ok(member_ids.len() as i64)
 }
 
@@ -1112,7 +1153,10 @@ pub async fn get_registry_files(limit: usize) -> Result<Vec<crate::RegistryEntry
 
 /// Get cached metadata for a file.
 #[tauri::command]
-pub async fn get_cached_metadata(fingerprint: String, metadata_type: Option<String>) -> Result<Option<crate::DocumentMetadata>> {
+pub async fn get_cached_metadata(
+    fingerprint: String,
+    metadata_type: Option<String>,
+) -> Result<Option<crate::DocumentMetadata>> {
     let db = require_db()?;
     let _ = metadata_type;
     let result = db.query_row_optional(
@@ -1162,16 +1206,12 @@ pub async fn get_stats() -> Result<crate::ProjectStats> {
         params![],
         |row| row.get::<_, i64>(0),
     )?;
-    let total_entities: i64 = db.query_row(
-        "SELECT COUNT(*) FROM entities",
-        params![],
-        |row| row.get::<_, i64>(0),
-    )?;
-    let registry_count: i64 = db.query_row(
-        "SELECT COUNT(*) FROM registry",
-        params![],
-        |row| row.get::<_, i64>(0),
-    )?;
+    let total_entities: i64 = db.query_row("SELECT COUNT(*) FROM entities", params![], |row| {
+        row.get::<_, i64>(0)
+    })?;
+    let registry_count: i64 = db.query_row("SELECT COUNT(*) FROM registry", params![], |row| {
+        row.get::<_, i64>(0)
+    })?;
     let intelligence_count: i64 = db.query_row(
         "SELECT COUNT(*) FROM intelligence WHERE is_deleted = FALSE",
         params![],
@@ -1196,14 +1236,20 @@ pub async fn get_stats() -> Result<crate::ProjectStats> {
     Ok(crate::ProjectStats {
         total_files: registry_count as u64,
         files_scanned: registry_count as u64,
-        files_extracted: db.query_row("SELECT COUNT(*) FROM text_cache", params![], |row| row.get::<_, i64>(0))? as u64,
+        files_extracted: db.query_row("SELECT COUNT(*) FROM text_cache", params![], |row| {
+            row.get::<_, i64>(0)
+        })? as u64,
         files_analyzed: total_facts as u64,
         total_facts: total_facts as u64,
         total_entities: total_entities as u64,
         registry_count: registry_count as u64,
         intelligence_count: intelligence_count as u64,
         total_characters: total_characters as u64,
-        average_characters: if registry_count > 0 { total_characters as f64 / registry_count as f64 } else { 0.0 },
+        average_characters: if registry_count > 0 {
+            total_characters as f64 / registry_count as f64
+        } else {
+            0.0
+        },
         average_quality: 0.0,
         partial_count: 0,
         files_by_type,
@@ -1237,26 +1283,22 @@ pub async fn get_overall_statistics() -> Result<crate::OverallStats> {
         params![],
         |row| row.get::<_, f64>(0),
     )?;
-    let total_entities: i64 = db.query_row(
-        "SELECT COUNT(*) FROM entities",
-        params![],
-        |row| row.get::<_, i64>(0),
-    )?;
+    let total_entities: i64 = db.query_row("SELECT COUNT(*) FROM entities", params![], |row| {
+        row.get::<_, i64>(0)
+    })?;
     let unique_entities: i64 = db.query_row(
         "SELECT COUNT(DISTINCT value) FROM entities",
         params![],
         |row| row.get::<_, i64>(0),
     )?;
-    let total_chains: i64 = db.query_row(
-        "SELECT COUNT(*) FROM evidence_chains",
-        params![],
-        |row| row.get::<_, i64>(0),
-    )?;
-    let total_chain_links: i64 = db.query_row(
-        "SELECT COUNT(*) FROM chain_items",
-        params![],
-        |row| row.get::<_, i64>(0),
-    )?;
+    let total_chains: i64 =
+        db.query_row("SELECT COUNT(*) FROM evidence_chains", params![], |row| {
+            row.get::<_, i64>(0)
+        })?;
+    let total_chain_links: i64 =
+        db.query_row("SELECT COUNT(*) FROM chain_items", params![], |row| {
+            row.get::<_, i64>(0)
+        })?;
 
     Ok(crate::OverallStats {
         total_facts: total_facts as u64,
@@ -1386,7 +1428,6 @@ pub async fn get_hardware_info() -> Result<crate::HardwareInfoExt> {
 pub async fn get_recommended_settings() -> Result<crate::HardwareInfo> {
     Ok(crate::HardwareInfo {
         recommended_context: 4096,
-        recommended_gpu_layers: 32,
         recommended_batch_size: 6,
         worker_count: num_cpus::get_physical(),
         backend: "cpu".to_string(),
@@ -1406,7 +1447,11 @@ pub async fn get_system_monitor() -> Result<crate::SystemMonitor> {
         cpu_usage_percent: cpu_usage as f64,
         memory_used_gb: (used as f64) / (1024.0 * 1024.0 * 1024.0),
         memory_available_gb: (avail as f64) / (1024.0 * 1024.0 * 1024.0),
-        memory_percent: if total > 0 { (used as f64 / total as f64) * 100.0 } else { 0.0 },
+        memory_percent: if total > 0 {
+            (used as f64 / total as f64) * 100.0
+        } else {
+            0.0
+        },
     })
 }
 
@@ -1444,7 +1489,11 @@ pub async fn list_downloaded_models() -> Result<Vec<crate::DownloadedModel>> {
 /// Download a model via rapid-mlx pull.
 #[tauri::command]
 pub async fn download_model(repo_id: String, filename: String) -> Result<crate::DownloadedModel> {
-    let model_name = if filename.is_empty() { repo_id } else { filename };
+    let model_name = if filename.is_empty() {
+        repo_id
+    } else {
+        filename
+    };
     let status = std::process::Command::new("rapid-mlx")
         .args(["pull", &model_name])
         .status()?;
@@ -1485,9 +1534,17 @@ pub async fn validate_model(model_path: String) -> Result<bool> {
 
 /// Initialize the LLM reasoner with an MLX model.
 #[tauri::command]
-pub async fn init_reasoner(model_name: String, context_size: usize) -> Result<()> {
-    let _pipeline = crate::inference::mlx_pipeline::MlxPipeline::new(model_name, context_size);
-    info!("Initializing MLX reasoner");
+pub async fn init_reasoner(
+    state: tauri::State<'_, crate::AppState>,
+    model_name: String,
+    context_size: usize,
+) -> Result<()> {
+    let mut pipeline =
+        crate::inference::mlx_pipeline::MlxPipeline::new(model_name.clone(), context_size);
+    pipeline.load()?;
+    let reasoner = crate::inference::reasoner::Reasoner::new(pipeline);
+    *state.reasoner.lock().unwrap() = Some(reasoner);
+    info!("MLX reasoner initialized with model: {}", model_name);
     Ok(())
 }
 
@@ -1495,13 +1552,43 @@ pub async fn init_reasoner(model_name: String, context_size: usize) -> Result<()
 
 /// Run LLM analysis on a batch of fact fingerprints.
 #[tauri::command]
-pub async fn analyze_batch(fingerprints: Vec<String>) -> Result<()> {
+pub async fn analyze_batch(
+    state: tauri::State<'_, crate::AppState>,
+    fingerprints: Vec<String>,
+) -> Result<()> {
     let db = require_db()?;
+    let reasoner_guard = state.reasoner.lock().unwrap();
+    let reasoner = reasoner_guard.as_ref().ok_or_else(|| {
+        AppError("Reasoner not initialized. Call init_reasoner first.".to_string())
+    })?;
+
     for fp in &fingerprints {
-        db.execute(
-            "INSERT INTO intelligence (fingerprint, filename, fact_summary, category, severity_score, confidence, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
-            params![fp, fp, "Unknown fact", "Unknown", 5i64, None::<f64>],
-        )?;
+        // Retrieve extracted text and filename from text_cache.
+        let (file_name, extracted_text): (String, String) = db
+            .query_row(
+                "SELECT file_name, extracted_text FROM text_cache WHERE fingerprint = ?1",
+                rusqlite::params![fp],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+            )
+            .map_err(|e| AppError(format!("No extracted text for fingerprint {}: {}", fp, e)))?;
+
+        let facts = reasoner.extract_facts(&extracted_text)?;
+        for fact in facts {
+            db.execute(
+                "INSERT INTO intelligence (fingerprint, filename, fact_summary, category,
+                 identified_crime, severity_score, confidence, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+                rusqlite::params![
+                    fp,
+                    file_name,
+                    fact.fact_summary,
+                    fact.category.unwrap_or_default(),
+                    fact.identified_crime,
+                    fact.severity_score,
+                    fact.confidence,
+                ],
+            )?;
+        }
     }
     info!("Analyzed {} fingerprints", fingerprints.len());
     Ok(())
@@ -1548,11 +1635,9 @@ pub async fn get_project_summary() -> Result<crate::ProjectSummary> {
         params![],
         |row| row.get::<_, i64>(0),
     )?;
-    let entity_count: i64 = db.query_row(
-        "SELECT COUNT(*) FROM entities",
-        params![],
-        |row| row.get::<_, i64>(0),
-    )?;
+    let entity_count: i64 = db.query_row("SELECT COUNT(*) FROM entities", params![], |row| {
+        row.get::<_, i64>(0)
+    })?;
     let timeline_count: i64 = db.query_row(
         "SELECT COUNT(*) FROM intelligence WHERE is_deleted = FALSE AND associated_date IS NOT NULL",
         params![],
@@ -1601,7 +1686,9 @@ pub async fn create_backup(include_evidence: bool) -> Result<crate::BackupResult
     let backup_path = backup_dir.join(format!("sl-studio-backup-{}.db", timestamp));
 
     std::fs::copy(&db_path, &backup_path)?;
-    let mut backup_size = std::fs::metadata(&backup_path).map(|m| m.len()).unwrap_or(0);
+    let mut backup_size = std::fs::metadata(&backup_path)
+        .map(|m| m.len())
+        .unwrap_or(0);
 
     if include_evidence {
         let cfg = load_config().await?;
@@ -1617,7 +1704,11 @@ pub async fn create_backup(include_evidence: bool) -> Result<crate::BackupResult
         }
     }
 
-    info!("Created backup: {} ({} bytes)", backup_path.display(), backup_size);
+    info!(
+        "Created backup: {} ({} bytes)",
+        backup_path.display(),
+        backup_size
+    );
     Ok(crate::BackupResult {
         backup_path: backup_path.to_string_lossy().to_string(),
         size_bytes: backup_size,
@@ -1680,10 +1771,16 @@ pub async fn write_file(path: String, contents: Vec<u8>) -> Result<()> {
 pub async fn restore_backup(backup_path: String) -> Result<()> {
     let path = std::path::Path::new(&backup_path);
     if !path.exists() {
-        return Err(AppError(anyhow::anyhow!("Backup file not found: {}", backup_path).to_string()));
+        return Err(AppError(
+            anyhow::anyhow!("Backup file not found: {}", backup_path).to_string(),
+        ));
     }
-    let db_path = std::env::current_dir().unwrap_or_default().join("sl-studio.db");
-    let backup_dir = db_path.parent().unwrap_or_else(|| std::path::Path::new("."));
+    let db_path = std::env::current_dir()
+        .unwrap_or_default()
+        .join("sl-studio.db");
+    let backup_dir = db_path
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new("."));
     std::fs::create_dir_all(backup_dir)?;
     std::fs::copy(path, &db_path)?;
     info!("Restored backup from: {}", backup_path);
@@ -1714,22 +1811,20 @@ async fn extract_file(path: &str, fingerprint: &str) -> crate::ExtractionResult 
         "png" | "jpg" | "jpeg" | "tiff" | "bmp" => crate::extractors::extract_image(path).await,
         "mp3" | "wav" | "m4a" => crate::extractors::extract_audio(path).await,
         "docx" => crate::extractors::extract_docx(path).await,
-        _ => {
-            match std::fs::read_to_string(path) {
-                Ok(content) => Ok(crate::Metadata {
-                    filename: path.to_string(),
-                    category: "Text".to_string(),
-                    severity_score: 0,
-                    confidence: None,
-                    identified_crime: None,
-                    fact_summary: content,
-                    fingerprint: "text_meta".to_string(),
-                    created_at: chrono::Utc::now().to_rfc3339(),
-                    updated_at: chrono::Utc::now().to_rfc3339(),
-                }),
-                Err(e) => Err(anyhow::anyhow!("Failed to read file: {}", e)),
-            }
-        }
+        _ => match std::fs::read_to_string(path) {
+            Ok(content) => Ok(crate::Metadata {
+                filename: path.to_string(),
+                category: "Text".to_string(),
+                severity_score: 0,
+                confidence: None,
+                identified_crime: None,
+                fact_summary: content,
+                fingerprint: "text_meta".to_string(),
+                created_at: chrono::Utc::now().to_rfc3339(),
+                updated_at: chrono::Utc::now().to_rfc3339(),
+            }),
+            Err(e) => Err(anyhow::anyhow!("Failed to read file: {}", e)),
+        },
     };
 
     match result {
@@ -1747,14 +1842,12 @@ async fn extract_file(path: &str, fingerprint: &str) -> crate::ExtractionResult 
                 },
             }
         }
-        Err(e) => {
-            crate::ExtractionResult {
-                fingerprint: fingerprint.to_string(),
-                path: path.to_string(),
-                success: false,
-                char_count: 0,
-                error: Some(e.to_string()),
-            }
-        }
+        Err(e) => crate::ExtractionResult {
+            fingerprint: fingerprint.to_string(),
+            path: path.to_string(),
+            success: false,
+            char_count: 0,
+            error: Some(e.to_string()),
+        },
     }
 }

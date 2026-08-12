@@ -1,7 +1,5 @@
 // Reasoner pipeline for SL Studio
 
-#![allow(dead_code)]
-
 use anyhow::Result;
 use tracing::info;
 
@@ -23,11 +21,13 @@ impl Reasoner {
 
     pub fn extract_facts(&self, text: &str) -> Result<Vec<crate::Fact>> {
         info!("Extracting facts from: {} chars", text.len());
+        let prompt = format!("Extract facts and entities from: {}", text);
+        let content = self.pipeline.infer(&prompt, 2048)?;
         Ok(vec![crate::Fact {
             id: 0,
             fingerprint: "generated".to_string(),
             filename: "unknown".to_string(),
-            fact_summary: text.to_string(),
+            fact_summary: content,
             category: Some("Unknown".to_string()),
             identified_crime: None,
             severity_score: 5,

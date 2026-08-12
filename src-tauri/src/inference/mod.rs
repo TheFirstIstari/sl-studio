@@ -2,7 +2,6 @@
 
 pub mod mlx_pipeline;
 pub mod reasoner;
-pub mod model_registry;
 
 /// Return the set of built-in pipelines available out of the box.
 pub fn get_builtin_pipelines() -> Vec<crate::Pipeline> {
