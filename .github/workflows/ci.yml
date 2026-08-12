@@ -538,6 +538,8 @@ jobs:
     name: Rust (Fedora)
     needs: frontend
     runs-on: [self-hosted, fedora]
+    # Self-hosted runners may be offline; don't block CI when they are unavailable
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -565,6 +567,8 @@ jobs:
     name: Tests (Fedora)
     needs: frontend
     runs-on: [self-hosted, fedora]
+    # Self-hosted runners may be offline; don't block CI when they are unavailable
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -593,6 +597,8 @@ jobs:
     name: Rust (NixOS)
     needs: frontend
     runs-on: [self-hosted, nixos]
+    # Self-hosted runners may be offline; don't block CI when they are unavailable
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -620,6 +626,8 @@ jobs:
     name: Tests (NixOS)
     needs: frontend
     runs-on: [self-hosted, nixos]
+    # Self-hosted runners may be offline; don't block CI when they are unavailable
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
