@@ -248,13 +248,13 @@
 		try {
 			if (!$modelLoaded) {
 				const models = await invoke<Array<{ path: string }>>('list_downloaded_models');
-				const modelPath = $config?.model?.local_path || (models.length > 0 ? models[0].path : null);
-				if (!modelPath)
-					throw new Error('No model file found. Please download a model in Settings.');
+				const modelName = $config?.model?.mlx_model_name || (models.length > 0 ? models[0].path : null);
+				if (!modelName)
+					throw new Error('No model found. Please select a model in Settings.');
 
 				// Validate model can be loaded before trying
 				try {
-					await invoke('validate_model', { modelPath });
+					await invoke('validate_model', { modelName });
 				} catch (e) {
 					modelLoaded.set(false);
 					throw new Error(
@@ -263,9 +263,8 @@
 				}
 
 				await invoke('init_reasoner', {
-					modelPath,
+					modelName,
 					contextSize: $config?.model?.context_length || 8192,
-					gpuLayers: 32
 				});
 				modelLoaded.set(true);
 			}
