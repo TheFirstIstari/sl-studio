@@ -13,10 +13,16 @@ The Rust backend lives in `src-tauri/`, the SvelteKit frontend in `src/`.
 - Node.js ≥ 18 + npm
 - Tauri CLI v2 (installed as an npm devDependency — use `npm run tauri`)
 - On macOS Apple Silicon: Metal SDK (ships with Xcode Command Line Tools)
+- [mise](https://mise.run) (used for environment management — runs are
+  auto-loaded from `mise.toml`; all CI commands are defined as `mise` tasks)
 
 ---
 
 ## Common Commands
+
+All commands below can also be run via [mise](https://mise.run), which
+wraps the corresponding npm / cargo invocations and matches the CI workflow.
+Run `mise run` from the repo root for a full local CI pass.
 
 ### Frontend
 
@@ -51,6 +57,21 @@ cargo bench               # criterion benchmarks (database_bench)
 ```bash
 npm run check && cd src-tauri && cargo check
 ```
+
+### Mise tasks (mirrors CI)
+
+| Task | Description |
+| --- | --- |
+| `mise run ci_rust` | `cargo fmt --check` + `cargo clippy -- -D warnings` + `cargo build --release` |
+| `mise run ci_test` | `cargo test` |
+| `mise run run` | Full local CI pass (frontend + Rust + tests) |
+| `mise run format` | Prettier + `cargo fmt` check |
+| `mise run lint` | `lint_types` + `lint_clippy` |
+| `mise run build` | `npm run tauri build` |
+| `mise run dev` | `npm run tauri dev` |
+| `mise run test` | TypeScript checks + E2E (requires dev server) |
+| `mise run setup` | Install deps (cargo fetch + npm install) |
+| `mise run precommit` / `prepush` | Quick / full validation before git operations |
 
 ---
 
@@ -94,7 +115,7 @@ src-tauri/
 
 ## Testing
 
-- Rust unit tests: `cargo test` inside `src-tauri/`
+- Rust unit tests: `cargo test` inside `src-tauri/` (or `mise run ci_test`)
   - If `database_test` tests fail intermittently when run in parallel, use
     `cargo test -- --test-threads=1` to serialise them (each test uses its own
     `TempDir` but concurrent I/O can cause flakiness on some machines).
@@ -105,7 +126,10 @@ src-tauri/
 
 ## Verification Before Committing
 
+Equivalent one-liner: `mise run run` (runs everything CI does locally).
+
 1. `cd src-tauri && cargo check` — must be clean
 2. `npm run check` — must be clean
 3. `npm run lint` — no errors
 4. Optional: `npm run format:check`
+5. `mise run ci_rust && mise run ci_test` — Rust CI + tests
