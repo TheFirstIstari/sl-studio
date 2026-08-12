@@ -10,10 +10,10 @@
 
 ### Platform-Specific Requirements
 
-| Platform | Requirements                                                                                |
-| -------- | ------------------------------------------------------------------------------------------- |
-| macOS    | Xcode Command Line Tools                                                                    |
-| Windows  | Visual Studio Build Tools                                                                   |
+| Platform | Requirements                                                                                                   |
+| -------- | -------------------------------------------------------------------------------------------------------------- |
+| macOS    | Xcode Command Line Tools                                                                                       |
+| Windows  | Visual Studio Build Tools                                                                                      |
 | Linux    | `libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, `librsvg2-dev`, `patchelf`, `libgtk-3-dev`, `libsoup-3.0-dev` |
 
 ## Setup

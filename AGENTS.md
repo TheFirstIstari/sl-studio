@@ -60,18 +60,18 @@ npm run check && cd src-tauri && cargo check
 
 ### Mise tasks (mirrors CI)
 
-| Task | Description |
-| --- | --- |
-| `mise run ci_rust` | `cargo fmt --check` + `cargo clippy -- -D warnings` + `cargo build --release` |
-| `mise run ci_test` | `cargo test` |
-| `mise run run` | Full local CI pass (frontend + Rust + tests) |
-| `mise run format` | Prettier + `cargo fmt` check |
-| `mise run lint` | `lint_types` + `lint_clippy` |
-| `mise run build` | `npm run tauri build` |
-| `mise run dev` | `npm run tauri dev` |
-| `mise run test` | TypeScript checks + E2E (requires dev server) |
-| `mise run setup` | Install deps (cargo fetch + npm install) |
-| `mise run precommit` / `prepush` | Quick / full validation before git operations |
+| Task                             | Description                                                                   |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| `mise run ci_rust`               | `cargo fmt --check` + `cargo clippy -- -D warnings` + `cargo build --release` |
+| `mise run ci_test`               | `cargo test`                                                                  |
+| `mise run run`                   | Full local CI pass (frontend + Rust + tests)                                  |
+| `mise run format`                | Prettier + `cargo fmt` check                                                  |
+| `mise run lint`                  | `lint_types` + `lint_clippy`                                                  |
+| `mise run build`                 | `npm run tauri build`                                                         |
+| `mise run dev`                   | `npm run tauri dev`                                                           |
+| `mise run test`                  | TypeScript checks + E2E (requires dev server)                                 |
+| `mise run setup`                 | Install deps (cargo fetch + npm install)                                      |
+| `mise run precommit` / `prepush` | Quick / full validation before git operations                                 |
 
 ---
 
