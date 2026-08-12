@@ -4,7 +4,7 @@
 	import { PageHeader, StatCard } from '$lib/components';
 
 	// Get model path from config store
-	let modelPath = $derived($config?.model?.local_path || '');
+	let modelName = $derived($config?.model?.mlx_model_name || '');
 
 	function dismissError() {
 		error.set('');
@@ -86,13 +86,13 @@
 			<div class="status-row">
 				<span class="info-label">Status</span>
 				<span class="info-value" class:loaded={$modelLoaded}>
-					{$modelLoaded ? 'Loaded' : modelPath ? 'Not loaded' : 'No model configured'}
+					{$modelLoaded ? 'Loaded' : modelName ? 'Not loaded' : 'No model configured'}
 				</span>
 			</div>
-			{#if modelPath}
+			{#if modelName}
 				<div class="status-row">
 					<span class="info-label">Path</span>
-					<span class="info-value mono">{modelPath}</span>
+					<span class="info-value mono">{modelName}</span>
 				</div>
 			{/if}
 		</div>

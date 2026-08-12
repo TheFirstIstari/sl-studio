@@ -21,12 +21,14 @@
 ### Task 1: Add reqwest dependency and create MlxPipeline file
 
 **Files:**
+
 - Modify: `src-tauri/Cargo.toml:8` (add reqwest dependency)
 - Create: `src-tauri/src/inference/mlx_pipeline.rs`
 - Delete: `src-tauri/src/inference/llama.rs`
 - Modify: `src-tauri/src/inference/mod.rs:3` (replace `pub mod llama` with `pub mod mlx_pipeline`)
 
 **Interfaces:**
+
 - Produces: `MlxPipeline` struct with `new()`, `load()`, `infer()`, `Drop` impl
 
 - [ ] Add reqwest to Cargo.toml:
@@ -93,9 +95,11 @@ git commit -m "refactor(inference): replace LlamaPipeline with MlxPipeline stub"
 ### Task 2: Implement MlxPipeline load() with rapid-mlx subprocess
 
 **Files:**
+
 - Modify: `src-tauri/src/inference/mlx_pipeline.rs`
 
 **Interfaces:**
+
 - Consumes: `rapid-mlx` binary at `/opt/homebrew/bin/rapid-mlx`
 - Produces: `MmlxPipeline::load()` spawns subprocess, `infer()` makes HTTP calls
 
@@ -165,9 +169,11 @@ git commit -m "feat(inference): implement MxlPipeline load() and infer() with ra
 ### Task 3: Update Reasoner to use MmlxPipeline
 
 **Files:**
+
 - Modify: `src-tauri/src/inference/reasoner.rs`
 
 **Interfaces:**
+
 - Consumes: `MlxPipeline` from Task 1/2
 - Produces: `Reasoner` with `MlxPipeline` backend
 
@@ -204,9 +210,11 @@ git commit -m "refactor(inference): update Reasoner to use MlxPipeline"
 ### Task 4: Update ModelInfo for MLX
 
 **Files:**
+
 - Modify: `src-tauri/src/inference/model_registry.rs`
 
 **Interfaces:**
+
 - Consumes: MLX model naming conventions (e.g., "qwen3.5-4b-4bit")
 - Produces: `ModelInfo` with MLX fields
 
@@ -266,9 +274,11 @@ git commit -m "refactor(inference): update ModelInfo for MLX model fields"
 ### Task 5: Update DownloadedModel struct
 
 **Files:**
+
 - Modify: `src-tauri/src/lib.rs:252`
 
 **Interfaces:**
+
 - Consumes: MLX model naming
 - Produces: `DownloadedModel` with `mlx_model_name` field
 
@@ -296,11 +306,13 @@ git commit -m "feat: add mlx_model_name to DownloadedModel"
 ### Task 6: Update backend model commands
 
 **Files:**
+
 - Modify: `src-tauri/src/commands/mod.rs` — functions `init_reasoner` (line ~1475),
   `validate_model` (line ~1462), `download_model` (line ~1442),
   `list_downloaded_models` (line ~1415), `is_model_loaded` (line ~1456)
 
 **Interfaces:**
+
 - Consumes: `MmlxPipeline` from Task 2
 - Consumes: `DownloadedModel` updated in Task 5
 - Produces: MLX-aware command handlers
@@ -402,10 +414,12 @@ git commit -m "feat(commands): update model commands for rapid-mlx"
 ### Task 7: Update frontend types
 
 **Files:**
+
 - Modify: `src/lib/stores/app.ts` — `ModelConfig` interface (line ~17),
   `HardwareConfig` interface (line ~26, remove `recommended_gpu_layers`)
 
 **Interfaces:**
+
 - Consumes: Backend commands using `model_name` instead of `model_path`
 
 - [ ] Update `ModelConfig`:
@@ -413,23 +427,23 @@ git commit -m "feat(commands): update model commands for rapid-mlx"
 ```typescript
 // Before:
 export interface ModelConfig {
-    source: 'huggingface' | 'local';
-    id: string;
-    quantization: string;
-    context_length: number;
-    downloaded: boolean;
-    local_path: string;
+	source: 'huggingface' | 'local';
+	id: string;
+	quantization: string;
+	context_length: number;
+	downloaded: boolean;
+	local_path: string;
 }
 
 // After:
 export interface ModelConfig {
-    source: 'huggingface' | 'local';
-    id: string;
-    mlx_model_name: string;    // e.g., "qwen3.5-4b-4bit"
-    dtype: string;              // e.g., "float16"
-    context_length: number;
-    downloaded: boolean;
-    local_path: string;         // may be empty for remote models
+	source: 'huggingface' | 'local';
+	id: string;
+	mlx_model_name: string; // e.g., "qwen3.5-4b-4bit"
+	dtype: string; // e.g., "float16"
+	context_length: number;
+	downloaded: boolean;
+	local_path: string; // may be empty for remote models
 }
 ```
 
@@ -452,10 +466,12 @@ git commit -m "refactor(frontend): update types for MLX model config"
 ### Task 8: Update frontend components
 
 **Files:**
+
 - Modify: `src/routes/settings/+page.svelte` — file dialog filter, placeholder
 - Modify: `src/routes/analysis/+page.svelte` — `init_reasoner` invoke call
 
 **Interfaces:**
+
 - Consumes: Backend `init_reasoner` now takes `modelName` instead of `modelPath` + `gpuLayers`
 
 - [ ] Update `analysis/+page.svelte` — remove `gpuLayers`, rename `modelPath` to `modelName`:
@@ -463,15 +479,15 @@ git commit -m "refactor(frontend): update types for MLX model config"
 ```typescript
 // Before:
 await invoke('init_reasoner', {
-    modelPath,
-    contextSize: $config?.model?.context_length || 8192,
-    gpuLayers: 32
+	modelPath,
+	contextSize: $config?.model?.context_length || 8192,
+	gpuLayers: 32
 });
 
 // After:
 await invoke('init_reasoner', {
-    modelName: modelPath,
-    contextSize: $config?.model?.context_length || 8192,
+	modelName: modelPath,
+	contextSize: $config?.model?.context_length || 8192
 });
 ```
 
@@ -479,7 +495,7 @@ await invoke('init_reasoner', {
 
 ```typescript
 // Before:
-filters: [{ name: 'GGUF Models', extensions: ['gguf'] }]
+filters: [{ name: 'GGUF Models', extensions: ['gguf'] }];
 
 // After: (remove the file dialog entirely or change to model selector dropdown)
 // Since rapid-mlx uses model names, replace with dropdown of available models
@@ -497,9 +513,11 @@ git commit -m "refactor(frontend): update invokes for MLX model handling"
 ### Task 9: Final audit — remove all GGUF/llama references
 
 **Files:**
+
 - All files in `src-tauri/src/` and `src/`
 
 **Interfaces:**
+
 - Consumes: All previous tasks completed
 - Produces: Clean codebase with no GGUF/llama references
 

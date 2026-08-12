@@ -76,7 +76,7 @@ src-tauri/
       database.rs         SQLite pool + migrations
       queries/            Domain query modules (analytics, timeline, …)
     extractors/           PDF / image / audio / DOCX extraction
-    inference/            llama.cpp pipeline, reasoner, model registry
+    inference/            MLX pipeline, reasoner
     lib.rs                AppState definition + Tauri builder
 ```
 
@@ -109,4 +109,3 @@ src-tauri/
 2. `npm run check` — must be clean
 3. `npm run lint` — no errors
 4. Optional: `npm run format:check`
-

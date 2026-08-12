@@ -1,11 +1,9 @@
 [
-  {
-    "name": "default",
-    "identifier": "com.slstudio.desktop",
-    "description": "Default capabilities for SL Studio",
-    "local": true,
-    "permissions": [
-      "core:default"
-    ]
-  }
+	{
+		"name": "default",
+		"identifier": "com.slstudio.desktop",
+		"description": "Default capabilities for SL Studio",
+		"local": true,
+		"permissions": ["core:default"]
+	}
 ]

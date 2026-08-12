@@ -9,6 +9,7 @@ spec describes replacing those stubs with **rapid-mlx** — a production-ready
 Python package that provides Apple MLX inference with an OpenAI-compatible HTTP API.
 
 `rapid-mlx` is installed via Homebrew (`/opt/homebrew/bin/rapid-mlx`) and provides:
+
 - `rapid-mlx serve <model>` — starts an OpenAI-compatible HTTP server on `localhost:8000`
 - `rapid-mlx models` — lists available model aliases (e.g., `qwen3.5-4b-4bit`)
 
@@ -18,6 +19,7 @@ swap is low-risk.
 ## Scope
 
 ### In scope
+
 - Replace `src-tauri/src/inference/llama.rs` (`LlamaPipeline`) → `mlx_pipeline.rs` (`MlxPipeline`)
 - Update `reasoner.rs` to depend on `MlxPipeline`
 - Update `model_registry.rs` `ModelInfo` for MLX model fields (model name instead of file path)
@@ -28,6 +30,7 @@ swap is low-risk.
 - Remove all `gguf`/`llama` references from `src/`
 
 ### Out of scope
+
 - Training MLX models — SL Studio uses pre-trained models only
 - Support for both GGUF and MLX backends — this is a full replacement
 - Changes to database schema
@@ -79,6 +82,7 @@ impl Drop for MlxPipeline {
 ```
 
 Key differences from LlamaPipeline:
+
 - Uses `rapid-mlx serve` subprocess (no native Rust MLX crate needed)
 - Model identified by name (e.g., `qwen3.5-4b-4bit`), not file path
 - No `gpu_layers` parameter (rapid-mlx handles Metal GPU automatically)
@@ -110,21 +114,21 @@ pub struct ModelInfo {
 
 ### Tauri commands (`src-tauri/src/commands/mod.rs`)
 
-| Command | Change |
-|---------|--------|
-| `init_reasoner` | Remove `gpu_layers` param; `model_path` becomes `model_name` |
-| `validate_model` | Call `rapid-mlx models` to check if model exists |
-| `download_model` | Use `rapid-mlx pull <model_name>` command |
-| `is_model_loaded` | Check if rapid-mlx serve is running / model is cached |
-| `list_downloaded_models` | Call `rapid-mlx models` to list available models |
+| Command                  | Change                                                       |
+| ------------------------ | ------------------------------------------------------------ |
+| `init_reasoner`          | Remove `gpu_layers` param; `model_path` becomes `model_name` |
+| `validate_model`         | Call `rapid-mlx models` to check if model exists             |
+| `download_model`         | Use `rapid-mlx pull <model_name>` command                    |
+| `is_model_loaded`        | Check if rapid-mlx serve is running / model is cached        |
+| `list_downloaded_models` | Call `rapid-mlx models` to list available models             |
 
 ### Frontend
 
-| File | Change |
-|------|--------|
-| `routes/settings/+page.svelte` | Remove `.gguf` file dialog; use model name dropdown or rapid-mlx model selector |
+| File                           | Change                                                                             |
+| ------------------------------ | ---------------------------------------------------------------------------------- |
+| `routes/settings/+page.svelte` | Remove `.gguf` file dialog; use model name dropdown or rapid-mlx model selector    |
 | `routes/analysis/+page.svelte` | `init_reasoner` invoke: remove `gpuLayers`; use `modelName` instead of `modelPath` |
-| `stores/app.ts` | Update `ModelConfig` type: remove `gpuLayers`, `local_path` → `mlx_model_name` |
+| `stores/app.ts`                | Update `ModelConfig` type: remove `gpuLayers`, `local_path` → `mlx_model_name`     |
 
 ## Data flow
 
@@ -144,6 +148,7 @@ pub struct ModelInfo {
 ## Dependencies
 
 Add to `Cargo.toml`:
+
 ```toml
 reqwest = { version = "0.28", features = ["json", "rustls-tls"] }
 ```

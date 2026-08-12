@@ -90,8 +90,8 @@ test.describe('Settings Page', () => {
 		await expect(downloadBtn).toBeVisible();
 	});
 
-	test('should have model path input', async ({ page }) => {
-		await expect(page.locator('#modelPath')).toBeVisible();
+	test('should have model name input', async ({ page }) => {
+		await expect(page.locator('#mlxModelName')).toBeVisible();
 	});
 
 	test('should have browse button for model file', async ({ page }) => {

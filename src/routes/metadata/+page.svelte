@@ -11,6 +11,7 @@
 	import { openUrl } from '@tauri-apps/plugin-opener';
 	import { onMount } from 'svelte';
 	import { PageHeader, StatCard, FilterBar } from '$lib/components';
+	import { formatFileSize } from '$lib/utils';
 
 	// ── Types ──────────────────────────────────────────────────────────────────
 
@@ -184,12 +185,6 @@
 	async function refreshMetadata() {
 		if (!selected) return;
 		await extractLive(selected);
-	}
-
-	function formatFileSize(bytes: number): string {
-		if (bytes < 1024) return `${bytes} B`;
-		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 	}
 
 	function sourceLabel(source: string): string {

@@ -22,10 +22,12 @@
 ### Task 1: Fix backend ModelConfig + HardwareInfo (lib.rs + commands/mod.rs)
 
 **Files:**
+
 - Modify: `src-tauri/src/lib.rs:11` (comment), `lib.rs:182-190` (ModelConfig), `lib.rs:221-228` (HardwareInfo)
 - Modify: `src-tauri/src/commands/mod.rs:45-52` (load_config defaults), `commands/mod.rs:1386-1393` (get_recommended_settings)
 
 **Interfaces:**
+
 - Consumes: existing ModelConfig with `quantization` field
 - Produces: ModelConfig with `mlx_model_name`/`dtype`, HardwareInfo without `gpu_layers`
 
@@ -92,12 +94,14 @@ Expected: PASS
 ### Task 2: Wire up init_reasoner + analyze_batch + Reasoner (lib.rs, commands/mod.rs, reasoner.rs)
 
 **Files:**
+
 - Modify: `src-tauri/src/lib.rs:607-650` (AppState + build_tauri_app)
 - Modify: `src-tauri/src/commands/mod.rs:1486-1508` (init_reasoner + analyze_batch)
 - Modify: `src-tauri/src/inference/reasoner.rs:24-37` (extract_facts)
 - Modify: `src-tauri/src/inference/mlx_pipeline.rs:6` (remove `#![allow(dead_code)]`)
 
 **Interfaces:**
+
 - Consumes: `AppState`, `MmlxPipeline` (from Task 1), `Reasoner`
 - Produces: Working reasoner stored in AppState, real LLM inference in analyze_batch
 
@@ -237,10 +241,12 @@ Expected: PASS (zero warnings)
 ### Task 3: Remove dead code (model_registry.rs + inference/mod.rs)
 
 **Files:**
+
 - Delete: `src-tauri/src/inference/model_registry.rs`
 - Modify: `src-tauri/src/inference/mod.rs` — remove `pub mod model_registry;`
 
 **Interfaces:**
+
 - Produces: Clean inference module with no unused code
 
 - [ ] **Step 1: Remove `pub mod model_registry;` from `mod.rs`**
@@ -264,12 +270,14 @@ Expected: PASS, no dead code warnings
 ### Task 4: Fix frontend types + settings page (app.ts, settings/+page.svelte)
 
 **Files:**
+
 - Modify: `src/routes/settings/+page.svelte:9-14` (ModelInfo interface)
 - Modify: `src/routes/settings/+page.svelte:241` (downloadSelectedModel)
 - Modify: `src/routes/settings/+page.svelte:431-432` (model selection)
 - Modify: `src/routes/settings/+page.svelte:170-198` (saveConfig completeness)
 
 **Interfaces:**
+
 - Consumes: Backend `DownloadedModel` with `mlx_model_name` field
 - Produces: Frontend correctly uses `mlx_model_name` everywhere
 
@@ -277,11 +285,11 @@ Expected: PASS, no dead code warnings
 
 ```typescript
 interface ModelInfo {
-    id: string;
-    filename: string;
-    size: number;
-    path: string;
-    mlx_model_name: string;
+	id: string;
+	filename: string;
+	size: number;
+	path: string;
+	mlx_model_name: string;
 }
 ```
 
@@ -339,10 +347,12 @@ Expected: PASS
 ### Task 5: Fix frontend dashboard + analysis page (+page.svelte, analysis/+page.svelte)
 
 **Files:**
+
 - Modify: `src/routes/+page.svelte:7,89,92,95`
 - Modify: `src/routes/analysis/+page.svelte:241,251`
 
 **Interfaces:**
+
 - Consumes: Config with `mlx_model_name` instead of `local_path` for model selection
 - Produces: Dashboard and analysis use correct model field
 
@@ -356,11 +366,16 @@ let modelName = $derived($config?.model?.mlx_model_name || '');
 ```
 
 Update the status display:
+
 ```typescript
 // Before:
-{$modelLoaded ? 'Loaded' : modelPath ? 'Not loaded' : 'No model configured'}
+{
+	$modelLoaded ? 'Loaded' : modelPath ? 'Not loaded' : 'No model configured';
+}
 // After:
-{$modelLoaded ? 'Loaded' : modelName ? 'Not loaded' : 'No model configured'}
+{
+	$modelLoaded ? 'Loaded' : modelName ? 'Not loaded' : 'No model configured';
+}
 ```
 
 - [ ] **Step 2: Fix analysis page** — check `mlx_model_name` instead of `local_path`:
@@ -373,11 +388,13 @@ if (!$config?.model?.mlx_model_name) {
 ```
 
 Fix model name fallback:
+
 ```typescript
 // Before:
 const modelName = $config?.model?.local_path || (models.length > 0 ? models[0].path : null);
 // After:
-const modelName = $config?.model?.mlx_model_name || (models.length > 0 ? models[0].mlx_model_name : null);
+const modelName =
+	$config?.model?.mlx_model_name || (models.length > 0 ? models[0].mlx_model_name : null);
 ```
 
 - [ ] **Step 3: Verify**
@@ -393,9 +410,11 @@ Expected: PASS
 ### Task 6: Fix e2e tests (settings.test.ts)
 
 **Files:**
+
 - Modify: `e2e/settings.test.ts:93-94`
 
 **Interfaces:**
+
 - Consumes: Settings page with `#mlxModelName` input
 - Produces: Tests pass with correct selector
 
@@ -423,9 +442,11 @@ Expected: Selector exists on page
 ### Task 7: Update AGENTS.md
 
 **Files:**
+
 - Modify: `AGENTS.md:79`
 
 **Interfaces:**
+
 - Produces: Documentation reflecting MLX pipeline
 
 - [ ] **Step 1: Update comment** — change `inference/            llama.cpp pipeline, reasoner, model registry` to `inference/            MLX pipeline, reasoner`
@@ -440,9 +461,10 @@ Expected: No matches
 
 ---
 
-### Task 8: Update documentation (docs/*, SPEC.md, README.md, CHANGELOG.md)
+### Task 8: Update documentation (docs/\*, SPEC.md, README.md, CHANGELOG.md)
 
 **Files:**
+
 - Modify: `docs/backend/inference.md` — replace llama.cpp docs with rapid-mlx
 - Modify: `docs/backend/models.md` — replace GGUF with MLX model management
 - Modify: `docs/architecture/pipeline.md` — update LlamaModel → MlxPipeline
@@ -454,6 +476,7 @@ Expected: No matches
 - Modify: `CHANGELOG.md` — add entry for completion
 
 **Interfaces:**
+
 - Produces: Documentation consistent with rapid-mlx implementation
 
 - [ ] **Step 1: Update `docs/backend/inference.md`** — document MlxPipeline, rapid-mlx subprocess, OpenAI-compatible API
@@ -481,6 +504,7 @@ Expected: No matches (except Whisper `ggml` placeholder which is unrelated)
 **Files:** All 117 dirty files
 
 **Interfaces:**
+
 - Produces: Clean git history with logical commits, each referencing a GitHub issue
 
 - [ ] **Step 1: Commit backend MLX fixes** (Task 1-3 changes)

@@ -15,6 +15,7 @@ This spec covers the **completion and bug-fix phase**.
 ## Scope
 
 ### In scope
+
 - Fix `init_reasoner` so it actually loads the pipeline and stores it in `AppState`
 - Fix `analyze_batch` to use the stored `Reasoner` for real LLM inference
 - Align backend `ModelConfig` with frontend (replace `quantization` with `mlx_model_name`/`dtype`)
@@ -26,6 +27,7 @@ This spec covers the **completion and bug-fix phase**.
 - Commit 117 dirty files (reorganization) in logical segments
 
 ### Out of scope
+
 - Switching away from rapid-mlx (it IS used directly as a subprocess — confirmed correct)
 - Database schema changes
 - Training or model conversion
@@ -34,27 +36,27 @@ This spec covers the **completion and bug-fix phase**.
 
 ### Backend (`src-tauri/src/`)
 
-| File | Status |
-|------|--------|
-| `inference/mlx_pipeline.rs` | ✅ Implemented — `MlxPipeline::new/load/infer/Drop` works correctly |
-| `inference/reasoner.rs` | ⚠️ Structurally correct but **never instantiated** |
-| `inference/model_registry.rs` | ❌ **Dead code** — `ModelRegistry` and backend `ModelInfo` never used |
-| `commands/mod.rs:init_reasoner` | ❌ **Stub** — creates pipeline, never calls `load()`, never stores it |
-| `commands/mod.rs:analyze_batch` | ❌ **Hardcoded** — inserts "Unknown fact" without any LLM inference |
-| `lib.rs:ModelConfig` | ❌ **Mismatch** — has `quantization`, missing `mlx_model_name`/`dtype` |
-| `lib.rs:HardwareInfo` | ❌ Still has `recommended_gpu_layers: 32` |
-| `lib.rs:AppState` | ❌ No pipeline holder field |
-| `lib.rs:11` comment | ❌ Still says "llama.cpp pipeline" |
+| File                            | Status                                                                 |
+| ------------------------------- | ---------------------------------------------------------------------- |
+| `inference/mlx_pipeline.rs`     | ✅ Implemented — `MlxPipeline::new/load/infer/Drop` works correctly    |
+| `inference/reasoner.rs`         | ⚠️ Structurally correct but **never instantiated**                     |
+| `inference/model_registry.rs`   | ❌ **Dead code** — `ModelRegistry` and backend `ModelInfo` never used  |
+| `commands/mod.rs:init_reasoner` | ❌ **Stub** — creates pipeline, never calls `load()`, never stores it  |
+| `commands/mod.rs:analyze_batch` | ❌ **Hardcoded** — inserts "Unknown fact" without any LLM inference    |
+| `lib.rs:ModelConfig`            | ❌ **Mismatch** — has `quantization`, missing `mlx_model_name`/`dtype` |
+| `lib.rs:HardwareInfo`           | ❌ Still has `recommended_gpu_layers: 32`                              |
+| `lib.rs:AppState`               | ❌ No pipeline holder field                                            |
+| `lib.rs:11` comment             | ❌ Still says "llama.cpp pipeline"                                     |
 
 ### Frontend (`src/`)
 
-| File | Status |
-|------|--------|
-| `lib/stores/app.ts` | ✅ `ModelConfig` has `mlx_model_name`/`dtype`, `HardwareInfo` has no `gpu_layers` |
+| File                           | Status                                                                                                                                                |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/stores/app.ts`            | ✅ `ModelConfig` has `mlx_model_name`/`dtype`, `HardwareInfo` has no `gpu_layers`                                                                     |
 | `routes/settings/+page.svelte` | ❌ `ModelInfo` interface missing `mlx_model_name`; `downloadSelectedModel` uses `result.path` (always empty); downloaded model list uses `model.path` |
-| `routes/analysis/+page.svelte` | ❌ Checks `local_path` (always empty); uses `models[0].path` (always empty) |
-| `routes/+page.svelte` | ❌ Dashboard displays `local_path` (always empty) |
-| `e2e/settings.test.ts` | ❌ References `#modelPath` (should be `#mlxModelName`) |
+| `routes/analysis/+page.svelte` | ❌ Checks `local_path` (always empty); uses `models[0].path` (always empty)                                                                           |
+| `routes/+page.svelte`          | ❌ Dashboard displays `local_path` (always empty)                                                                                                     |
+| `e2e/settings.test.ts`         | ❌ References `#modelPath` (should be `#mlxModelName`)                                                                                                |
 
 ### Documentation
 
@@ -217,5 +219,5 @@ GitHub issues created for each logical group. Commits in these segments:
 1. **Backend MLX fix** — ModelConfig, HardwareInfo, AppState, init_reasoner, analyze_batch, reasoner
 2. **Frontend MLX fix** — app.ts, settings, analysis, dashboard
 3. **Tests** — e2e settings.test.ts
-4. **Docs** — AGENTS.md, docs/*, SPEC.md, README, CHANGELOG
+4. **Docs** — AGENTS.md, docs/\*, SPEC.md, README, CHANGELOG
 5. **Reorganization** — 117-file working tree (file consolidation)

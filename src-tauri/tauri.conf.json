@@ -1,27 +1,27 @@
 {
-  "identifier": "com.slstudio.desktop",
-  "build": {
-    "beforeBuildCommand": "npm run build",
-    "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1420",
-    "frontendDist": "../dist"
-  },
-  "app": {
-    "security": {
-      "csp": "default-src blob: data: wss: ws: jit: 'unsafe-inline' 'unsafe-eval' http: https:; img-src: data: *; connect-src: http: https: ws: wss: * 'self'"
-    },
-    "windows": [
-      {
-        "url": "http://localhost:1420",
-        "width": 1400,
-        "height": 900,
-        "resizable": true,
-        "title": "SL Studio"
-      }
-    ]
-  },
-  "bundle": {
-    "active": true,
-    "targets": "all"
-  }
+	"identifier": "com.slstudio.desktop",
+	"build": {
+		"beforeBuildCommand": "npm run build",
+		"beforeDevCommand": "npm run dev",
+		"devUrl": "http://localhost:1420",
+		"frontendDist": "../dist"
+	},
+	"app": {
+		"security": {
+			"csp": "default-src blob: data: wss: ws: jit: 'unsafe-inline' 'unsafe-eval' http: https:; img-src: data: *; connect-src: http: https: ws: wss: * 'self'"
+		},
+		"windows": [
+			{
+				"url": "http://localhost:1420",
+				"width": 1400,
+				"height": 900,
+				"resizable": true,
+				"title": "SL Studio"
+			}
+		]
+	},
+	"bundle": {
+		"active": true,
+		"targets": "all"
+	}
 }
