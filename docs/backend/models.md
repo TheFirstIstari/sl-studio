@@ -16,12 +16,12 @@ struct ModelManager {
 
 ### Methods
 
-| Method                          | Description                          |
-| ------------------------------- | ------------------------------------ |
-| `list_models()`                 | List all available MLX models        |
-| `select_model(model_name)`      | Set active MLX model                 |
-| `download_model(repo_id, filename)` | Pull model via `rapid-mlx pull`   |
-| `validate_model(model_name)`    | Validate model name or `.safetensors` file |
+| Method                              | Description                                |
+| ----------------------------------- | ------------------------------------------ |
+| `list_models()`                     | List all available MLX models              |
+| `select_model(model_name)`          | Set active MLX model                       |
+| `download_model(repo_id, filename)` | Pull model via `rapid-mlx pull`            |
+| `validate_model(model_name)`        | Validate model name or `.safetensors` file |
 
 ## Data Types
 
@@ -34,10 +34,10 @@ enum DType {
 
 ### Data Type Comparison
 
-| Type       | Size     | Quality   | Speed   |
-| ---------- | -------- | --------- | ------- |
-| Float16    | ~4-5GB   | Good      | Fast    |
-| BFloat16   | ~5-6GB   | Better    | Medium  |
+| Type     | Size   | Quality | Speed  |
+| -------- | ------ | ------- | ------ |
+| Float16  | ~4-5GB | Good    | Fast   |
+| BFloat16 | ~5-6GB | Better  | Medium |
 
 ## Model Download
 
@@ -63,11 +63,11 @@ For forensic document analysis with structured JSON extraction, these models are
 
 ### Primary Recommendations
 
-| Model                   | Size    | MLX Model Name          | Use Case                           |
-| ----------------------- | ------- | ----------------------- | ---------------------------------- |
-| **Qwen 3.5 4B (4-bit)** | ~2.5GB  | `qwen3.5-4b-4bit`       | Recommended for 16GB Macs          |
-| **Qwen 3.5 9B (4-bit)** | ~5.5GB  | `qwen3.5-9b-4bit`       | Better quality for 32GB+ Macs      |
-| **Bonsai 27B (2-bit)**  | ~8GB    | `bonsai-27b-2bit`       | High quality, requires 64GB+ RAM   |
+| Model                   | Size   | MLX Model Name    | Use Case                         |
+| ----------------------- | ------ | ----------------- | -------------------------------- |
+| **Qwen 3.5 4B (4-bit)** | ~2.5GB | `qwen3.5-4b-4bit` | Recommended for 16GB Macs        |
+| **Qwen 3.5 9B (4-bit)** | ~5.5GB | `qwen3.5-9b-4bit` | Better quality for 32GB+ Macs    |
+| **Bonsai 27B (2-bit)**  | ~8GB   | `bonsai-27b-2bit` | High quality, requires 64GB+ RAM |
 
 ### Model Configuration
 

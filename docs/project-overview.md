@@ -107,7 +107,7 @@ Extracts structured data from documents:
 | Maps     | Leaflet.js 1 (CARTO dark tiles)     |
 | OCR      | ocrs 0.12                           |
 | PDF      | pdf-extract 0.7, lopdf 0.33         |
-| LLM      | rapid-mlx (MLX models, float16)    |
+| LLM      | rapid-mlx (MLX models, float16)     |
 | Audio    | whisper.cpp (stub)                  |
 | Metadata | kamadak-exif 0.5, lopdf 0.33        |
 | Language | whatlang 0.16                       |
@@ -248,10 +248,10 @@ SL Studio can download MLX models via `rapid-mlx pull`.
 
 ### Available Models
 
-| Model               | Size   | Description     |
-| ------------------- | ------ | --------------- |
-| Qwen 3.5 4B         | ~2.5GB | General purpose |
-| Qwen 3.5 9B         | ~5.5GB | Higher quality  |
+| Model       | Size   | Description     |
+| ----------- | ------ | --------------- |
+| Qwen 3.5 4B | ~2.5GB | General purpose |
+| Qwen 3.5 9B | ~5.5GB | Higher quality  |
 
 ### Manual Download
 
@@ -392,21 +392,21 @@ The application includes several optimizations for large-scale evidence processi
 
 ### Required Crates
 
-| Crate        | Version | Purpose                  |
-| ------------ | ------- | ------------------------ |
-| tauri        | 2.x     | Desktop framework        |
-| rusqlite     | 0.32    | SQLite database          |
-| pdf-extract  | 0.7     | PDF text extraction      |
-| lopdf        | 0.33    | PDF metadata/structure   |
-| ocrs         | 0.12    | OCR engine               |
-| kamadak-exif | 0.5     | EXIF metadata extraction |
-| whatlang     | 0.16    | Language detection       |
-| rapid-mlx  | CLI     | MLX inference (subprocess) |
-| sysinfo      | 0.32    | Hardware detection       |
-| rayon        | 1.10    | Parallel processing      |
-| sha2         | 0.10    | File hashing             |
-| tracing      | 0.1     | Structured logging       |
-| chrono       | 0.4     | Date/time handling       |
+| Crate        | Version | Purpose                    |
+| ------------ | ------- | -------------------------- |
+| tauri        | 2.x     | Desktop framework          |
+| rusqlite     | 0.32    | SQLite database            |
+| pdf-extract  | 0.7     | PDF text extraction        |
+| lopdf        | 0.33    | PDF metadata/structure     |
+| ocrs         | 0.12    | OCR engine                 |
+| kamadak-exif | 0.5     | EXIF metadata extraction   |
+| whatlang     | 0.16    | Language detection         |
+| rapid-mlx    | CLI     | MLX inference (subprocess) |
+| sysinfo      | 0.32    | Hardware detection         |
+| rayon        | 1.10    | Parallel processing        |
+| sha2         | 0.10    | File hashing               |
+| tracing      | 0.1     | Structured logging         |
+| chrono       | 0.4     | Date/time handling         |
 
 ### Optional (Feature-gated)
 

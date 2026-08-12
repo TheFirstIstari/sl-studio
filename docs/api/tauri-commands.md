@@ -101,25 +101,25 @@ The backend exposes 60+ commands to the frontend via Tauri's IPC mechanism. All 
 
 ## Model Commands
 
-| Command                  | Parameters            | Returns                   | Description                        |
-| ------------------------ | --------------------- | ------------------------- | ---------------------------------- |
-| `download_model`         | `repo_id, filename`   | `Result<DownloadedModel>` | Pull MLX model via rapid-mlx       |
-| `list_downloaded_models` | None                  | `Vec<DownloadedModel>`    | List local MLX models              |
+| Command                  | Parameters          | Returns                   | Description                  |
+| ------------------------ | ------------------- | ------------------------- | ---------------------------- |
+| `download_model`         | `repo_id, filename` | `Result<DownloadedModel>` | Pull MLX model via rapid-mlx |
+| `list_downloaded_models` | None                | `Vec<DownloadedModel>`    | List local MLX models        |
 
 ## Extraction/Reasoning Commands
 
-| Command                    | Parameters   | Returns                    | Description               |
-| -------------------------- | ------------ | -------------------------- | ------------------------- |
-| `extract_file`             | `file_path`  | `Result<ExtractionResult>` | Extract text from file    |
-| `extract_batch`            | `file_paths` | `Vec<ExtractionResult>`    | Extract multiple files    |
-| `get_supported_extensions` | None         | `Vec<String>`              | List supported file types |
+| Command                    | Parameters                 | Returns                    | Description               |
+| -------------------------- | -------------------------- | -------------------------- | ------------------------- |
+| `extract_file`             | `file_path`                | `Result<ExtractionResult>` | Extract text from file    |
+| `extract_batch`            | `file_paths`               | `Vec<ExtractionResult>`    | Extract multiple files    |
+| `get_supported_extensions` | None                       | `Vec<String>`              | List supported file types |
 | `init_reasoner`            | `model_name, context_size` | `Result<()>`               | Initialize MLX reasoner   |
-| `analyze_file`             | `file_path`  | `Result<AnalysisResult>`   | Full file analysis        |
-| `analyze_batch`            | `file_paths` | `Vec<AnalysisResult>`      | Analyze multiple files    |
-| `get_extraction_queue`     | None         | `QueueStatus`              | Get extraction queue      |
-| `get_analysis_queue`       | None         | `QueueStatus`              | Get analysis queue        |
-| `is_model_loaded`          | None         | `bool`                     | Check if model is loaded  |
-| `get_reasoner_config`      | None         | `ReasonerConfig`           | Get reasoner settings     |
+| `analyze_file`             | `file_path`                | `Result<AnalysisResult>`   | Full file analysis        |
+| `analyze_batch`            | `file_paths`               | `Vec<AnalysisResult>`      | Analyze multiple files    |
+| `get_extraction_queue`     | None                       | `QueueStatus`              | Get extraction queue      |
+| `get_analysis_queue`       | None                       | `QueueStatus`              | Get analysis queue        |
+| `is_model_loaded`          | None                       | `bool`                     | Check if model is loaded  |
+| `get_reasoner_config`      | None                       | `ReasonerConfig`           | Get reasoner settings     |
 
 ## Metadata Commands
 

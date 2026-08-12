@@ -28,15 +28,15 @@ struct AppConfig {
 
 ### ModelConfig
 
-| Field              | Type   | Description                                  |
-| ------------------ | ------ | -------------------------------------------- |
-| `source`           | String | `rapid-mlx` or `local`                       |
-| `id`               | String | Model identifier                             |
-| `mlx_model_name`   | String | MLX model name (e.g. `qwen3.5-4b-4bit`)      |
-| `dtype`            | String | Data type (`float16`, `bfloat16`)            |
-| `context_length`   | usize  | LLM context window size                      |
-| `downloaded`       | bool   | Whether the model has been pulled            |
-| `local_path`       | String | Local path or alias for the model            |
+| Field            | Type   | Description                             |
+| ---------------- | ------ | --------------------------------------- |
+| `source`         | String | `rapid-mlx` or `local`                  |
+| `id`             | String | Model identifier                        |
+| `mlx_model_name` | String | MLX model name (e.g. `qwen3.5-4b-4bit`) |
+| `dtype`          | String | Data type (`float16`, `bfloat16`)       |
+| `context_length` | usize  | LLM context window size                 |
+| `downloaded`     | bool   | Whether the model has been pulled       |
+| `local_path`     | String | Local path or alias for the model       |
 
 ### HardwareConfig
 

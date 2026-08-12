@@ -63,7 +63,7 @@ The backend is organized into 7 core modules:
 | `inference`  | LLM-powered reasoning pipeline with multi-pass analysis                  |
 | `gpu`        | Hardware detection (CPU/GPU) and auto-scaling parameters                 |
 | `config`     | Application, project, and model configuration management                 |
-| `models`     | MLX model management (download, list, select, delete)                   |
+| `models`     | MLX model management (download, list, select, delete)                    |
 | `utils`      | File utilities, structured logging, path helpers                         |
 
 ### Data Flow
