@@ -6,34 +6,34 @@ The inference module handles LLM-powered reasoning through a multi-pass pipeline
 
 ## Components
 
-### LlamaModel
+### MlxPipeline
 
-`inference/llama.rs` (~103 lines)
+`inference/mlx_pipeline.rs` (~87 lines)
 
-Wrapper for llama.cpp integration:
+Wrapper for rapid-mlx integration:
 
 ```rust
-struct LlamaModel {
-    config: LlamaConfig,
-}
-
-struct LlamaConfig {
-    context_size: usize,
-    gpu_layers: usize,
-    temperature: f32,
-    max_tokens: usize,
+pub struct MlxPipeline {
+    pub model_name: String,
+    pub context_length: usize,
+    pub server_url: String,
+    pub child: Option<Child>,
 }
 ```
 
+The `MlxPipeline` spawns `rapid-mlx serve <model_name>` as a subprocess and
+communicates via an OpenAI-compatible HTTP API. It handles startup polling,
+health checks, and cleanup (kills the subprocess on `Drop`).
+
 ### PipelineRunner
 
-`inference/pipeline.rs` (~355 lines)
+`PipelineRunner` (`inference/pipeline.rs`, ~355 lines)
 
 Executes multi-pass analysis pipelines:
 
 ```rust
 struct PipelineRunner {
-    model: LlamaModel,
+    model: MlxPipeline,
     pipeline: Pipeline,
 }
 ```
@@ -53,7 +53,7 @@ Combines extraction with LLM inference:
 ```rust
 struct Reasoner {
     deconstructor: Deconstructor,
-    model: LlamaModel,
+    pipeline: MlxPipeline,
     system_prompt: String,
 }
 ```
@@ -86,7 +86,7 @@ File Path
        │
        ▼
 ┌─────────────┐
-│ LLM Inference│ ← Run via llama.cpp
+│ LLM Inference│ ← Run via rapid-mlx
 └──────┬──────┘
        │
        ▼

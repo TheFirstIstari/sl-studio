@@ -101,12 +101,10 @@ The backend exposes 60+ commands to the frontend via Tauri's IPC mechanism. All 
 
 ## Model Commands
 
-| Command                  | Parameters               | Returns          | Description               |
-| ------------------------ | ------------------------ | ---------------- | ------------------------- |
-| `get_models_dir`         | None                     | `PathBuf`        | Get models directory path |
-| `get_huggingface_models` | None                     | `Vec<ModelInfo>` | List available HF models  |
-| `download_model`         | `model_id, quantization` | `Result<()>`     | Download model from HF    |
-| `list_downloaded_models` | None                     | `Vec<ModelInfo>` | List local models         |
+| Command                  | Parameters            | Returns                   | Description                        |
+| ------------------------ | --------------------- | ------------------------- | ---------------------------------- |
+| `download_model`         | `repo_id, filename`   | `Result<DownloadedModel>` | Pull MLX model via rapid-mlx       |
+| `list_downloaded_models` | None                  | `Vec<DownloadedModel>`    | List local MLX models              |
 
 ## Extraction/Reasoning Commands
 
@@ -115,7 +113,7 @@ The backend exposes 60+ commands to the frontend via Tauri's IPC mechanism. All 
 | `extract_file`             | `file_path`  | `Result<ExtractionResult>` | Extract text from file    |
 | `extract_batch`            | `file_paths` | `Vec<ExtractionResult>`    | Extract multiple files    |
 | `get_supported_extensions` | None         | `Vec<String>`              | List supported file types |
-| `init_reasoner`            | `model_path` | `Result<()>`               | Initialize LLM reasoner   |
+| `init_reasoner`            | `model_name, context_size` | `Result<()>`               | Initialize MLX reasoner   |
 | `analyze_file`             | `file_path`  | `Result<AnalysisResult>`   | Full file analysis        |
 | `analyze_batch`            | `file_paths` | `Vec<AnalysisResult>`      | Analyze multiple files    |
 | `get_extraction_queue`     | None         | `QueueStatus`              | Get extraction queue      |

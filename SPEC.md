@@ -267,7 +267,7 @@ SL Studio is a desktop application built with Tauri (Rust backend + SvelteKit fr
 - **FR-STAGE-001** {#fr-stage-001}: The system SHALL allow running extraction and inference stages independently via separate UI buttons ("Extract All" and "Analyze Extracted").
 - **FR-STAGE-002** {#fr-stage-002}: The system SHALL track extraction (`has_extracted_text`) and processing (`processed`) status separately in the registry table.
 - **FR-STAGE-003** {#fr-stage-003}: The system SHALL support running Stage 1 extraction with CPU parallelism while Stage 2 inference uses GPU acceleration.
-- **FR-STAGE-004** {#fr-stage-004}: The system SHALL allow auto-optimization of resource allocation based on detected hardware (16GB Mac defaults: context=8192, batch=6, gpu_layers=32).
+- **FR-STAGE-004** {#fr-stage-004}: The system SHALL allow auto-optimization of resource allocation based on detected hardware (16GB Mac defaults: context=8192, batch=6, dtype=float16).
 - **FR-INC-001** {#fr-inc-001}: The system SHALL support incremental processing, detecting new and modified files since the last run. [SN-005](#stakeholder-needs)
 - **FR-INC-002** {#fr-inc-002}: The system MUST prioritize processing in this order: new files (highest), modified files, extracted-only files, rerun candidates.
 
@@ -463,7 +463,7 @@ The system automatically detects hardware and scales processing accordingly:
 #### Model Management {#fr-model}
 
 - **FR-MODEL-001** {#fr-model-001}: The system MUST support downloading LLM models from Hugging Face.
-- **FR-MODEL-002** {#fr-model-002}: The system SHALL allow users to select quantization level (Q4_K_M, Q5_K_S, Q8_0, F16).
+- **FR-MODEL-002** {#fr-model-002}: The system SHALL allow users to select data type (float16, bfloat16).
 - **FR-MODEL-003** {#fr-model-003}: The system MUST display model download progress and verify integrity.
 - **NFR-MODEL-001** {#nfr-model-001}: Model files SHOULD be stored in a dedicated models directory within the project.
 
@@ -785,7 +785,7 @@ The system uses a two-stage pipeline with independent queues:
 | PDF Extract   | `pdf-extract` | Fast PDF text extraction  |
 | OCR           | `ocrs`        | Pure Rust OCR engine      |
 | Audio         | `whisper-rs`  | Whisper.cpp Rust bindings |
-| LLM           | `llama_cpp`   | Local GGUF inference      |
+| LLM           | `rapid-mlx`   | Local MLX inference       |
 | Database      | `rusqlite`    | SQLite operations         |
 | Hardware      | `sysinfo`     | System probing            |
 | HTTP          | `reqwest`     | Model downloads           |
@@ -1196,7 +1196,7 @@ CREATE TABLE extraction_sources (
     pass_name TEXT NOT NULL,
     model_id TEXT NOT NULL,
     model_version TEXT,
-    quantization TEXT,
+    dtype TEXT,
     temperature REAL,
     max_tokens INTEGER,
     prompt_hash TEXT,
@@ -1213,7 +1213,7 @@ CREATE TABLE model_versions (
     version TEXT NOT NULL,
     source TEXT NOT NULL,              -- "huggingface", "local"
     local_path TEXT,
-    quantization TEXT,
+    dtype TEXT,
     context_length INTEGER,
     downloaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN DEFAULT TRUE
@@ -2300,10 +2300,11 @@ fn resume_job(job_id: &str) -> Option<JobState> {
 		"models_dir": ""
 	},
 	"model": {
-		"source": "huggingface",
+		"source": "rapid-mlx",
 		"model_id": "",
-		"quantization": "Q4_K_M",
-		"context_length": 16384,
+		"mlx_model_name": "",
+		"dtype": "float16",
+		"context_length": 4096,
 		"local_path": ""
 	},
 	"hardware": {
@@ -2972,10 +2973,10 @@ steinline/
 
 ### 3.1 LLM Infrastructure
 
-- [x] Integrate llama.cpp bindings
+- [x] Integrate rapid-mlx for MLX inference
 - [x] Implement model download from HuggingFace
 - [x] Create model manager (list, select, delete)
-- [x] Add quantization selection (Q4, Q5, Q8)
+- [x] Add data type selection (float16, bfloat16)
 - [x] Implement model loading/unloading
 
 ### 3.2 Pipeline Framework
@@ -3178,7 +3179,7 @@ steinline/
 | pdf-extract | 0.7     | PDF text extraction |
 | ocrs        | 2       | OCR engine          |
 | whisper-rs  | 1       | Audio transcription |
-| llama-cpp   | 0.2     | LLM inference       |
+| rapid-mlx   | CLI     | MLX inference         |
 
 ---
 
@@ -3190,7 +3191,7 @@ steinline/
 
 - `inference/mod.rs` - Module exports with Fact alias, PipelineRunner, get_builtin_pipelines, get_pipeline_by_id
 - `inference/pipeline.rs` - Pipeline, PipelinePass, PipelineResult, PipelineRunner structs, Fact parsing, text sampling
-- `inference/llama.rs` - LlamaModel stub with GGUF loading
+- `inference/mlx_pipeline.rs` - MlxPipeline with rapid-mlx serve subprocess integration
 - `inference/reasoner.rs` - Reasoner with chunking, fact parsing, deduplication
 - `inference/prompts/basic_facts.txt` - Basic facts prompt template
 - `inference/prompts/financial_entities.txt` - Financial entities prompt
@@ -3297,7 +3298,7 @@ This section tracks issues identified during code review. Issues are organized b
 | BE-005 | `src-tauri/src/lib.rs`              | 1014-1016 | `path` field incorrectly set to project name         | Data corruption, wrong paths stored             | **FIXED** |
 | BE-006 | `src-tauri/src/lib.rs`              | 876-1011  | Database leak in `compare_projects` (db2 not closed) | Resource leak, potential crashes                | **FIXED** |
 | BE-007 | `src-tauri/src/extractors/audio.rs` | 52-78     | Audio transcription completely stubbed               | No audio processing capability                  | **FIXED** |
-| BE-008 | `src-tauri/src/inference/llama.rs`  | 48-74     | LLM returns hardcoded responses                      | No actual LLM inference                         | **FIXED** |
+| BE-008 | `src-tauri/src/inference/mlx_pipeline.rs`  | 48-74     | LLM returns hardcoded responses                      | No actual LLM inference                         | **FIXED** |
 
 #### Configuration
 
@@ -3391,7 +3392,7 @@ This section tracks issues identified during code review. Issues are organized b
 #### Phase 2: Core Functionality - COMPLETED
 
 - [x] BE-007: Implement audio transcription (whisper CLI integration)
-- [x] BE-008: Implement LLM inference (llama_cpp 0.3 with GGUF support)
+- [x] BE-008: Implement LLM inference (rapid-mlx serve subprocess integration)
 - [x] BE-004: Fix hardcoded GPU statistics
 - [x] BE-006: Fix database leak
 - [x] BE-015: Reload database after restore_backup
@@ -3484,7 +3485,7 @@ This section tracks issues identified during code review. Issues are organized b
 | ---------------------- | ----------- | ------------------------------- |
 | **Tauri Backend**      | ✅ Complete | Rust with Tauri 2               |
 | **SvelteKit Frontend** | ✅ Complete | 11 routes implemented           |
-| **LLM Integration**    | ✅ Complete | llama_cpp 0.3 with GGUF support |
+| **LLM Integration**    | ✅ Complete | rapid-mlx (MLX models) |
 | **Database**           | ✅ Complete | SQLite with FTS5                |
 | **Model Download**     | ✅ Complete | HuggingFace integration         |
 | **Release Build**      | ✅ Complete | DMG and App bundle created      |
@@ -3510,7 +3511,7 @@ This section tracks issues identified during code review. Issues are organized b
 | Module            | Location                         | Status                          |
 | ----------------- | -------------------------------- | ------------------------------- |
 | **Extractors**    | `src-tauri/src/extractors/`      | ✅ PDF, OCR, document, audio    |
-| **LLM Inference** | `src-tauri/src/inference/`       | ✅ Reasoner, pipeline, llama.rs |
+| **LLM Inference** | `src-tauri/src/inference/`       | ✅ Reasoner, pipeline, mlx_pipeline.rs |
 | **GPU Detection** | `src-tauri/src/gpu/`             | ✅ Hardware detection           |
 | **Database**      | `src-tauri/src/core/database.rs` | ✅ Full schema                  |
 | **Config**        | `src-tauri/src/config/`          | ✅ Project management           |
@@ -3546,7 +3547,7 @@ This section tracks issues identified during code review. Issues are organized b
 | ------------- | ------- |
 | **Tauri**     | 2.x     |
 | **SvelteKit** | 2.x     |
-| **llama_cpp** | 0.3.2   |
+| **rapid-mlx** | —         |
 | **rusqlite**  | 0.32    |
 | **Rust**      | stable  |
 
@@ -3605,7 +3606,7 @@ When all files in the evidence folder are already fingerprinted and stored in th
 ### Critical
 
 - [ ] **B-CRIT-001** `inference/pipeline.rs:125` — `unwrap()` on `as_array()` after explicit `is_array()` guard; restructure with `if let` or add `expect("invariant: checked above")`.
-- [ ] **B-CRIT-002** `inference/llama.rs:322` — `self.model.lock().unwrap().generate(prompt)` in LLM hot path. A poisoned mutex panics the entire Tauri process. Replace with `map_err(|e| LlamaError::Lock(e.to_string()))`.
+- [ ] **B-CRIT-002** `inference/mlx_pipeline.rs:322` — `self.pipeline.lock().unwrap().infer(prompt)` in LLM hot path. A poisoned mutex panics the entire Tauri process. Replace with `map_err(|e| MlxError::Lock(e.to_string()))`.
 - [ ] **B-CRIT-003** `commands/extraction.rs:211` — quality score set to `extraction.is_partial as u8 as f64` (yields 0.0 for complete, 1.0 for partial — both wrong and inverted). The real `quality_score` from the extractor is never propagated. Corrupts FR-QUAL-001 confidence filtering across the whole app.
 
 ### High
@@ -3700,7 +3701,7 @@ Frontend (SvelteKit 5 + TypeScript)
                               ┌─────────┼──────────────────┐
                               ▼         ▼                  ▼
                          Database    Reasoner         Extractors
-                       (r2d2 pools)  (llama.cpp)    (Deconstructor)
+                       (r2d2 pools)  (rapid-mlx)    (Deconstructor)
                        registry.db  (single Arc)    rayon thread pool
                        intel.db
 ```
@@ -3735,7 +3736,7 @@ Stage 1 (extraction) and Stage 2 (analysis) communicate only through the databas
 
 #### A-006 — LLM Reasoner is not cancelable at the token level `[LOW]`
 
-`cancel_flag` is an `AtomicBool` checked between files in `analyze_batch`, but not between tokens during inference. A single long inference call (e.g. a 50-page document) cannot be interrupted mid-generation. This requires llama.cpp callback support — record as a future enhancement.
+`cancel_flag` is an `AtomicBool` checked between files in `analyze_batch`, but not between tokens during inference. A single long inference call (e.g. a 50-page document) cannot be interrupted mid-generation. This requires rapid-mlx interrupt support — record as a future enhancement.
 
 #### A-007 — Config hot-reload not supported `[LOW]`
 
@@ -3845,7 +3846,7 @@ where F: FnOnce() -> CmdResult<T>
 | #   | ID                      | Severity | Category     | Work Estimate                                  |
 | --- | ----------------------- | -------- | ------------ | ---------------------------------------------- |
 | 1   | B-CRIT-003              | Critical | Backend      | 30 min — fix extraction quality score          |
-| 2   | B-CRIT-002              | Critical | Backend      | 15 min — fix llama lock unwrap                 |
+| 2   | B-CRIT-002              | Critical | Backend      | 15 min — fix MLX pipeline lock unwrap             |
 | 3   | B-CRIT-001              | Critical | Backend      | 10 min — fix pipeline.rs unwrap                |
 | 4   | C-HIGH-001              | High     | Compliance   | 2 h — wire log_audit() into key commands       |
 | 5   | B-HIGH-002 + R-002      | High     | Architecture | 1 h — extract require_db helper                |

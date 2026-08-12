@@ -20,7 +20,7 @@
 - [Quality & Deduplication](backend/quality.md) - Scoring metrics and dedup strategies
 - [Hardware Detection](backend/hardware.md) - GPU/CPU detection and auto-tuning
 - [Configuration](backend/config.md) - App, project, and model configuration
-- [Model Management](backend/models.md) - GGUF model loading and management
+- [Model Management](backend/models.md) - MLX model management
 - [Utilities](backend/utils.md) - File ops, logging, paths
 
 ### Frontend (SvelteKit)
@@ -68,7 +68,7 @@
 ### Quick Start
 
 1. **Configure**: Open Settings and set Evidence Root folder
-2. **Download Model**: In Settings, download a GGUF model (~4GB)
+2. **Download Model**: In Settings, download an MLX model (~2.5GB)
 3. **Scan**: Go to Analysis, click "Start Fingerprinting"
 4. **Analyze**: Click "Start Analysis" to extract facts
 5. **Explore**: Browse results in Results, Timeline, Statistics, Network pages
