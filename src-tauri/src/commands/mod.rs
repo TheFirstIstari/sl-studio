@@ -49,7 +49,6 @@ pub async fn load_config() -> Result<crate::AppConfig> {
             dtype: "float16".to_string(),
             context_length: 4096,
             downloaded: false,
-            local_path: String::new(),
         },
         hardware: crate::HardwareConfig {
             gpu_backend: "cpu".to_string(),

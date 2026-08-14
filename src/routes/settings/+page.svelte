@@ -182,8 +182,7 @@
 					mlx_model_name: config.mlxModelName || 'qwen3.5-4b-4bit',
 					dtype: 'float16',
 					context_length: 8192,
-					downloaded: false,
-					local_path: ''
+					downloaded: false
 				},
 				hardware: {
 					gpu_backend: 'metal',

@@ -21,7 +21,6 @@ export interface ModelConfig {
 	dtype: string;
 	context_length: number;
 	downloaded: boolean;
-	local_path: string;
 }
 
 export interface HardwareConfig {

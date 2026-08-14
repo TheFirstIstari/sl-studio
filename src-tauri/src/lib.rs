@@ -190,7 +190,6 @@ pub struct ModelConfig {
     pub dtype: String,
     pub context_length: usize,
     pub downloaded: bool,
-    pub local_path: String,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
