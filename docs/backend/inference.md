@@ -2,15 +2,19 @@
 
 ## Overview
 
-The inference module handles LLM-powered reasoning through a multi-pass pipeline architecture.
+The inference module handles LLM-powered reasoning through a two-stage pipeline:
+text chunking, prompt building, LLM inference via rapid-mlx, JSON parsing, and
+deduplication. All inference is performed locally via the `rapid-mlx` subprocess
+communicating over an OpenAI-compatible HTTP API.
 
 ## Components
 
 ### MlxPipeline
 
-`inference/mlx_pipeline.rs` (~87 lines)
+`inference/mlx_pipeline.rs` (~91 lines)
 
-Wrapper for rapid-mlx integration:
+Wrapper around the `rapid-mlx serve <model_name>` subprocess. Communicates via
+an OpenAI-compatible HTTP API on the local server URL.
 
 ```rust
 pub struct MlxPipeline {
@@ -21,88 +25,72 @@ pub struct MlxPipeline {
 }
 ```
 
-The `MlxPipeline` spawns `rapid-mlx serve <model_name>` as a subprocess and
-communicates via an OpenAI-compatible HTTP API. It handles startup polling,
-health checks, and cleanup (kills the subprocess on `Drop`).
-
-### PipelineRunner
-
-`PipelineRunner` (`inference/pipeline.rs`, ~355 lines)
-
-Executes multi-pass analysis pipelines:
-
-```rust
-struct PipelineRunner {
-    model: MlxPipeline,
-    pipeline: Pipeline,
-}
-```
-
 #### Key Methods
 
-- `run(text: &str)` - Execute all passes on input text
-- `build_prompt(pass: &PipelinePass, text: &str)` - Build prompt with template
-- `parse_json(response: &str)` - Extract structured facts from LLM response
+- `new(model_name, context_length)` - Create pipeline config (does not spawn subprocess)
+- `load()` - Spawn `rapid-mlx serve <model_name>`, poll `/health` endpoint until ready (up to 30s)
+- `infer(prompt, max_tokens)` - POST to `/v1/chat/completions` and extract response content
+- `Drop` impl - Kills the subprocess on cleanup
+
+#### OpenAI-Compatible API
+
+```
+POST /v1/chat/completions
+{
+  "messages": [{"role": "user", "content": "..."}],
+  "max_tokens": 2048
+}
+
+Response:
+{
+  "choices": [{
+    "message": {"role": "assistant", "content": "..."}
+  }]
+}
+```
 
 ### Reasoner
 
-`inference/reasoner.rs` (~380 lines)
+`inference/reasoner.rs` (~38 lines)
 
-Combines extraction with LLM inference:
+Combines `MlxPipeline` with fact extraction logic:
 
 ```rust
-struct Reasoner {
-    deconstructor: Deconstructor,
-    pipeline: MlxPipeline,
-    system_prompt: String,
+pub struct Reasoner {
+    pipeline: crate::inference::mlx_pipeline::MlxPipeline,
 }
 ```
 
 #### Key Methods
 
-- `analyze_file(file_path: &Path)` - Full file analysis pipeline
-- `analyze_text(text: &str)` - Analyze pre-extracted text
-- `chunk_text(text: &str)` - Split text into manageable chunks
+- `new(pipeline)` - Create reasoner wrapping an `MlxPipeline`
+- `reason(text)` - Run inference on input text
+- `extract_facts(text)` - Run LLM inference, parse response into `Vec<Fact>`
+
+The reasoner is stored in `AppState` as `Arc<Mutex<Option<Reasoner>>>` and
+initialized on demand via the `init_reasoner` command.
 
 ## Processing Flow
 
 ```
-File Path
-    │
-    ▼
+Extracted Text
+     │
+     ▼
 ┌─────────────┐
-│ Deconstructor│ ← Extract text
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│ Chunk Text  │ ← Split into manageable pieces
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│ Build Prompt│ ← Template + schema + system prompt
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│ LLM Inference│ ← Run via rapid-mlx
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│ Parse JSON  │ ← Extract facts from response
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│ Deduplicate │ ← Remove duplicate facts
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│ Score Quality│ ← Assess extraction quality
-└──────┬──────┘
+│  Reasoner   │
+│             │
+│  ┌────────┐ │
+│  │ Prompt │ │ ← Build prompt with instruction
+│  └───┬────┘ │
+│      ▼      │
+│  ┌────────┐ │
+│  │ LLM    │ │ ← Run inference via rapid-mlx (MlxPipeline)
+│  └───┬────┘ │
+│      ▼      │
+│  ┌────────┐ │
+│  │ Parse  │ │ ← Extract content from response
+│  └───┬────┘ │
+└──────┼──────┘
        │
        ▼
    Facts DB
@@ -117,22 +105,16 @@ The default system prompt configures the LLM for forensic analysis:
 - Include direct quotes with page references
 - Identify entities (persons, organizations, locations, dates, amounts)
 
-## Prompt Templates
+## Built-in Pipelines
 
-Located in `inference/prompts/`:
+`inference/mod.rs:6` — `get_builtin_pipelines()` returns two configurable
+analysis pipelines:
 
-| File                     | Purpose                     |
-| ------------------------ | --------------------------- |
-| `basic_facts.txt`        | Basic fact extraction       |
-| `financial_entities.txt` | Financial entity extraction |
-| `financial_patterns.txt` | Financial pattern detection |
+| Pipeline         | Passes | Description                          |
+| ---------------- | ------ | ------------------------------------ |
+| Default Analysis | 3      | Text extraction → fact extraction → entity recognition |
+| Deep Forensic    | 3      | OCR extraction → fact validation → timeline construction |
 
-## Output Schemas
-
-Located in `inference/schemas/`:
-
-| File            | Purpose                  |
-| --------------- | ------------------------ |
-| `facts.json`    | Fact extraction schema   |
-| `entities.json` | Entity extraction schema |
-| `patterns.json` | Pattern detection schema |
+Each pipeline pass is defined by a `PipelinePass` struct with a prompt template,
+output schema, max tokens, temperature, and sample size. Pipeline passes are
+stored as JSON in the `pipelines` table.

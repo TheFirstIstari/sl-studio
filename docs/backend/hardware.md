@@ -2,122 +2,66 @@
 
 ## Overview
 
-The GPU module handles hardware detection and auto-scaling parameters for optimal performance.
+Hardware detection commands are implemented in `commands/mod.rs` using the `sysinfo`
+and `num_cpus` crates. There is no separate `gpu/` module — all detection and
+auto-scaling logic lives directly in the command handlers.
 
-## Hardware Detection
+## Commands
 
-`gpu/detect.rs` (~200 lines)
+| Command                  | Returns            | Description                        |
+| ------------------------ | ------------------ | ---------------------------------- |
+| `detect_hardware`        | `HardwareStatus`   | Detect CPU, RAM, GPU info          |
+| `get_hardware_info`      | `HardwareInfoExt`  | Detailed info for settings page    |
+| `get_recommended_settings` | `HardwareInfo`   | Auto-scaled processing parameters  |
+| `get_system_monitor`     | `SystemMonitor`    | Real-time CPU/memory snapshot      |
 
-Detects system capabilities and calculates optimal processing parameters using the `sysinfo` crate:
+All types are defined in `lib.rs`.
 
-```rust
-fn detect_hardware() -> HardwareInfo {
-    // Detect CPU, RAM, GPU
-    // Calculate auto-scaling parameters
-}
-```
+### HardwareStatus
 
-### Auto-Scaling Features
+| Field               | Type   | Description                   |
+| ------------------- | ------ | ----------------------------- |
+| `cpu_cores`         | usize  | Total logical CPU cores       |
+| `total_memory`      | usize  | Total system memory (bytes)   |
+| `available_memory`  | usize  | Available memory (bytes)      |
+| `gpu_backend`       | String | Detected GPU backend          |
+| `gpu_name`          | String | GPU name (if available)       |
+| `gpu_memory`        | usize  | GPU memory (bytes)            |
 
-#### Hardware Auto-Detection (sysinfo)
+### HardwareInfoExt
 
-Uses the `sysinfo` crate for cross-platform hardware detection:
+| Field                  | Type  | Description                      |
+| ---------------------- | ----- | -------------------------------- |
+| `cpu_threads`          | usize | Logical CPU thread count         |
+| `total_memory_gb`      | f64   | Total RAM in gigabytes           |
+| `available_memory_gb`  | f64   | Available RAM in gigabytes       |
+| `recommended_workers`  | usize | Auto-detected worker count       |
+| `recommended_batch_size` | usize | Auto-detected batch size       |
+| `cpu_workers`          | usize | Physical CPU core count          |
 
-- **CPU**: Core count, architecture, frequency
-- **Memory**: Total RAM, available memory
-- **System**: OS type, host name
+### HardwareInfo (Recommended Settings)
 
-#### Smart Worker Count
+| Field                  | Type   | Description                    |
+| ---------------------- | ------ | ------------------------------ |
+| `recommended_context`  | usize  | Recommended LLM context length |
+| `recommended_batch_size` | usize | Auto-scaled batch size         |
+| `worker_count`         | usize  | Recommended CPU worker count   |
+| `backend`              | String | Backend identifier             |
 
-CPU workers are calculated as `num_cores - 2` to leave headroom for the main thread and OS:
+### SystemMonitor
 
-| CPU Cores | Worker Threads |
-| --------- | -------------- |
-| 4         | 2              |
-| 8         | 6              |
-| 16        | 14             |
-| 32        | 30             |
+| Field                | Type  | Description                    |
+| -------------------- | ----- | ------------------------------ |
+| `cpu_usage_percent`  | f64   | Current CPU usage percentage   |
+| `memory_used_gb`     | f64   | Used memory in gigabytes       |
+| `memory_available_gb` | f64   | Available memory in gigabytes  |
+| `memory_percent`     | f64   | Memory usage percentage        |
 
-#### Memory-Aware Batching
+## Implementation Notes
 
-Batch sizes scale dynamically based on available memory:
-
-```rust
-let available_memory = system.available_memory();
-let batch_size = match available_memory {
-    0..=8_GB => 4,
-    8_GB..=16_GB => 8,
-    16_GB..=32_GB => 16,
-    _ => 24,
-};
-```
-
-#### Thread Pool Reuse
-
-Rayon thread pools are initialized once and reused across processing operations:
-
-- Eliminates pool creation overhead
-- Maintains warm thread affinity
-- Configured per-worker memory allocation
-
-### Detected Information
-
-| Metric           | Source                        |
-| ---------------- | ----------------------------- |
-| CPU threads      | `num_cpus` crate              |
-| Total memory     | System info                   |
-| Available memory | System info                   |
-| GPU info         | Metal (macOS), CUDA (Windows) |
-| GPU memory       | GPU backend specific          |
-
-### Auto-Scaling Parameters
-
-Based on detected hardware:
-
-| Parameter      | Calculation                |
-| -------------- | -------------------------- |
-| Batch size     | Scaled by available RAM    |
-| CPU workers    | Based on CPU thread count  |
-| OCR batch size | Scaled by available memory |
-| Max chunk size | Limited by context window  |
-
-## GPU Backend
-
-`gpu/backend.rs` (~33 lines)
-
-```rust
-enum GpuBackend {
-    Metal,
-    Cuda,
-    Vulkan,
-    OpenCl,
-    Cpu,
-}
-```
-
-### Platform Support
-
-| Platform         | Backend       |
-| ---------------- | ------------- |
-| macOS            | Metal         |
-| Windows (NVIDIA) | CUDA          |
-| Linux (AMD)      | Vulkan/OpenCL |
-| Fallback         | CPU           |
-
-## System Metrics
-
-Real-time monitoring via `get_system_monitor`:
-
-```rust
-struct SystemMetrics {
-    gpu_available: bool,
-    gpu_utilization: f32,
-    gpu_memory_used_mb: u64,
-    gpu_memory_total_mb: u64,
-    cpu_count: usize,
-    cpu_usage: f32,
-    ram_used_mb: u64,
-    ram_total_mb: u64,
-    disk_space_available_mb: u64,
-}
-```
+- CPU workers are calculated using `num_cpus::get_physical()` to leave headroom
+  for the main thread and OS
+- The default batch size is 6
+- GPU detection currently falls back to "cpu" — Metal GPU auto-detection is
+  handled by `rapid-mlx serve` at inference time
+- Memory values are converted from bytes to gigabytes (f64) for the settings page

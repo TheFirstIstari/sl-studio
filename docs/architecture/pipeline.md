@@ -34,62 +34,44 @@ File Input
 
 ### Architecture
 
-The `Deconstructor` orchestrates text extraction by routing files to specialized extractors based on file extension:
+The `extract_metadata_from_path` function in `extractors/mod.rs` routes files to
+specialized extractors based on file extension:
 
 ```
 File Input
     │
     ▼
-┌─────────────┐
-│ Deconstructor│ ← Extension-based routing
-└──────┬──────┘
-       │
-   ┌───┴───┬───────────┬──────────┐
-   ▼       ▼           ▼          ▼
- PDF    OCR/Image   Audio      Document
- Ext    Ext         Ext        Ext
+┌─────────────────────┐
+│ extract_metadata_   │ ← Extension-based routing (extractors/mod.rs)
+│ from_path()         │
+└────────┬────────────┘
+         │
+   ┌────┴───┬───────────┬─────────┐
+   ▼        ▼           ▼         ▼
+ PDF      Image       Audio     DOCX
+ extract_ extract_   extract_  extract_
+ pdf()   image()      audio()    docx()
 ```
 
 ### Supported File Types
 
-| Type      | Extensions                                       | Extractor           | Notes                                  |
-| --------- | ------------------------------------------------ | ------------------- | -------------------------------------- |
-| PDF       | `.pdf`                                           | `PdfExtractor`      | Uses `pdf-extract` crate               |
-| Images    | `.png`, `.jpg`, `.jpeg`, `.tiff`, `.bmp`, `.gif` | `OcrExtractor`      | Uses `ocrs` crate with preprocessing   |
-| Audio     | `.mp3`, `.wav`, `.m4a`, `.mp4`, `.ogg`, `.flac`  | `AudioExtractor`    | whisper-rs integration (stub)          |
-| Documents | `.docx`                                          | `DocumentExtractor` | ZIP/XML parsing                        |
-| Text      | `.txt`, `.md`                                    | `DocumentExtractor` | Direct reading with encoding detection |
+| Type      | Extensions                                       | Function                  | Notes                    |
+| --------- | ------------------------------------------------ | ------------------------- | ------------------------ |
+| PDF       | `.pdf`                                           | `extract_pdf`             | Stub (planned: `pdf-extract`) |
+| Images    | `.png`, `.jpg`, `.jpeg`, `.tiff`, `.bmp`         | `extract_image`           | Stub (planned: `ocrs`)        |
+| Audio     | `.mp3`, `.wav`, `.m4a`, `.flac`, `.aac`          | `extract_audio`           | Metadata extraction      |
+| Documents | `.docx`                                          | `extract_docx`            | ZIP/XML parsing          |
+| Text      | `.txt`, `.md`, `.json`, `.xml`, `.csv`           | `extract_metadata_from_path` | Direct reading        |
 
-### Chunking
-
-Large files are split into chunks with overlap to maintain context:
-
-- **Default chunk size**: Auto-scaled based on available memory
-- **Overlap**: Configurable to prevent context loss at chunk boundaries
-- **Quality assessment**: Each chunk is scored for extraction quality
-
-### Quality Assessment
-
-Each extraction is assessed for:
-
-- **Character count**: Minimum viable text length
-- **Word density**: Ratio of words to characters
-- **Scanned detection**: Identifies scanned PDFs that may need OCR instead
-
-### Error Handling
-
-| Error Type               | Handling                             |
-| ------------------------ | ------------------------------------ |
-| Password-protected files | Returns descriptive error            |
-| Corrupted files          | Returns error with file path         |
-| Large files              | Fallback extraction with size limits |
-| Unsupported formats      | Skipped with warning                 |
+> **Note**: Extractors are currently stub implementations that read file content
+> and return a `Metadata` struct with placeholder category/fact data. Full text
+> extraction (OCR, PDF layout analysis, DOCX body parsing) is under development.
 
 ## Stage 2: LLM Inference
 
 ### Architecture
 
-The `Reasoner` combines the `Deconstructor` with an `MlxPipeline` to perform AI-powered analysis:
+The `Reasoner` wraps an `MloxPipeline` with an `MlxPipeline` to perform AI-powered analysis:
 
 ```
 Extracted Text

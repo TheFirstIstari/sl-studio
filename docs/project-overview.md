@@ -9,9 +9,9 @@ SL Studio processes evidence files (PDFs, images, audio/video) through a pipelin
 ### Current Status
 
 - **Two-Stage Pipeline**: Working
-- **Stage 1 (Text Extraction)**: Fully functional with rayon parallel processing
-- **Stage 2 (LLM Analysis)**: Implemented, JSON parsing needs improvement
-- **Hardware Auto-Scaling**: Implemented (sysinfo-based detection, smart worker count, memory-aware batching, thread pool reuse)
+- **Stage 1 (Text Extraction)**: Implemented as async extractors (PDF, DOCX, image, audio)
+- **Stage 2 (LLM Analysis)**: Implemented via rapid-mlx subprocess + Reasoner
+- **Hardware Auto-Scaling**: Implemented (sysinfo/num_cpus-based detection, auto worker count)
 
 ### Known Issues
 
@@ -28,8 +28,8 @@ SL Studio processes evidence files (PDFs, images, audio/video) through a pipelin
 - **Project Files**: Save/load investigation configurations as `.sls` files
 - **HuggingFace Integration**: Download MLX models via rapid-mlx pull
 - **Metadata Extraction**: Extract EXIF data from images and metadata from PDFs
-- **Language Detection**: Automatic language detection using whatlang
-- **Structured Data Extraction**: Parse structured data from documents (PDF forms, metadata fields)
+- **Language Detection**: Not yet implemented
+- **Structured Data Extraction**: Not yet implemented (planned: PDF forms, metadata fields)
 
 ## Architecture
 
@@ -40,59 +40,40 @@ SL Studio processes evidence files (PDFs, images, audio/video) through a pipelin
 +-------------------------------------------------------------+
                              | Tauri Commands (IPC)
 +----------------------------v--------------------------------+
-|                      Rust Backend                            |
-|  +-------------+  +-------------+  +--------------------+   |
-|  | Deconstructor|  | LLM Reasoner|  | Database Manager  |   |
-|  |(PDF/OCR/Audio)|| (MLX pipeline) |  | (rusqlite)        |   |
-|  +-------------+  +-------------+  +--------------------+   |
-|  +-------------+  +-------------+  +------------------+    |
-|  |GPU Detection|  |Auto-scaling |  | Metadata Extractor|   |
-|  +-------------+  +-------------+  +------------------+    |
+|      Rust Backend (commands/mod.rs)                          |
+|  +-------------+  +-------------+  +--------------------+    |
+|  | Extractors  |  | LLM Reasoner|  | Database Manager   |   |
+|  |(PDF/DOCX/   |  | (rapid-mlx) |  | (SQLite Pool)      |   |
+|  | Image/Audio)|  |             |  |                    |   |
+|  +-------------+  +-------------+  +--------------------+    |
+|  +-------------------------------+  +------------------+    |
+|  | Hardware Detection (sysinfo)  |  | Metadata Extract |   |
+|  +-------------------------------+  +------------------+    |
 +-------------------------------------------------------------+
 ```
 
 ## Metadata Extraction
 
-SL Studio includes advanced metadata extraction capabilities to gather forensic metadata from evidence files.
+The `extract_metadata` command (`extract_metadata_from_path` in `extractors/mod.rs`)
+gathers basic file metadata:
 
-### Image Metadata (EXIF)
+- **File Type**: Detected from file extension
+- **File Size**: From filesystem metadata
+- **File Name**: Extracted from path
 
-Extracts EXIF data from JPEG, PNG, TIFF, and other image formats using the `kamadak-exif` crate:
-
-- **Camera Information**: Make, model, lens details
-- **Timestamps**: Original date/time, digitized date
-- **GPS Data**: Latitude, longitude, altitude (when available)
-- **Technical Settings**: Exposure time, F-number, ISO, focal length
-- **Orientation**: Image orientation and rotation data
-
-### PDF Metadata
-
-Extracts metadata from PDF files using `lopdf` crate:
-
-- **Document Info**: Title, author, subject, creator, producer
-- **PDF Version**: Version number and compatibility
-- **Creation/Modification Dates**: Document timestamps
-- **Page Count**: Total number of pages
-- **Structured Data**: Form fields, bookmarks, and document outline
-- **Custom Metadata**: XMP metadata and custom key-value pairs
+> **Note**: Advanced metadata extraction (EXIF data, PDF document info, XMP
+> data) is not yet implemented. Planned integration with `kamadak-exif` and
+> `lopdf` crates for full forensic metadata support.
 
 ### Language Detection
 
-Automatically detects the language of text content using `whatlang`:
-
-- **Language Identification**: Detects 70+ languages
-- **Confidence Scoring**: Provides confidence level for detection
-- **Script Detection**: Identifies writing script (Latin, Cyrillic, etc.)
-- **Integration**: Used in Stage 1 to tag extracted text with language info
+Not yet implemented. Planned integration with `whatlang` for language
+identification and script detection.
 
 ### Structured Data Extraction
 
-Extracts structured data from documents:
-
-- **PDF Forms**: Form field names, values, and types
-- **Metadata Fields**: Standard and custom metadata fields
-- **Document Properties**: Key-value pairs from document properties
-- **Export Ready**: Structured data available in JSON export format
+Not yet implemented. Planned support for PDF form fields and document
+metadata key-value pairs.
 
 ## Tech Stack
 
@@ -105,13 +86,9 @@ Extracts structured data from documents:
 | Charts   | Chart.js 4                          |
 | Network  | Cytoscape.js 3                      |
 | Maps     | Leaflet.js 1 (CARTO dark tiles)     |
-| OCR      | ocrs 0.12                           |
-| PDF      | pdf-extract 0.7, lopdf 0.33         |
 | LLM      | rapid-mlx (MLX models, float16)     |
-| Audio    | whisper.cpp (stub)                  |
-| Metadata | kamadak-exif 0.5, lopdf 0.33        |
-| Language | whatlang 0.16                       |
-| Testing  | Playwright (E2E), Criterion (bench) |
+| Audio    | Stub (metadata only)                |
+| Testing  | Playwright (E2E)                    |
 
 ## Getting Started
 
@@ -306,8 +283,7 @@ SL Studio uses `.sls` JSON project files to store investigation settings:
 		"mlx_model_name": "qwen3.5-4b-4bit",
 		"dtype": "float16",
 		"context_length": 4096,
-		"downloaded": true,
-		"local_path": ""
+		"downloaded": true
 	},
 	"hardware": {
 		"gpu_backend": "metal",
@@ -394,18 +370,22 @@ The application includes several optimizations for large-scale evidence processi
 
 | Crate        | Version | Purpose                    |
 | ------------ | ------- | -------------------------- |
-| tauri        | 2.x     | Desktop framework          |
-| rusqlite     | 0.32    | SQLite database            |
-| pdf-extract  | 0.7     | PDF text extraction        |
-| lopdf        | 0.33    | PDF metadata/structure     |
-| ocrs         | 0.12    | OCR engine                 |
-| kamadak-exif | 0.5     | EXIF metadata extraction   |
-| whatlang     | 0.16    | Language detection         |
-| rapid-mlx    | CLI     | MLX inference (subprocess) |
-| sysinfo      | 0.32    | Hardware detection         |
-| rayon        | 1.10    | Parallel processing        |
-| sha2         | 0.10    | File hashing               |
-| tracing      | 0.1     | Structured logging         |
+| tauri              | 2.x     | Desktop framework          |
+| rusqlite           | 0.32    | SQLite database (bundled)  |
+| serde              | 1       | Serialization/deserialization |
+| serde_json         | 1       | JSON serialization          |
+| reqwest            | 0.13    | HTTP client (rapid-mlx API) |
+| sysinfo            | 0.32    | Hardware detection         |
+| rayon              | 1.10    | Parallel processing        |
+| sha2               | 0.10    | File hashing (registry)    |
+| num_cpus           | 1       | CPU core detection          |
+| chrono             | 0.4     | Timestamp handling         |
+| uuid               | 1       | UUID generation             |
+| tracing            | 0.1     | Structured logging         |
+| tracing-subscriber | 0.3     | Log output formatting      |
+| anyhow             | 1       | Error handling              |
+| thiserror          | 1       | Error derive macros         |
+| rapid-mlx          | CLI     | MLX inference (subprocess)  |
 | chrono       | 0.4     | Date/time handling         |
 
 ### Optional (Feature-gated)
@@ -422,8 +402,8 @@ This project is a Rust migration of the original Python/Qt `Project-SteinLine`.
 | --------- | --------------- | ----------------- |
 | UI        | Qt Widgets      | SvelteKit 5       |
 | Database  | sqlite3         | rusqlite          |
-| OCR       | EasyOCR         | ocrs              |
-| Audio     | Faster Whisper  | whisper.cpp       |
+| OCR       | EasyOCR         | ocrs (planned)     |
+| Audio     | Faster Whisper  | whisper.cpp (planned) |
 | LLM       | vLLM (HTTP)     | rapid-mlx (local) |
 | Hardware  | psutil + pynvml | sysinfo           |
 

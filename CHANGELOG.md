@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Tauri `frontendDist` path** (`tauri.conf.json`): corrected from `../dist` to
+  `../build` so the Tauri bundler can locate SvelteKit adapter-static output
+- **Windows bundle icon** (`tauri.conf.json`): added `icons/icon.ico` to the
+  `bundle.icon` array — Windows build target requires an `.ico` file
+- **Self-hosted runner CI jobs**: added `timeout-minutes: 15` and `continue-on-error: true`
+  so offline self-hosted runners (Fedora, NixOS) don't block CI; added fallback shell
+  scripts that use `mise run` when available, falling back to direct `cargo` commands
+- **Vestigial `local_path` field** (`lib.rs`, `commands/mod.rs`, `app.ts`,
+  `settings/+page.svelte`): removed the dead `local_path` field from `ModelConfig`
+  — it was a leftover from the old GGUF/llama.cpp architecture and was always
+  empty. Model selection now uses `mlx_model_name` exclusively
+
+### Changed
+
+- Migrated to rapid-mlx as the sole inference backend — replaced all GGUF/llama.cpp
+  references with `rapid-mlx serve` subprocess + OpenAI-compatible HTTP API
+- CI workflow now requires status checks for all GitHub-hosted runner jobs before merge
+  (Frontend, Rust + Tests for Linux, macOS ARM, macOS Intel, Windows)
+
+### Documented
+
+- Audit of backend documentation (`docs/backend/`, `docs/api/`, `docs/architecture/`,
+  `docs/testing/`, `docs/project-overview.md`): corrected module structure, file paths,
+  line counts, struct definitions, and command signatures to match the actual codebase
+- `docs/backend/inference.md`: removed references to non-existent `PipelineRunner`,
+  `Deconstructor`, `inference/prompts/`, and `inference/schemas/`; updated to reflect
+  `MloxPipeline` + `Reasoner` implementation
+- `docs/backend/extractors.md`: removed references to non-existent `Deconstructor`,
+  `ocr.rs`, `document.rs`, `metadata.rs`, `structured.rs` extractors; updated to match
+  actual `extract_pdf`/`extract_image`/`extract_docx`/`extract_audio` functions
+- `docs/backend/overview.md`: updated module structure from 7+ modules to actual 4-module
+  layout (core, extractors, inference, commands); corrected `AppState` definition
+- `docs/api/tauri-commands.md`: removed ~20 non-existent commands, aligned command list
+  with the 68 commands registered in `lib.rs`
+- `docs/backend/database.md`: corrected from dual-DB (3397 lines) to single shared
+  SQLite pool (317 lines) with embedded migrations
+- `docs/backend/config.md`, `hardware.md`, `quality.md`, `registry.md`, `utils.md`:
+  removed references to non-existent `config/`, `gpu/`, `inference/quality/`, `utils/`,
+  and `core/registry.rs` modules
+- `docs/project-overview.md`: updated architecture diagram and removed stale dependency
+  references (`whatlang`, `pdf-extract`, `ocrs`, `lopdf`, `kamadak-exif`)
+
 ## [0.3.2] - 2026-04-30
 
 ### Added

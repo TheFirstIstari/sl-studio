@@ -2,148 +2,159 @@
 
 ## Overview
 
-The backend exposes 60+ commands to the frontend via Tauri's IPC mechanism. All commands are registered in `lib.rs`.
+The backend exposes 68 commands to the frontend via Tauri's IPC mechanism. All
+commands are registered in `lib.rs` via `tauri::generate_handler![...]` and
+implemented in `commands/mod.rs`.
 
-## Config/Project Commands
+Commands use `snake_case` and return `Result<T>` (the `crate::Result` type
+backed by `AppError` for serializable errors).
 
-| Command               | Parameters    | Returns               | Description                    |
-| --------------------- | ------------- | --------------------- | ------------------------------ |
-| `load_config`         | None          | `AppConfig`           | Load application configuration |
-| `save_config`         | `AppConfig`   | `Result<()>`          | Save application configuration |
-| `validate_config`     | `AppConfig`   | `Result<()>`          | Validate configuration values  |
-| `create_project`      | `ProjectFile` | `Result<()>`          | Create new project             |
-| `load_project`        | `PathBuf`     | `Result<ProjectFile>` | Load existing project          |
-| `save_project`        | `ProjectFile` | `Result<()>`          | Save project file              |
-| `get_default_project` | None          | `ProjectFile`         | Get default project template   |
+## Config / Project Commands
 
-## Hardware Commands
+| Command         | Parameters   | Returns       | Description                    |
+| --------------- | ------------ | ------------- | ------------------------------ |
+| `load_config`   | None         | `AppConfig`   | Load config from `sl-studio-config.json` |
+| `save_config`   | `AppConfig`  | `Result<()>`  | Persist config to disk         |
+| `init_project`  | `AppConfig`  | `Result<()>`  | Initialize project with evidence dir |
 
-| Command                    | Parameters | Returns               | Description                       |
-| -------------------------- | ---------- | --------------------- | --------------------------------- |
-| `detect_hardware`          | None       | `HardwareInfo`        | Detect CPU/GPU/memory             |
-| `get_system_monitor`       | None       | `SystemMetrics`       | Real-time system metrics          |
-| `get_processing_stats`     | None       | `ProcessingStats`     | Current processing statistics     |
-| `get_hardware_info`        | None       | `HardwareInfo`        | Get current hardware capabilities |
-| `get_recommended_settings` | None       | `RecommendedSettings` | Get auto-scaled processing params |
+## Registry / Extraction Commands
 
-## Registry Commands
+| Command                     | Parameters        | Returns                    | Description                          |
+| --------------------------- | ----------------- | -------------------------- | ------------------------------------ |
+| `start_registry`            | None              | `Result<i64>`              | Scan evidence dir, return file count |
+| `get_extraction_queue`      | `limit: usize`    | `Result<Vec<RegistryFile>>` | Files needing extraction             |
+| `get_analysis_queue`        | `limit: usize`    | `Result<Vec<RegistryFile>>` | Files needing LLM analysis           |
+| `extract_batch`             | `fingerprints: Vec<String>, cpu_workers: usize` | `Result<Vec<ExtractionResult>>` | Extract text from files |
+| `get_extraction_statistics` | None              | `Result<ExtractionStats>`  | Extraction stats summary             |
 
-| Command                 | Parameters | Returns              | Description                          |
-| ----------------------- | ---------- | -------------------- | ------------------------------------ |
-| `init_project`          | `PathBuf`  | `Result<()>`         | Initialize project with evidence dir |
-| `start_registry`        | None       | `Result<()>`         | Start registry scanning              |
-| `get_stats`             | None       | `RegistryStats`      | Get registry statistics              |
-| `get_unprocessed_files` | None       | `Vec<RegistryEntry>` | List files needing processing        |
-| `mark_processed`        | `String`   | `Result<()>`         | Mark file as processed               |
+## Fact Commands
 
-## Search Commands
+| Command                | Parameters                              | Returns             | Description                |
+| ---------------------- | --------------------------------------- | ------------------- | -------------------------- |
+| `search_facts`         | `query: String, limit: usize`           | `Result<Vec<Fact>>` | Search facts (LIKE query)  |
+| `export_facts_json`    | `min_weight, limit, categories, start_date, end_date` | `Result<String>` | Export facts as JSON       |
+| `export_facts_csv`     | `min_weight: f64, limit: usize`         | `Result<String>`    | Export facts as CSV        |
+| `export_entities_csv`  | `min_weight: f64, limit: usize`         | `Result<String>`    | Export entities as CSV     |
+| `export_timeline_json` | `min_weight, limit, categories, start_date, end_date` | `Result<String>` | Export timeline as JSON    |
+| `export_full_report_json` | None                                  | `Result<String>`    | Full report as JSON        |
+| `export_pdf_report`    | None                                    | `Result<Vec<u8>>`   | Export PDF report          |
+| `export_excel_data`    | None                                    | `Result<String>`    | Export Excel data          |
+| `delete_facts`         | `ids: Vec<u64>`                         | `Result<()>`        | Soft-delete facts          |
+| `update_fact_verification` | `id: i64, status: String, review_notes: Option<String>` | `Result<()>` | Update verification status |
 
-| Command           | Parameters       | Returns               | Description                      |
-| ----------------- | ---------------- | --------------------- | -------------------------------- |
-| `search_facts`    | `query, filters` | `Vec<SearchResult>`   | Search facts with FTS5           |
-| `search_entities` | `query, filters` | `Vec<EntityResult>`   | Search entities with FTS5        |
-| `search_combined` | `query`          | `Vec<CombinedResult>` | Combined facts + entities search |
-| `search_by_tags`  | `tags`           | `Vec<SearchResult>`   | Filter facts by tags             |
+## Entity Commands
 
-## Analysis Commands
+| Command                     | Parameters                                      | Returns                          | Description                    |
+| --------------------------- | ----------------------------------------------- | -------------------------------- | ------------------------------ |
+| `suggest_entity_matches`    | `canonical_id: i64, threshold: f64`            | `Result<Vec<EntityMatchSuggestion>>` | Find entity aliases     |
+| `add_entity_alias`          | `canonical_id: i64, alias_id: i64`              | `Result<()>`                     | Link entity alias              |
+| `get_entity_relationships`  | `min_cooccurrence: i64, limit: usize`          | `Result<Vec<EntityRelationship>>` | Entity co-occurrence graph |
+| `get_connected_entities`    | `entity_id: i64, max_depth: i64`               | `Result<Vec<ConnectedEntity>>`  | BFS entity traversal          |
+| `detect_entity_communities` | None                                            | `Result<Vec<EntityCommunity>>`  | Community detection          |
+| `compute_betweenness_centrality` | None                                         | `Result<Vec<EntityBetweenness>>` | Betweenness centrality       |
+| `get_location_entities`     | `min_confidence: f64`                           | `Result<Vec<LocationEntity>>`   | Geographic entities for maps  |
+| `get_entity_centrality`     | `limit: usize`                                  | `Result<Vec<EntityCentrality>>` | Entity network centrality     |
 
-| Command                     | Parameters  | Returns                 | Description                |
-| --------------------------- | ----------- | ----------------------- | -------------------------- |
-| `get_timeline_events`       | None        | `Vec<TimelineEvent>`    | Chronological fact list    |
-| `get_overall_statistics`    | None        | `Statistics`            | Overall stats summary      |
-| `get_category_distribution` | None        | `Vec<CategoryCount>`    | Facts by category          |
-| `get_severity_distribution` | None        | `Vec<SeverityCount>`    | Facts by severity          |
-| `get_entity_centrality`     | None        | `Vec<EntityCentrality>` | Network centrality scores  |
-| `detect_anomalies`          | `threshold` | `Vec<Anomaly>`          | Z-score anomaly detection  |
-| `get_weighted_evidence`     | None        | `Vec<WeightedEvidence>` | Confidence-ranked evidence |
-| `get_entity_relationships`  | None        | `Vec<Relationship>`     | Entity relationship graph  |
-| `get_connected_entities`    | `entity_id` | `Vec<Entity>`           | Connected entities         |
-| `get_location_entities`     | None        | `Vec<LocationEntity>`   | Geographic entities        |
+## Evidence Chain Commands
 
-## Tags/Annotations Commands
+| Command                   | Parameters                                      | Returns             | Description                    |
+| ------------------------- | ----------------------------------------------- | ------------------- | ------------------------------ |
+| `list_evidence_chains`    | `limit: usize, offset: usize`                   | `Result<Vec<ChainSummary>>` | List all chains          |
+| `create_evidence_chain`   | `chain_name, chain_type, description`           | `Result<i64>`       | Create a new chain             |
+| `get_evidence_chain`      | `chain_id: i64`                                 | `Result<Option<EvidenceChain>>` | Get full chain detail  |
+| `delete_evidence_chain`   | `chain_id: i64`                                 | `Result<()>`        | Delete a chain                 |
+| `add_to_evidence_chain`   | `chain_id, intelligence_id, relationship_type, notes` | `Result<()>` | Add fact to chain   |
+| `remove_from_evidence_chain` | `chain_id: i64, intelligence_id: i64`         | `Result<()>`        | Remove fact from chain         |
 
-| Command             | Parameters            | Returns           | Description              |
-| ------------------- | --------------------- | ----------------- | ------------------------ |
-| `add_tag`           | `fact_id, tag`        | `Result<()>`      | Add tag to fact          |
-| `remove_tag`        | `fact_id, tag`        | `Result<()>`      | Remove tag from fact     |
-| `get_all_tags`      | None                  | `Vec<String>`     | List all tags            |
-| `add_annotation`    | `fact_id, annotation` | `Result<()>`      | Add annotation           |
-| `update_annotation` | `id, annotation`      | `Result<()>`      | Update annotation        |
-| `delete_annotation` | `id`                  | `Result<()>`      | Delete annotation        |
-| `get_annotations`   | `fact_id`             | `Vec<Annotation>` | Get annotations for fact |
+## Facet Commands
 
-## Export Commands
+| Command              | Parameters                    | Returns                 | Description                    |
+| -------------------- | ----------------------------- | ----------------------- | ------------------------------ |
+| `list_facet_presets` | `page: String`                | `Result<Vec<FacetPreset>>` | List saved facet presets  |
+| `save_facet_preset`  | `page, name, state_json`      | `Result<()>`            | Save a facet preset            |
+| `delete_facet_preset`| `preset_id: i64`              | `Result<()>`            | Delete a facet preset          |
 
-| Command                   | Parameters      | Returns           | Description             |
-| ------------------------- | --------------- | ----------------- | ----------------------- |
-| `export_facts_json`       | `filters`       | `Result<String>`  | Export facts as JSON    |
-| `export_facts_csv`        | `filters`       | `Result<String>`  | Export facts as CSV     |
-| `export_entities_csv`     | None            | `Result<String>`  | Export entities as CSV  |
-| `export_timeline_json`    | None            | `Result<String>`  | Export timeline as JSON |
-| `export_full_report_json` | None            | `Result<String>`  | Full report as JSON     |
-| `export_pdf_report`       | `filters`       | `Result<PathBuf>` | Export PDF report       |
-| `export_excel_data`       | `filters`       | `Result<PathBuf>` | Export Excel workbook   |
-| `write_file`              | `path, content` | `Result<()>`      | Write file to disk      |
+## Pipeline Commands
 
-## Comparison Commands
+| Command             | Parameters        | Returns              | Description                    |
+| ------------------- | ----------------- | -------------------- | ------------------------------ |
+| `list_pipelines`    | None              | `Result<Vec<Pipeline>>` | List all pipelines           |
+| `save_pipeline`     | `Pipeline`        | `Result<()>`         | Save or update a pipeline      |
+| `delete_pipeline`   | `pipeline_id: String` | `Result<()>`      | Delete a pipeline              |
+| `get_builtin_pipelines` | None          | `Vec<Pipeline>`      | Built-in pipeline definitions  |
 
-| Command               | Parameters             | Returns            | Description          |
-| --------------------- | ---------------------- | ------------------ | -------------------- |
-| `compare_projects`    | `project_a, project_b` | `ComparisonResult` | Compare two projects |
-| `get_project_summary` | `project_path`         | `ProjectSummary`   | Get project summary  |
+## Quality Commands
 
-## Backup Commands
+| Command                 | Parameters                                     | Returns                   | Description                    |
+| ----------------------- | ---------------------------------------------- | ------------------------- | ------------------------------ |
+| `find_duplicate_facts`  | `threshold, require_same_category, require_same_date` | `Result<Vec<DuplicateGroup>>` | Find similar facts  |
+| `merge_duplicate_facts` | `keeper_id, member_ids`                        | `Result<i64>`             | Merge duplicates               |
+| `cross_validate_fact`   | `intelligence_id, threshold`                  | `Result<CrossValidationResult>` | Cross-validate a fact |
+| `get_evidence_weight`   | `intelligence_id`                              | `Result<f64>`             | Weighted evidence score        |
+| `detect_anomalies`      | `metric, threshold_std`                        | `Result<Vec<Anomaly>>`    | Z-score anomaly detection      |
 
-| Command          | Parameters         | Returns           | Description         |
-| ---------------- | ------------------ | ----------------- | ------------------- |
-| `create_backup`  | `include_evidence` | `Result<PathBuf>` | Create ZIP backup   |
-| `restore_backup` | `backup_path`      | `Result<()>`      | Restore from backup |
+## Timeline Commands
 
-## Model Commands
-
-| Command                  | Parameters          | Returns                   | Description                  |
-| ------------------------ | ------------------- | ------------------------- | ---------------------------- |
-| `download_model`         | `repo_id, filename` | `Result<DownloadedModel>` | Pull MLX model via rapid-mlx |
-| `list_downloaded_models` | None                | `Vec<DownloadedModel>`    | List local MLX models        |
-
-## Extraction/Reasoning Commands
-
-| Command                    | Parameters                 | Returns                    | Description               |
-| -------------------------- | -------------------------- | -------------------------- | ------------------------- |
-| `extract_file`             | `file_path`                | `Result<ExtractionResult>` | Extract text from file    |
-| `extract_batch`            | `file_paths`               | `Vec<ExtractionResult>`    | Extract multiple files    |
-| `get_supported_extensions` | None                       | `Vec<String>`              | List supported file types |
-| `init_reasoner`            | `model_name, context_size` | `Result<()>`               | Initialize MLX reasoner   |
-| `analyze_file`             | `file_path`                | `Result<AnalysisResult>`   | Full file analysis        |
-| `analyze_batch`            | `file_paths`               | `Vec<AnalysisResult>`      | Analyze multiple files    |
-| `get_extraction_queue`     | None                       | `QueueStatus`              | Get extraction queue      |
-| `get_analysis_queue`       | None                       | `QueueStatus`              | Get analysis queue        |
-| `is_model_loaded`          | None                       | `bool`                     | Check if model is loaded  |
-| `get_reasoner_config`      | None                       | `ReasonerConfig`           | Get reasoner settings     |
+| Command            | Parameters                              | Returns                  | Description                    |
+| ------------------ | --------------------------------------- | ------------------------ | ------------------------------ |
+| `get_timeline_events` | `min_weight, limit, categories, start_date, end_date` | `Result<Vec<TimelineEvent>>` | Chronological facts |
 
 ## Metadata Commands
 
-| Command               | Parameters                   | Returns                            | Description                                          |
-| --------------------- | ---------------------------- | ---------------------------------- | ---------------------------------------------------- |
-| `extract_metadata`    | `path`                       | `Result<DocumentMetadata>`         | Extract metadata from file (no DB access)            |
-| `cache_metadata`      | `fingerprint, path`          | `Result<DocumentMetadata>`         | Extract and cache metadata in DB for later retrieval |
-| `get_cached_metadata` | `fingerprint, metadata_type` | `Result<Option<DocumentMetadata>>` | Retrieve cached metadata from DB                     |
+| Command               | Parameters              | Returns                              | Description                          |
+| --------------------- | ----------------------- | ------------------------------------ | ------------------------------------ |
+| `get_registry_files`  | `limit: usize`          | `Result<Vec<RegistryEntry>>`         | Paginated registry listing           |
+| `get_cached_metadata` | `fingerprint: String`   | `Result<Option<DocumentMetadata>>`   | Get cached metadata from DB          |
+| `extract_metadata`    | `path: String`          | `Result<DocumentMetadata>`           | Extract metadata from file (no DB)   |
+| `cache_metadata`      | `fingerprint, path`     | `Result<DocumentMetadata>`           | Extract and cache metadata           |
 
-## Language Commands
+## Statistics Commands
 
-| Command                | Parameters | Returns                 | Description                                                    |
-| ---------------------- | ---------- | ----------------------- | -------------------------------------------------------------- |
-| `detect_text_language` | `text`     | `Option<(String, f64)>` | Detect language of text, returns ISO 639-3 code and confidence |
+| Command                      | Parameters | Returns                          | Description                    |
+| ---------------------------- | ---------- | -------------------------------- | ------------------------------ |
+| `get_stats`                  | None       | `Result<ProjectStats>`           | Registry & intelligence stats  |
+| `get_overall_statistics`     | None       | `Result<OverallStats>`           | Aggregate statistics summary   |
+| `get_category_distribution`  | None       | `Result<Vec<CategoryStat>>`      | Facts by category              |
+| `get_severity_distribution`  | None       | `Result<Vec<SeverityStat>>`      | Facts by severity              |
 
-## Structured Data Commands
+## Hardware / Model Commands
 
-| Command                   | Parameters | Returns                  | Description                                  |
-| ------------------------- | ---------- | ------------------------ | -------------------------------------------- |
-| `extract_pdf_form_fields` | `path`     | `Result<Vec<FormField>>` | Extract AcroForm fields from fillable PDF    |
-| `extract_key_value_pairs` | `text`     | `Vec<KeyValuePair>`      | Extract Key: value pairs from text via regex |
+| Command                  | Parameters                    | Returns                   | Description                    |
+| ------------------------ | ----------------------------- | ------------------------- | ------------------------------ |
+| `detect_hardware`        | None                          | `Result<HardwareStatus>`  | Detect CPU/RAM/GPU             |
+| `get_hardware_info`      | None                          | `Result<HardwareInfoExt>` | Detailed info for settings     |
+| `get_recommended_settings` | None                        | `Result<HardwareInfo>`    | Auto-scaled LLM params         |
+| `get_system_monitor`     | None                          | `Result<SystemMonitor>`   | Real-time CPU/memory snapshot  |
+| `list_downloaded_models` | None                          | `Result<Vec<DownloadedModel>>` | List MLX models      |
+| `download_model`         | `repo_id, filename`           | `Result<DownloadedModel>` | Pull model via rapid-mlx       |
+| `is_model_loaded`        | None                          | `Result<bool>`            | Check if model is loaded       |
+| `validate_model`         | `model_path`                  | `Result<bool>`            | Validate model name or path    |
 
-## Notification Commands
+## Analysis Commands
 
-| Command             | Parameters    | Returns      | Description              |
-| ------------------- | ------------- | ------------ | ------------------------ |
-| `send_notification` | `title, body` | `Result<()>` | Send system notification |
+| Command             | Parameters                              | Returns         | Description                    |
+| ------------------- | --------------------------------------- | --------------- | ------------------------------ |
+| `init_reasoner`     | `model_name, context_size`              | `Result<()>`    | Start rapid-mlx subprocess + store Reasoner |
+| `analyze_batch`     | `fingerprints: Vec<String>`             | `Result<()>`    | Run LLM inference on extracted text |
+| `set_cancel_flag`   | `cancel: bool`                          | `Result<()>`    | Cancel ongoing analysis        |
+
+## Workflow Commands
+
+| Command            | Parameters | Returns            | Description                    |
+| ------------------ | ---------- | ------------------ | ------------------------------ |
+| `get_workflow_state` | None     | `Result<WorkflowState>` | Current workflow progress  |
+
+## Compare Commands
+
+| Command              | Parameters             | Returns                | Description                    |
+| -------------------- | ---------------------- | ---------------------- | ------------------------------ |
+| `get_project_summary`| None                   | `Result<ProjectSummary>` | Project summary             |
+| `compare_projects`   | `project2_path: String` | `Result<ProjectComparison>` | Cross-project comparison |
+
+## Utility Commands
+
+| Command            | Parameters          | Returns           | Description                    |
+| ------------------ | ------------------- | ----------------- | ------------------------------ |
+| `write_file`       | `path, contents`    | `Result<()>`      | Write file to disk             |
+| `create_backup`    | `include_evidence`  | `Result<BackupResult>` | Create ZIP backup           |
+| `restore_backup`   | `backup_path`       | `Result<()>`      | Restore from backup            |

@@ -1,6 +1,6 @@
 # RapidMLX Completion Plan
 
-> **For agentic workers:** Use subagent-driven-development or executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** Use subagent-driven-development or executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Complete the rapid-mlx swap by fixing bugs, aligning types, wiring up the reasoner pipeline, cleaning dead code, updating docs, and committing all work to GitHub in logical segments.
 
@@ -31,12 +31,12 @@
 - Consumes: existing ModelConfig with `quantization` field
 - Produces: ModelConfig with `mlx_model_name`/`dtype`, HardwareInfo without `gpu_layers`
 
-- [ ] **Step 1: Write the failing assertion** — verify `cargo check` fails with current mismatch by confirming the deserialization error path
+- [x] **Step 1: Write the failing assertion** — verify `cargo check` fails with current mismatch by confirming the deserialization error path
 
 Run: `cd src-tauri && cargo check`
 Expected: PASSES (no error yet — the issue is runtime, not compile-time)
 
-- [ ] **Step 2: Update `lib.rs` ModelConfig** — remove `quantization`, add `mlx_model_name` and `dtype`
+- [x] **Step 2: Update `lib.rs` ModelConfig** — remove `quantization`, add `mlx_model_name` and `dtype`
 
 ```rust
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -51,7 +51,7 @@ pub struct ModelConfig {
 }
 ```
 
-- [ ] **Step 3: Update `load_config` defaults** — replace `quantization` with MLX fields:
+- [x] **Step 3: Update `load_config` defaults** — replace `quantization` with MLX fields:
 
 ```rust
 model: crate::ModelConfig {
@@ -65,7 +65,7 @@ model: crate::ModelConfig {
 },
 ```
 
-- [ ] **Step 4: Update `HardwareInfo`** — remove `recommended_gpu_layers`:
+- [x] **Step 4: Update `HardwareInfo`** — remove `recommended_gpu_layers`:
 
 ```rust
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -77,11 +77,11 @@ pub struct HardwareInfo {
 }
 ```
 
-- [ ] **Step 5: Update `get_recommended_settings`** — remove `recommended_gpu_layers: 32`
+- [x] **Step 5: Update `get_recommended_settings`** — remove `recommended_gpu_layers: 32`
 
-- [ ] **Step 6: Update `lib.rs:11` comment** — change "llama.cpp pipeline" to "MLX pipeline"
+- [x] **Step 6: Update `lib.rs:11` comment** — change "llama.cpp pipeline" to "MLX pipeline"
 
-- [ ] **Step 7: Verify**
+- [x] **Step 7: Verify**
 
 ```bash
 cd src-tauri && cargo check
@@ -105,11 +105,11 @@ Expected: PASS
 - Consumes: `AppState`, `MmlxPipeline` (from Task 1), `Reasoner`
 - Produces: Working reasoner stored in AppState, real LLM inference in analyze_batch
 
-- [ ] **Step 1: Add Mutex import to lib.rs** — add `use std::sync::Mutex;`
+- [x] **Step 1: Add Mutex import to lib.rs** — add `use std::sync::Mutex;`
 
-- [ ] **Step 2: Import Reasoner in lib.rs** — add `use inference::reasoner::Reasoner;` (or use full path)
+- [x] **Step 2: Import Reasoner in lib.rs** — add `use inference::reasoner::Reasoner;` (or use full path)
 
-- [ ] **Step 3: Add `reasoner` field to AppState**
+- [x] **Step 3: Add `reasoner` field to AppState**
 
 ```rust
 pub struct AppState {
@@ -122,7 +122,7 @@ pub struct AppState {
 }
 ```
 
-- [ ] **Step 4: Initialize `reasoner` in `build_tauri_app()`**
+- [x] **Step 4: Initialize `reasoner` in `build_tauri_app()`**
 
 ```rust
 let app = AppState {
@@ -135,7 +135,7 @@ let app = AppState {
 };
 ```
 
-- [ ] **Step 5: Update `init_reasoner`** — take `tauri::State`, call `load()`, store `Reasoner`
+- [x] **Step 5: Update `init_reasoner`** — take `tauri::State`, call `load()`, store `Reasoner`
 
 ```rust
 #[tauri::command]
@@ -153,7 +153,7 @@ pub async fn init_reasoner(
 }
 ```
 
-- [ ] **Step 6: Update `analyze_batch`** — take `tauri::State`, retrieve reasoner, use `extract_facts`
+- [x] **Step 6: Update `analyze_batch`** — take `tauri::State`, retrieve reasoner, use `extract_facts`
 
 ```rust
 #[tauri::command]
@@ -202,7 +202,7 @@ pub async fn analyze_batch(
 }
 ```
 
-- [ ] **Step 7: Update `Reasoner::extract_facts`** — call `infer()` instead of returning placeholder
+- [x] **Step 7: Update `Reasoner::extract_facts`** — call `infer()` instead of returning placeholder
 
 ```rust
 pub fn extract_facts(&self, text: &str) -> Result<Vec<crate::Fact>> {
@@ -225,9 +225,9 @@ pub fn extract_facts(&self, text: &str) -> Result<Vec<crate::Fact>> {
 }
 ```
 
-- [ ] **Step 8: Remove `#![allow(dead_code)]` from `mlx_pipeline.rs`** (line 6) — pipeline is now used
+- [x] **Step 8: Remove `#![allow(dead_code)]` from `mlx_pipeline.rs`** (line 6) — pipeline is now used
 
-- [ ] **Step 9: Verify**
+- [x] **Step 9: Verify**
 
 ```bash
 cd src-tauri && cargo check
@@ -249,15 +249,15 @@ Expected: PASS (zero warnings)
 
 - Produces: Clean inference module with no unused code
 
-- [ ] **Step 1: Remove `pub mod model_registry;` from `mod.rs`**
+- [x] **Step 1: Remove `pub mod model_registry;` from `mod.rs`**
 
-- [ ] **Step 2: Delete `model_registry.rs`**
+- [x] **Step 2: Delete `model_registry.rs`**
 
 ```bash
 git rm src-tauri/src/inference/model_registry.rs
 ```
 
-- [ ] **Step 3: Verify**
+- [x] **Step 3: Verify**
 
 ```bash
 cd src-tauri && cargo clippy -- -D warnings
@@ -281,7 +281,7 @@ Expected: PASS, no dead code warnings
 - Consumes: Backend `DownloadedModel` with `mlx_model_name` field
 - Produces: Frontend correctly uses `mlx_model_name` everywhere
 
-- [ ] **Step 1: Update `ModelInfo` interface** — add `mlx_model_name`:
+- [x] **Step 1: Update `ModelInfo` interface** — add `mlx_model_name`:
 
 ```typescript
 interface ModelInfo {
@@ -293,7 +293,7 @@ interface ModelInfo {
 }
 ```
 
-- [ ] **Step 2: Fix `downloadSelectedModel`** — use `result.mlx_model_name` not `result.path`:
+- [x] **Step 2: Fix `downloadSelectedModel`** — use `result.mlx_model_name` not `result.path`:
 
 ```typescript
 // Before:
@@ -302,7 +302,7 @@ config.mlxModelName = result.path;
 config.mlxModelName = result.mlx_model_name;
 ```
 
-- [ ] **Step 3: Fix downloaded models list** — use `model.mlx_model_name`:
+- [x] **Step 3: Fix downloaded models list** — use `model.mlx_model_name`:
 
 ```typescript
 // Before:
@@ -313,7 +313,7 @@ onclick={() => (config.mlxModelName = model.mlx_model_name)}
 class:selected={config.mlxModelName === model.mlx_model_name}
 ```
 
-- [ ] **Step 4: Fix `saveConfig`** — include all HardwareConfig fields, fix version:
+- [x] **Step 4: Fix `saveConfig`** — include all HardwareConfig fields, fix version:
 
 ```typescript
 const configData = {
@@ -334,7 +334,7 @@ const configData = {
 };
 ```
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 ```bash
 npm run check
@@ -356,7 +356,7 @@ Expected: PASS
 - Consumes: Config with `mlx_model_name` instead of `local_path` for model selection
 - Produces: Dashboard and analysis use correct model field
 
-- [ ] **Step 1: Fix dashboard** — use `mlx_model_name` instead of `local_path`:
+- [x] **Step 1: Fix dashboard** — use `mlx_model_name` instead of `local_path`:
 
 ```typescript
 // Before:
@@ -378,7 +378,7 @@ Update the status display:
 }
 ```
 
-- [ ] **Step 2: Fix analysis page** — check `mlx_model_name` instead of `local_path`:
+- [x] **Step 2: Fix analysis page** — check `mlx_model_name` instead of `local_path`:
 
 ```typescript
 // Before:
@@ -397,7 +397,7 @@ const modelName =
 	$config?.model?.mlx_model_name || (models.length > 0 ? models[0].mlx_model_name : null);
 ```
 
-- [ ] **Step 3: Verify**
+- [x] **Step 3: Verify**
 
 ```bash
 npm run check
@@ -418,7 +418,7 @@ Expected: PASS
 - Consumes: Settings page with `#mlxModelName` input
 - Produces: Tests pass with correct selector
 
-- [ ] **Step 1: Fix selector** — change `#modelPath` to `#mlxModelName`
+- [x] **Step 1: Fix selector** — change `#modelPath` to `#mlxModelName`
 
 ```typescript
 // Before:
@@ -429,7 +429,7 @@ test('should have model name input', async ({ page }) => {
     await expect(page.locator('#mlxModelName')).toBeVisible();
 ```
 
-- [ ] **Step 2: Verify** (if Playwright available)
+- [x] **Step 2: Verify** (if Playwright available)
 
 ```bash
 npx playwright test e2e/settings.test.ts --grep "model name input"
@@ -449,9 +449,9 @@ Expected: Selector exists on page
 
 - Produces: Documentation reflecting MLX pipeline
 
-- [ ] **Step 1: Update comment** — change `inference/            llama.cpp pipeline, reasoner, model registry` to `inference/            MLX pipeline, reasoner`
+- [x] **Step 1: Update comment** — change `inference/            llama.cpp pipeline, reasoner, model registry` to `inference/            MLX pipeline, reasoner`
 
-- [ ] **Step 2: Verify** no llama/gguf references in AGENTS.md
+- [x] **Step 2: Verify** no llama/gguf references in AGENTS.md
 
 ```bash
 grep -in "gguf\|llama" AGENTS.md
@@ -479,17 +479,17 @@ Expected: No matches
 
 - Produces: Documentation consistent with rapid-mlx implementation
 
-- [ ] **Step 1: Update `docs/backend/inference.md`** — document MlxPipeline, rapid-mlx subprocess, OpenAI-compatible API
+- [x] **Step 1: Update `docs/backend/inference.md`** — document MlxPipeline, rapid-mlx subprocess, OpenAI-compatible API
 
-- [ ] **Step 2: Update `docs/backend/models.md`** — document `rapid-mlx models`/`pull`/`serve` commands
+- [x] **Step 2: Update `docs/backend/models.md`** — document `rapid-mlx models`/`pull`/`serve` commands
 
-- [ ] **Step 3: Update `docs/architecture/pipeline.md`** — replace `LlamaModel` with `MlxPipeline`
+- [x] **Step 3: Update `docs/architecture/pipeline.md`** — replace `LlamaModel` with `MlxPipeline`
 
-- [ ] **Step 4: Update remaining docs** — `system.md`, `project-overview.md`, `docs/README.md`, `SPEC.md`, `README.md`
+- [x] **Step 4: Update remaining docs** — `system.md`, `project-overview.md`, `docs/README.md`, `SPEC.md`, `README.md`
 
-- [ ] **Step 5: Add CHANGELOG entry**
+- [x] **Step 5: Add CHANGELOG entry**
 
-- [ ] **Step 6: Verify** no stale references
+- [x] **Step 6: Verify** no stale references
 
 ```bash
 grep -rin "gguf\|llama\|gpu_layers" docs/ AGENTS.md SPEC.md README.md CHANGELOG.md
@@ -507,57 +507,57 @@ Expected: No matches (except Whisper `ggml` placeholder which is unrelated)
 
 - Produces: Clean git history with logical commits, each referencing a GitHub issue
 
-- [ ] **Step 1: Commit backend MLX fixes** (Task 1-3 changes)
+- [x] **Step 1: Commit backend MLX fixes** (Task 1-3 changes)
 
 ```bash
 git add src-tauri/src/lib.rs src-tauri/src/commands/mod.rs src-tauri/src/inference/
 git commit -m "fix(backend): wire up rapid-mlx Reasoner pipeline, fix ModelConfig"
 ```
 
-- [ ] **Step 2: Commit reorganization deletions** (101 deleted files)
+- [x] **Step 2: Commit reorganization deletions** (101 deleted files)
 
 ```bash
 git add -A src-tauri/src/commands/ src-tauri/src/core/queries/ src-tauri/src/config/
 git commit -m "refactor: consolidate command and query modules into mod.rs"
 ```
 
-- [ ] **Step 3: Commit other modifications** (build.rs, capabilities, icons, extractors, etc.)
+- [x] **Step 3: Commit other modifications** (build.rs, capabilities, icons, extractors, etc.)
 
 ```bash
 git add -A
 git commit -m "chore: update build config, capabilities, icons, extractors"
 ```
 
-- [ ] **Step 4: Commit frontend fixes** (Task 4-5 changes)
+- [x] **Step 4: Commit frontend fixes** (Task 4-5 changes)
 
 ```bash
 git add src/lib/stores/app.ts src/routes/settings/+page.svelte src/routes/analysis/+page.svelte src/routes/+page.svelte
 git commit -m "fix(frontend): use mlx_model_name fields, fix config save/load"
 ```
 
-- [ ] **Step 5: Commit e2e test fix** (Task 6)
+- [x] **Step 5: Commit e2e test fix** (Task 6)
 
 ```bash
 git add e2e/settings.test.ts
 git commit -m "fix(tests): update settings.test.ts selectors for MLX model fields"
 ```
 
-- [ ] **Step 6: Commit docs + AGENTS.md** (Task 7-8)
+- [x] **Step 6: Commit docs + AGENTS.md** (Task 7-8)
 
 ```bash
 git add AGENTS.md docs/ SPEC.md README.md CHANGELOG.md
 git commit -m "docs: update for rapid-mlx swap completion"
 ```
 
-- [ ] **Step 7: Verify** `cargo check` + `npm run check` + `cargo clippy -- -D warnings`
+- [x] **Step 7: Verify** `cargo check` + `npm run check` + `cargo clippy -- -D warnings`
 
-- [ ] **Step 8: Push to GitHub**
+- [x] **Step 8: Push to GitHub**
 
 ```bash
 git push origin main
 ```
 
-- [ ] **Step 9: Close GitHub issues**
+- [x] **Step 9: Close GitHub issues**
 
 ```bash
 gh issue close <num> --comment "Completed"

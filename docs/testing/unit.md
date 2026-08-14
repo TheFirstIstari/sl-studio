@@ -2,26 +2,30 @@
 
 ## Overview
 
-Rust unit tests are defined throughout the codebase using the standard `#[cfg(test)]` module pattern.
+Rust unit tests are defined using the standard `#[cfg(test)]` module pattern.
+Tests are co-located with the source files they test.
+
+> **Note**: As of the rapid-mlx swap completion, no Rust unit tests currently
+> exist in the codebase. The `cargo test` run reports 0 tests. See
+> [E2E Tests](e2e.md) for the Playwright end-to-end test suite.
 
 ## Test Structure
 
-Tests are co-located with the code they test:
+Tests are co-located with the source files they test:
 
 ```
 src-tauri/src/
 ├── core/
-│   └── database.rs      # Tests for database operations
+│   └── database.rs     # Tests for database operations (none currently)
 ├── extractors/
-│   ├── pdf.rs           # Tests for PDF extraction
-│   ├── ocr.rs           # Tests for OCR
-│   └── document.rs      # Tests for document parsing
+│   ├── pdf.rs          # Tests for PDF extraction (none currently)
+│   ├── docx.rs         # Tests for DOCX extraction (none currently)
+│   ├── image.rs        # Tests for image extraction (none currently)
+│   └── audio.rs        # Tests for audio extraction (none currently)
 ├── inference/
-│   ├── pipeline.rs      # Tests for pipeline execution
-│   └── reasoner.rs      # Tests for reasoner
-└── inference/quality/
-    ├── scoring.rs       # Tests for quality scoring
-    └── deduplication.rs # Tests for deduplication
+│   ├── mlx_pipeline.rs # Tests for MLX pipeline (none currently)
+│   └── reasoner.rs     # Tests for reasoner (none currently)
+└── commands/mod.rs     # Tests for command handlers (none currently)
 ```
 
 ## Running Tests
@@ -29,47 +33,44 @@ src-tauri/src/
 ### Using mise (recommended)
 
 ```bash
-mise run test              # Run all tests
-mise run test_quick        # Quick test run
+mise run ci_test       # Run all Rust tests
 ```
 
 ### Using cargo directly
 
 ```bash
-cargo test --manifest-path src-tauri/Cargo.toml
-cargo test --manifest-path src-tauri/Cargo.toml -- --nocapture  # Show output
-cargo test --manifest-path src-tauri/Cargo.toml -- test_name    # Single test
+cd src-tauri && cargo test
+cargo test -- --nocapture  # Show output
+cargo test -- test_name    # Single test
+cargo test -- --test-threads=1  # Serialise database tests
 ```
 
 ## Test Categories
 
 ### Database Tests
 
-- Schema initialization
-- CRUD operations
-- Search queries
-- FTS5 functionality
+- Schema initialization (migrations)
+- CRUD operations via `Pool` methods
+- Query operations (fact search, entity relationships)
 
 ### Extractor Tests
 
-- PDF text extraction
-- OCR accuracy
-- Document parsing
-- Error handling (corrupted files, password-protected)
+- File type routing in `extract_metadata_from_path`
+- PDF, DOCX, image, audio extraction
+- Error handling (missing files, unsupported formats)
 
 ### Inference Tests
 
-- Pipeline execution
-- Fact parsing
-- JSON extraction
-- Deduplication logic
-
-### Quality Tests
-
-- Scoring calculations
-- Threshold validation
-- Merge strategies
+- MlxPipeline startup and health-checking
+- Reasoner fact extraction
+- Pipeline execution (when tests are added)
 
 ## Integration Tests
 
-Located in `src-tauri/tests/` for cross-module testing.
+Integration tests are not currently present. If added, they would be located
+in `src-tauri/tests/` and test cross-module functionality.
+
+## E2E Tests
+
+The project maintains 18 Playwright end-to-end tests in the `e2e/` directory.
+See [E2E Tests](e2e.md) for details.

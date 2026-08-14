@@ -1,85 +1,25 @@
 # Quality & Deduplication
 
-## Quality Scoring
+## Overview
 
-`inference/quality/scoring.rs` (~131 lines)
+Quality assessment, deduplication, and anomaly detection are implemented as
+Tauri commands in `commands/mod.rs`. There is no separate `inference/quality/`
+module — all quality logic lives in the command handlers.
 
-### ExtractionQuality
+## Deduplication Commands
 
-```rust
-struct ExtractionQuality {
-    confidence: f64,
-    text_coverage: f64,
-    entity_density: f64,
-    quote_quality: f64,
-    overall: f64,
-    retry_recommended: bool,
-    issues: Vec<QualityIssue>,
-}
-```
+| Command                | Parameters                                  | Returns            | Description                          |
+| ---------------------- | ------------------------------------------- | ------------------ | ------------------------------------ |
+| `find_duplicate_facts` | `threshold, require_same_category, require_same_date` | `Vec<DuplicateGroup>` | Find similar facts |
+| `merge_duplicate_facts` | `keeper_id, member_ids`                    | `i64`              | Soft-delete members into keeper      |
 
-### Metrics
+### DuplicateGroup
 
-| Metric           | Description                         |
-| ---------------- | ----------------------------------- |
-| `confidence`     | LLM confidence in extracted facts   |
-| `text_coverage`  | Ratio of extracted text to original |
-| `entity_density` | Entities per unit of text           |
-| `quote_quality`  | Quality of direct quotes            |
-| `overall`        | Weighted composite score            |
-
-### Quality Levels
-
-| Level    | Threshold | Color  |
-| -------- | --------- | ------ |
-| Good     | >= 0.8    | Green  |
-| Marginal | 0.5 - 0.8 | Yellow |
-| Poor     | < 0.5     | Red    |
-
-### Quality Issues
-
-```rust
-enum QualityIssue {
-    LowConfidence,
-    ShortQuote,
-    PoorCoverage,
-    EntityMismatch,
-}
-```
-
-## Fact Deduplication
-
-`inference/quality/deduplication.rs` (~296 lines)
-
-### DeduplicationConfig
-
-```rust
-struct DeduplicationConfig {
-    similarity_threshold: f64, // Default: 0.85
-    match_on_fields: Vec<String>,
-    merge_strategy: MergeStrategy,
-}
-```
-
-### Merge Strategies
-
-```rust
-enum MergeStrategy {
-    KeepHighestConfidence,
-    KeepMostSevere,
-    MergeAll,
-}
-```
-
-### Similarity Algorithm
-
-Uses Jaccard word-set similarity:
-
-```
-similarity = |A ∩ B| / |A ∪ B|
-```
-
-Where A and B are word sets of two facts' summaries.
+| Field        | Type     | Description                    |
+| ------------ | -------- | ------------------------------ |
+| `keeper_id`  | i64      | ID of the fact to keep         |
+| `member_ids` | Vec<i64> | IDs of duplicate facts         |
+| `similarity` | f64      | Similarity score (0.0–1.0)     |
 
 ### Deduplication Process
 
@@ -97,10 +37,46 @@ Facts List
 └──────┬──────┘
        │
        ▼
-┌─────────────┐
-│ Merge       │ ← Apply merge strategy
+│ Merge       │ ← Soft-delete duplicates, keep highest
 └──────┬──────┘
        │
        ▼
    Deduplicated Facts
 ```
+
+> **Note**: `find_duplicate_facts` is currently a stub — a real implementation
+> would use Jaro-Winkler or n-gram similarity. `merge_duplicate_facts` performs
+> soft deletes via `is_deleted` flag.
+
+## Cross-Validation
+
+| Command              | Parameters           | Returns                  | Description                    |
+| -------------------- | -------------------- | ------------------------ | ------------------------------ |
+| `cross_validate_fact` | `intelligence_id, threshold` | `CrossValidationResult` | Validate fact against sources |
+
+### CrossValidationResult
+
+| Field               | Type                    | Description                |
+| ------------------- | ----------------------- | -------------------------- |
+| `intelligence_id`   | i64                     | Fact being validated       |
+| `source_filename`   | String                  | Source file name           |
+| `matches`           | Vec<CorroborationMatch> | Matching facts             |
+| `consensus_score`   | f64                     | Agreement score (0.0–1.0)  |
+
+## Evidence Weighting
+
+| Command             | Parameters        | Returns | Description                       |
+| ------------------- | ----------------- | ------- | --------------------------------- |
+| `get_evidence_weight` | `intelligence_id` | `f64`   | Weighted confidence for a fact    |
+
+Calculates weighted confidence from the `evidence_weights` table, falling back
+to `reliability_score * confidence` from the `intelligence` table.
+
+## Anomaly Detection
+
+| Command              | Parameters          | Returns      | Description                    |
+| -------------------- | ------------------- | ------------ | ------------------------------ |
+| `detect_anomalies`   | `metric, threshold_std` | `Vec<Anomaly>` | Z-score outlier detection  |
+
+Supports `severity` and `confidence` metrics. Returns all facts with their
+values (deviation calculation is a stub returning 0.0).

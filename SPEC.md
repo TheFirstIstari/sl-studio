@@ -1,5 +1,12 @@
 # SL Studio - Forensic Document Analysis Platform
 
+> **Note**: This specification was written for a previous architecture that
+> used separate `gpu/`, `config/`, `models/`, `utils/` modules, a
+> `core/registry.rs` file, and `extractors/deconstructor.rs` / `inference/pipeline.rs`
+> files. The codebase has since been consolidated into 4 modules
+> (`commands/`, `core/`, `extractors/`, `inference/`). See
+> `docs/backend/overview.md` and `CHANGELOG.md` for the current structure.
+
 The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in RFC 2119.
 
 ---
