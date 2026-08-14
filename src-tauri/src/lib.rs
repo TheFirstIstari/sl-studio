@@ -255,7 +255,6 @@ pub struct DownloadedModel {
     pub id: String,
     pub filename: String,
     pub size: u64,
-    pub path: String,
     pub mlx_model_name: String, // e.g., "qwen3.5-4b-4bit"
 }
 

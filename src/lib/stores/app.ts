@@ -5,7 +5,7 @@ import { writable, derived, type Readable } from 'svelte/store';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
-// Types matching Rust backend (src-tauri/src/config/model.rs::AppConfig).
+// Types matching Rust backend (src-tauri/src/lib.rs::AppConfig).
 // This mirrors the nested shape that `load_config` actually returns.
 export interface ProjectConfig {
 	name: string;

@@ -10,7 +10,6 @@
 		id: string;
 		filename: string;
 		size: number;
-		path: string;
 		mlx_model_name: string;
 	}
 

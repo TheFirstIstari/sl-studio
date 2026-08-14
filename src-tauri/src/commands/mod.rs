@@ -1476,7 +1476,6 @@ pub async fn list_downloaded_models() -> Result<Vec<crate::DownloadedModel>> {
                 id: name.clone(),
                 filename: name.clone(),
                 size: 0,
-                path: String::new(),
                 mlx_model_name: name,
             }
         })
@@ -1505,7 +1504,6 @@ pub async fn download_model(repo_id: String, filename: String) -> Result<crate::
         id: model_name.clone(),
         filename: model_name.clone(),
         size: 0,
-        path: String::new(),
         mlx_model_name: model_name,
     })
 }
