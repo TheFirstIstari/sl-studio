@@ -20,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `settings/+page.svelte`): removed the dead `local_path` field from `ModelConfig`
   — it was a leftover from the old GGUF/llama.cpp architecture and was always
   empty. Model selection now uses `mlx_model_name` exclusively
+- **Vestigial `path` field** (`lib.rs`, `commands/mod.rs`,
+  `settings/+page.svelte`): removed dead `path` field from `DownloadedModel`
+  — was always `String::new()` and never read by any frontend logic
+- **`validate_model` parameter mismatch** (`commands/mod.rs`): renamed
+  `model_path` → `model_name` to match the frontend's `invoke('validate_model',
+  { modelName })` call — the old parameter name caused Tauri to silently drop the
+  argument since camelCase→snake_case mapping didn't match
 
 ### Changed
 
@@ -41,15 +48,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   actual `extract_pdf`/`extract_image`/`extract_docx`/`extract_audio` functions
 - `docs/backend/overview.md`: updated module structure from 7+ modules to actual 4-module
   layout (core, extractors, inference, commands); corrected `AppState` definition
-- `docs/api/tauri-commands.md`: removed ~20 non-existent commands, aligned command list
-  with the 68 commands registered in `lib.rs`
+- `docs/api/tauri-commands.md`: removed `get_builtin_pipelines` (internal function, not a
+  registered command), corrected command count from 68 to 69, fixed `validate_model`
+  parameter name (`model_path` → `model_name`)
 - `docs/backend/database.md`: corrected from dual-DB (3397 lines) to single shared
   SQLite pool (317 lines) with embedded migrations
-- `docs/backend/config.md`, `hardware.md`, `quality.md`, `registry.md`, `utils.md`:
-  removed references to non-existent `config/`, `gpu/`, `inference/quality/`, `utils/`,
-  and `core/registry.rs` modules
-- `docs/project-overview.md`: updated architecture diagram and removed stale dependency
-  references (`whatlang`, `pdf-extract`, `ocrs`, `lopdf`, `kamadak-exif`)
+- `docs/backend/config.md`: fixed `source` field description to match TypeScript interface
+  (`"huggingface"` or `"local"`); removed `local_path` row
+- `docs/backend/overview.md`: corrected command count from "60+" to "69"
+- `docs/backend/inference.md`: corrected `extract_facts` description (no text chunking,
+  JSON parsing, or deduplication — prompt + single infer() call + Fact wrapping)
+- `docs/backend/extractors.md`: corrected dispatch claim — `extract_metadata_from_path`
+  does not route to extractors; dispatching is via private `extract_file` helper in
+  `commands/mod.rs`
+- `docs/architecture/pipeline.md`: fixed Stage 2 diagram (removed chunk/dedup/score steps),
+  corrected Fact Structure table to match actual `Fact` struct fields, fixed `MloxPipeline`
+  typo, corrected system prompt description
 
 ## [0.3.2] - 2026-04-30
 

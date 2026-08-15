@@ -34,16 +34,16 @@ File Input
 
 ### Architecture
 
-The `extract_metadata_from_path` function in `extractors/mod.rs` routes files to
-specialized extractors based on file extension:
+The `extract_batch` command in `commands/mod.rs` routes files to specialized
+extractors based on file extension via a private `extract_file` helper:
 
 ```
 File Input
     │
     ▼
 ┌─────────────────────┐
-│ extract_metadata_   │ ← Extension-based routing (extractors/mod.rs)
-│ from_path()         │
+│ extract_file()      │ ← Extension-based routing (commands/mod.rs:1800)
+│ (private helper)    │
 └────────┬────────────┘
          │
    ┌────┴───┬───────────┬─────────┐
@@ -71,7 +71,7 @@ File Input
 
 ### Architecture
 
-The `Reasoner` wraps an `MloxPipeline` with an `MlxPipeline` to perform AI-powered analysis:
+The `Reasoner` wraps an `MloxPipeline` to perform AI-powered fact extraction:
 
 ```
 Extracted Text
@@ -81,11 +81,7 @@ Extracted Text
 │  Reasoner   │
 │             │
 │  ┌────────┐ │
-│  │ Chunk  │ │ ← Split text into manageable chunks
-│  └───┬────┘ │
-│      ▼      │
-│  ┌────────┐ │
-│  │ Prompt │ │ ← Build prompt with template + schema
+│  │ Prompt │ │ ← Build extraction prompt
 │  └───┬────┘ │
 │      ▼      │
 │  ┌────────┐ │
@@ -93,15 +89,11 @@ Extracted Text
 │  └───┬────┘ │
 │      ▼      │
 │  ┌────────┐ │
-│  │ Parse  │ │ ← Extract JSON facts from response
+│  │ Parse  │ │ ← Wrap response into Fact struct
 │  └───┬────┘ │
 │      ▼      │
 │  ┌────────┐ │
-│  │ Dedup  │ │ ← Remove duplicate facts
-│  └───┬────┘ │
-│      ▼      │
-│  ┌────────┐ │
-│  │ Score  │ │ ← Quality assessment
+│  │ Score  │ │ ← Assign confidence & severity
 │  └───┬────┘ │
 └──────┼──────┘
        │
@@ -111,27 +103,28 @@ Extracted Text
 
 ### System Prompt
 
-The default system prompt configures the LLM for forensic analysis:
+The inference prompt is a simple instruction passed to the LLM via `Reasoner::extract_facts()`:
 
-- Extract structured facts from evidence documents
-- Categorize by crime type, severity, and confidence
-- Include direct quotes with page references
-- Identify entities (persons, organizations, locations, dates, amounts)
+```
+Extract facts and entities from: {text}
+```
+
+The LLM response is wrapped directly into a `Fact` struct. No system prompt, prompt
+templates, or output schemas are currently used — these are planned for future pipeline
+pass configuration. See the `Pipelines` section for configurable pipeline passes.
 
 ### Fact Structure
 
 Each extracted fact contains:
 
-| Field         | Type           | Description                |
-| ------------- | -------------- | -------------------------- |
-| `id`          | UUID           | Unique identifier          |
-| `fingerprint` | String         | Hash for deduplication     |
-| `source_file` | String         | Original file path         |
-| `page`        | Option<i32>    | Page number if applicable  |
-| `quote`       | String         | Direct quote from source   |
-| `summary`     | String         | Concise fact statement     |
-| `category`    | String         | Crime/fact category        |
-| `date`        | Option<String> | Associated date            |
-| `severity`    | String         | Critical/High/Medium/Low   |
-| `confidence`  | f64            | Confidence score (0.0-1.0) |
-| `quality`     | f64            | Extraction quality score   |
+| Field                | Type           | Description                |
+| -------------------- | -------------- | -------------------------- |
+| `id`                 | u64            | Unique identifier          |
+| `fingerprint`        | String         | Hash for deduplication     |
+| `filename`           | String         | Source file name           |
+| `fact_summary`       | String         | LLM-generated fact statement |
+| `category`           | Option<String> | Fact category (or null)    |
+| `identified_crime`   | Option<String> | Crime type if detected     |
+| `severity_score`     | u8             | Severity (0-10 scale)      |
+| `confidence`         | Option<f64>    | Confidence (0.0-1.0)       |
+| `created_at`         | String         | RFC3339 timestamp          |

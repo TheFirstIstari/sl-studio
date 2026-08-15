@@ -2,10 +2,10 @@
 
 ## Overview
 
-The inference module handles LLM-powered reasoning through a two-stage pipeline:
-text chunking, prompt building, LLM inference via rapid-mlx, JSON parsing, and
-deduplication. All inference is performed locally via the `rapid-mlx` subprocess
-communicating over an OpenAI-compatible HTTP API.
+The inference module handles LLM-powered reasoning. An `MloxPipeline` wraps the
+`rapid-mlx serve` subprocess and communicates via an OpenAI-compatible HTTP API.
+The `Reasoner` wraps `MloxPipeline` and provides `extract_facts()` which builds a
+prompt, calls `pipeline.infer()`, and wraps the LLM response into `Fact` structs.
 
 ## Components
 

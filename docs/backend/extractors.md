@@ -4,8 +4,11 @@
 
 The extractors module provides file-type-specific text and metadata extraction.
 Each extractor is an async function that takes a file path and returns a `Metadata`
-record. The module also provides `extract_metadata_from_path` which dispatches
-to the appropriate extractor based on file extension.
+record. The module provides `extract_metadata_from_path` which gathers basic file
+metadata (type, size, name). File-type-specific text extraction dispatch
+happens in `commands/mod.rs` via the private `extract_file` helper, which
+routes to `extract_pdf`, `extract_image`, `extract_audio`, or `extract_docx`
+based on file extension.
 
 ```
 File Path

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The backend exposes 68 commands to the frontend via Tauri's IPC mechanism. All
+The backend exposes 69 commands to the frontend via Tauri's IPC mechanism. All
 commands are registered in `lib.rs` via `tauri::generate_handler![...]` and
 implemented in `commands/mod.rs`.
 
@@ -81,7 +81,10 @@ backed by `AppError` for serializable errors).
 | `list_pipelines`    | None              | `Result<Vec<Pipeline>>` | List all pipelines           |
 | `save_pipeline`     | `Pipeline`        | `Result<()>`         | Save or update a pipeline      |
 | `delete_pipeline`   | `pipeline_id: String` | `Result<()>`      | Delete a pipeline              |
-| `get_builtin_pipelines` | None          | `Vec<Pipeline>`      | Built-in pipeline definitions  |
+
+> `get_builtin_pipelines` is an internal Rust function (not a Tauri command)
+> that `list_pipelines` calls to merge built-in pipeline definitions with
+> user-saved ones. Defined in `inference/mod.rs`.
 
 ## Quality Commands
 
@@ -128,7 +131,7 @@ backed by `AppError` for serializable errors).
 | `list_downloaded_models` | None                          | `Result<Vec<DownloadedModel>>` | List MLX models      |
 | `download_model`         | `repo_id, filename`           | `Result<DownloadedModel>` | Pull model via rapid-mlx       |
 | `is_model_loaded`        | None                          | `Result<bool>`            | Check if model is loaded       |
-| `validate_model`         | `model_path`                  | `Result<bool>`            | Validate model name or path    |
+| `validate_model`         | `model_name`                  | `Result<bool>`            | Validate model name or path    |
 
 ## Analysis Commands
 

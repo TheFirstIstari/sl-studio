@@ -39,7 +39,7 @@ The main library root (~767 lines). Responsibilities:
 - Defines public types (`AppConfig`, `ModelConfig`, `Fact`, `Chain`, etc.)
 - Defines `AppState` with database pool, in-memory stores, and MLX reasoner
 - Defines `require_db()` singleton accessor for the SQLite pool
-- Registers 60+ Tauri commands for frontend communication via `tauri::generate_handler![...]`
+- Registers 69 Tauri commands for frontend communication via `tauri::generate_handler![...]`
 
 ## AppState
 
@@ -63,7 +63,7 @@ The `AppState` is shared across all Tauri commands via `tauri::State` and provid
 
 ## Tauri Commands
 
-The backend exposes 60+ commands to the frontend, all located in `commands/mod.rs`. See [Tauri Commands](../api/tauri-commands.md) for the complete list.
+The backend exposes 69 commands to the frontend, all located in `commands/mod.rs`. See [Tauri Commands](../api/tauri-commands.md) for the complete list.
 
 ### Command Categories
 

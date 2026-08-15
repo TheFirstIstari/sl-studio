@@ -35,7 +35,7 @@ pub struct AppConfig {
 
 | Field              | Type   | Description                                  |
 | ------------------ | ------ | -------------------------------------------- |
-| `source`           | String | `"local"` or `"rapid-mlx"`                    |
+| `source`           | String | `"huggingface"` or `"local"`                |
 | `id`               | String | Model identifier                             |
 | `mlx_model_name`   | String | MLX model name (e.g. `qwen3.5-4b-4bit`)      |
 | `dtype`            | String | Data type (`float16`, `bfloat16`)            |
