@@ -1520,8 +1520,8 @@ pub async fn is_model_loaded() -> Result<bool> {
 
 /// Validate that a model can be used with rapid-mlx.
 #[tauri::command]
-pub async fn validate_model(model_path: String) -> Result<bool> {
-    let path = std::path::Path::new(&model_path);
+pub async fn validate_model(model_name: String) -> Result<bool> {
+    let path = std::path::Path::new(&model_name);
     // Accept .safetensors files or rapid-mlx model aliases (no extension)
     if path.exists() && path.extension().is_some() {
         return Ok(path.extension().and_then(|e| e.to_str()) == Some("safetensors"));
