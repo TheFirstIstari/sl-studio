@@ -75,8 +75,15 @@ jobs:
         with:
           toolchain: stable
           components: rustfmt
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: cargo-registry-${{ runner.os }}-
         with:
           workspaces: src-tauri
       - name: Format check
@@ -99,6 +106,16 @@ jobs:
         with:
           toolchain: stable
           components: clippy, rustfmt
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git
+          key: cargo-registry-\${{ runner.os }}-\${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: cargo-registry-\${{ runner.os }}-
+
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
@@ -122,6 +139,16 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git
+          key: cargo-registry-\${{ runner.os }}-\${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: cargo-registry-\${{ runner.os }}-
+
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
@@ -158,6 +185,16 @@ jobs:
         with:
           toolchain: stable
           targets: aarch64-apple-darwin
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git
+          key: cargo-registry-\${{ runner.os }}-\${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: cargo-registry-\${{ runner.os }}-
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
