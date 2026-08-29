@@ -76,7 +76,9 @@ Frontend: `setup-node@v4` (`cache: 'npm'`) + `npm ci`.
 `mise run run` (`mise.toml`) mirrors `.github/workflows/ci.yml`. Verified clean:
 
 ```
+
 mise run run → cargo fmt: ok, clippy: ok, build --release: ok, cargo test: ok, npm check: ok, npm lint: ok, npm format:check: ok, npm build: ok
+
 ```
 
 ## Future Workflow (Protection Active)
@@ -91,3 +93,4 @@ All commits must go through PRs:
 6. `gh pr merge` (or merge via UI once `CI` is green)
 
 No direct pushes to `main` allowed (`git push origin main` rejected).
+```

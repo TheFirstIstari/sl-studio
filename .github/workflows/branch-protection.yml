@@ -17,6 +17,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Checking if 'main' requires PR + passing CI..."
+<<<<<<< HEAD
           # Try to read current protection settings (requires repo read)
           result=$(gh api repos/${{ github.repository }}/branches/main/protection 2>/dev/null || echo "NOT_CONFIGURED")
           if [ -n "$result" ] && [ "$result" != "NOT_CONFIGURED" ]; then
@@ -26,3 +27,17 @@ jobs:
             echo "Manual verification required: Settings > Branches > main > Edit > 'Require a pull request before merging' + 'Pipeline Success Gate (CI)' status check."
           fi
           echo "Protection validated: PR + passing CI enforced on main."
+=======
+          # Try to read current protection settings (requires admin/repo settings access)
+          if ! gh api repos/${{ github.repository }}/branches/main/protection 2>/dev/null; then
+            echo "Note: Unable to verify protection settings via GITHUB_TOKEN (requires admin/repo settings access)."
+          fi
+          echo "Action required (if not already configured):"
+          echo "  1. Go to Settings > Branches > main > Edit"
+          echo "  2. Check 'Require a pull request before merging'"
+          echo "  3. Check 'Require approvals' (optional)"
+          echo "  4. Check 'Require status checks to pass before merging'"
+          echo "  5. Add 'CI' to the required status checks"
+          echo "  6. Check 'Require branches to be up to date before merging' (optional)"
+          echo "Branch protection check completed (manual verification may be required)."
+>>>>>>> d0356963
