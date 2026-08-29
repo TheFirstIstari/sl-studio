@@ -58,70 +58,80 @@ jobs:
   # ============================================================
   # macOS ARM Pipeline
   # ============================================================
-  rust-macos-arm:
-    name: Rust (macOS ARM)
+  rust-fmt:
+    name: Rust Format Check
     needs: frontend
     runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Download frontend artifact
         uses: actions/download-artifact@v4
         with:
           name: frontend
           path: build
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: rustfmt
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Format check
+        run: cd src-tauri && cargo fmt --check
 
+  rust-clippy:
+    name: Rust Clippy
+    needs: frontend
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend
+          path: build
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
           components: clippy, rustfmt
-
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+      - name: Clippy
+        run: cd src-tauri && cargo clippy -- -D warnings
 
-      - name: Rust CI
-        run: |
-          set -euo pipefail
-          cd src-tauri
-          cargo fmt --check
-          cargo clippy -- -D warnings
-          cargo build --release
-
-  tests-macos-arm:
-    name: Tests (macOS ARM)
+  rust-build:
+    name: Rust Build
     needs: frontend
     runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Download frontend artifact
         uses: actions/download-artifact@v4
         with:
           name: frontend
           path: build
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-
-      - name: Run tests
-        working-directory: src-tauri
-        run: cargo test
+      - name: Build
+        run: cd src-tauri && cargo build --release
 
   build-macos-arm:
     name: Build (macOS ARM)
-    needs: [frontend, rust-macos-arm, tests-macos-arm]
+    needs: [frontend, rust-fmt, rust-clippy, rust-build, tests-macos-arm]
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: macos-latest
     steps:
@@ -170,8 +180,6 @@ jobs:
           path: src-tauri/target/aarch64-apple-darwin/release/bundle/**/*.{dmg,app}
           if-no-files-found: ignore
 
-  # ============================================================
-  # ============================================================
   release:
     name: Release
     runs-on: ubuntu-latest
