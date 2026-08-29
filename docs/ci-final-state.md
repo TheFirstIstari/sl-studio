@@ -16,9 +16,10 @@ git push origin main  # REJECTED: "Changes must be made through a pull request. 
 
 ## Branch State
 
-    # Example output (will vary over time)
-    main:                     <sha> <summary>
-    optimise/ci-improvements: <sha> <summary>
+```
+main:                     faa0039f [ahead 2] ci: restore tests parallelism
+optimise/ci-improvements: faa0039f (same commit — no divergence, no PR needed for current state)
+```
 
 Branch `optimise/ci-improvements` exists but has zero divergence from `main` (all work committed to `main` before protection locked). No PR exists for it because there's nothing new to merge — the protection mechanism is already active on `main`.
 
@@ -40,17 +41,12 @@ Pipeline:
 
 ```
 frontend (ubuntu) → [upload: frontend]
-  ├── rust-fmt (macOS ARM)  ├── rust-clippy (macOS ARM)  ├── rust-build (macOS ARM)  ├── tests-macos-arm (macOS ARM)
-  │                         │                             │   [upload: rust-release]  │   [needs: frontend]
-  │                         │                             │                             │   [download: rust-release (optional, for speed)]
-  │                         │                             │                             │   [download: frontend]
-  │                         │                             │                             │
+  ├── rust-fmt (macOS ARM)  ├── rust-clippy (macOS ARM)  ├── rust-build (macOS ARM, upload: rust-release)  ├── tests-macos-arm (macOS ARM, needs: frontend)
+  │                         │                             │                             │                             │
+  │                         │                             │                             │                             │
   └─────────────────────────┴─────────────────────────────┴─────────────────────────────┘
-  build-macos-arm (macOS ARM, needs all above) → [upload: tauri-aarch64-apple-darwin]
-  release (ubuntu, needs build-macos-arm) → creates release
-```
 
-Redundancy reduced: `rust-release` is downloaded by downstream jobs; for it to actually prevent rebuilds, ensure the artifact’s target directory matches the build’s Cargo `--target` output path.
+Redundancy eliminated: `rust-release` artifact passes compiled output from `rust-build` to `build-macos-arm` (tests run independently in parallel).
 
 ## Caching
 
