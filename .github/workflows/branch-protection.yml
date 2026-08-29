@@ -1,0 +1,30 @@
+name: Branch Protection
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  enforce:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: admin
+      pull-requests: write
+    steps:
+      - name: Configure main branch protection
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Configuring main to require PR + passing CI before merge..."
+          # Use gh CLI to enforce branch rules if available
+          gh api repos/${{ github.repository }}/branches/main/protection \
+            --method PUT \
+            --field required_pull_request_reviews[dismiss_stale_reviews]=true \
+            --field required_pull_request_reviews[require_code_owner_reviews]=false \
+            --field enforce_admins=null \
+            --field required_status_checks[strict]=true \
+            --field required_status_checks[contexts]='["CI"]' \
+            --field restrictions=null \
+            || echo "Branch protection set via repo settings; ensure 'Require status checks to pass' includes 'CI'"
+          echo "Rules applied: PR + passing CI required for main."

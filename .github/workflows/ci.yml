@@ -113,8 +113,8 @@ jobs:
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git
-          key: cargo-registry-\${{ runner.os }}-\${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: cargo-registry-\${{ runner.os }}-
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: cargo-registry-${{ runner.os }}-
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
@@ -146,8 +146,8 @@ jobs:
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git
-          key: cargo-registry-\${{ runner.os }}-\${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: cargo-registry-\${{ runner.os }}-
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: cargo-registry-${{ runner.os }}-
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
@@ -193,8 +193,8 @@ jobs:
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git
-          key: cargo-registry-\${{ runner.os }}-\${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: cargo-registry-\${{ runner.os }}-
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: cargo-registry-${{ runner.os }}-
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
