@@ -50,7 +50,7 @@ frontend (ubuntu) → [upload: frontend]
   release (ubuntu, needs build-macos-arm) → creates release
 ```
 
-Redundancy eliminated: `rust-release` artifact passes compiled output from `rust-build` to `tests-macos-arm` and `build-macos-arm`, avoiding redundant `cargo build --release` in build step.
+Redundancy reduced: `rust-release` is downloaded by downstream jobs; for it to actually prevent rebuilds, ensure the artifact’s target directory matches the build’s Cargo `--target` output path.
 
 ## Caching
 
