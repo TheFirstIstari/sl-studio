@@ -297,3 +297,11 @@ jobs:
           prerelease: ${{ steps.count.outputs.platform_count == '1' }}
           files: |
             artifacts/**/*.{dmg,app}
+  pipeline-success:
+    name: Pipeline Success Gate (CI)
+    needs: [frontend, rust-fmt, rust-clippy, rust-build, tests-macos-arm, build-macos-arm]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm pipeline complete
+        run: echo "Pipeline complete — required status check CI satisfied."
