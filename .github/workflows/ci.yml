@@ -65,11 +65,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Download frontend artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend
-          path: build
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
         with:
@@ -100,11 +95,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Download frontend artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend
-          path: build
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
         with:
@@ -134,11 +124,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Download frontend artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend
-          path: build
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
         with:
