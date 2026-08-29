@@ -169,8 +169,7 @@ jobs:
 
   tests-macos-arm:
     name: Tests (macOS ARM)
-    needs: frontend
-    runs-on: macos-latest
+    needs: [frontend, rust-build]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
