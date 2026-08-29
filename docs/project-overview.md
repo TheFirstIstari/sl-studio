@@ -77,18 +77,18 @@ metadata key-value pairs.
 
 ## Tech Stack
 
-| Layer    | Technology                          |
-| -------- | ----------------------------------- |
-| Frontend | SvelteKit 5 + TypeScript            |
-| Desktop  | Tauri 2                             |
-| Backend  | Rust 2021                           |
-| Database | SQLite (rusqlite)                   |
-| Charts   | Chart.js 4                          |
-| Network  | Cytoscape.js 3                      |
-| Maps     | Leaflet.js 1 (CARTO dark tiles)     |
-| LLM      | rapid-mlx (MLX models, float16)     |
-| Audio    | Stub (metadata only)                |
-| Testing  | Playwright (E2E)                    |
+| Layer    | Technology                      |
+| -------- | ------------------------------- |
+| Frontend | SvelteKit 5 + TypeScript        |
+| Desktop  | Tauri 2                         |
+| Backend  | Rust 2021                       |
+| Database | SQLite (rusqlite)               |
+| Charts   | Chart.js 4                      |
+| Network  | Cytoscape.js 3                  |
+| Maps     | Leaflet.js 1 (CARTO dark tiles) |
+| LLM      | rapid-mlx (MLX models, float16) |
+| Audio    | Stub (metadata only)            |
+| Testing  | Playwright (E2E)                |
 
 ## Getting Started
 
@@ -368,25 +368,25 @@ The application includes several optimizations for large-scale evidence processi
 
 ### Required Crates
 
-| Crate        | Version | Purpose                    |
-| ------------ | ------- | -------------------------- |
-| tauri              | 2.x     | Desktop framework          |
-| rusqlite           | 0.32    | SQLite database (bundled)  |
+| Crate              | Version | Purpose                       |
+| ------------------ | ------- | ----------------------------- |
+| tauri              | 2.x     | Desktop framework             |
+| rusqlite           | 0.32    | SQLite database (bundled)     |
 | serde              | 1       | Serialization/deserialization |
-| serde_json         | 1       | JSON serialization          |
-| reqwest            | 0.13    | HTTP client (rapid-mlx API) |
-| sysinfo            | 0.32    | Hardware detection         |
-| rayon              | 1.10    | Parallel processing        |
-| sha2               | 0.10    | File hashing (registry)    |
-| num_cpus           | 1       | CPU core detection          |
-| chrono             | 0.4     | Timestamp handling         |
-| uuid               | 1       | UUID generation             |
-| tracing            | 0.1     | Structured logging         |
-| tracing-subscriber | 0.3     | Log output formatting      |
-| anyhow             | 1       | Error handling              |
-| thiserror          | 1       | Error derive macros         |
-| rapid-mlx          | CLI     | MLX inference (subprocess)  |
-| chrono       | 0.4     | Date/time handling         |
+| serde_json         | 1       | JSON serialization            |
+| reqwest            | 0.13    | HTTP client (rapid-mlx API)   |
+| sysinfo            | 0.32    | Hardware detection            |
+| rayon              | 1.10    | Parallel processing           |
+| sha2               | 0.10    | File hashing (registry)       |
+| num_cpus           | 1       | CPU core detection            |
+| chrono             | 0.4     | Timestamp handling            |
+| uuid               | 1       | UUID generation               |
+| tracing            | 0.1     | Structured logging            |
+| tracing-subscriber | 0.3     | Log output formatting         |
+| anyhow             | 1       | Error handling                |
+| thiserror          | 1       | Error derive macros           |
+| rapid-mlx          | CLI     | MLX inference (subprocess)    |
+| chrono             | 0.4     | Date/time handling            |
 
 ### Optional (Feature-gated)
 
@@ -398,14 +398,14 @@ This project is a Rust migration of the original Python/Qt `Project-SteinLine`.
 
 ### Changes from Qt Version
 
-| Component | Qt (Python)     | Rust/Tauri        |
-| --------- | --------------- | ----------------- |
-| UI        | Qt Widgets      | SvelteKit 5       |
-| Database  | sqlite3         | rusqlite          |
-| OCR       | EasyOCR         | ocrs (planned)     |
+| Component | Qt (Python)     | Rust/Tauri            |
+| --------- | --------------- | --------------------- |
+| UI        | Qt Widgets      | SvelteKit 5           |
+| Database  | sqlite3         | rusqlite              |
+| OCR       | EasyOCR         | ocrs (planned)        |
 | Audio     | Faster Whisper  | whisper.cpp (planned) |
-| LLM       | vLLM (HTTP)     | rapid-mlx (local) |
-| Hardware  | psutil + pynvml | sysinfo           |
+| LLM       | vLLM (HTTP)     | rapid-mlx (local)     |
+| Hardware  | psutil + pynvml | sysinfo               |
 
 ## License
 

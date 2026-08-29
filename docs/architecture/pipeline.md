@@ -55,13 +55,13 @@ File Input
 
 ### Supported File Types
 
-| Type      | Extensions                                       | Function                  | Notes                    |
-| --------- | ------------------------------------------------ | ------------------------- | ------------------------ |
-| PDF       | `.pdf`                                           | `extract_pdf`             | Stub (planned: `pdf-extract`) |
-| Images    | `.png`, `.jpg`, `.jpeg`, `.tiff`, `.bmp`         | `extract_image`           | Stub (planned: `ocrs`)        |
-| Audio     | `.mp3`, `.wav`, `.m4a`, `.flac`, `.aac`          | `extract_audio`           | Metadata extraction      |
-| Documents | `.docx`                                          | `extract_docx`            | ZIP/XML parsing          |
-| Text      | `.txt`, `.md`, `.json`, `.xml`, `.csv`           | `extract_metadata_from_path` | Direct reading        |
+| Type      | Extensions                               | Function                     | Notes                         |
+| --------- | ---------------------------------------- | ---------------------------- | ----------------------------- |
+| PDF       | `.pdf`                                   | `extract_pdf`                | Stub (planned: `pdf-extract`) |
+| Images    | `.png`, `.jpg`, `.jpeg`, `.tiff`, `.bmp` | `extract_image`              | Stub (planned: `ocrs`)        |
+| Audio     | `.mp3`, `.wav`, `.m4a`, `.flac`, `.aac`  | `extract_audio`              | Metadata extraction           |
+| Documents | `.docx`                                  | `extract_docx`               | ZIP/XML parsing               |
+| Text      | `.txt`, `.md`, `.json`, `.xml`, `.csv`   | `extract_metadata_from_path` | Direct reading                |
 
 > **Note**: Extractors are currently stub implementations that read file content
 > and return a `Metadata` struct with placeholder category/fact data. Full text
@@ -117,14 +117,14 @@ pass configuration. See the `Pipelines` section for configurable pipeline passes
 
 Each extracted fact contains:
 
-| Field                | Type           | Description                |
-| -------------------- | -------------- | -------------------------- |
-| `id`                 | u64            | Unique identifier          |
-| `fingerprint`        | String         | Hash for deduplication     |
-| `filename`           | String         | Source file name           |
-| `fact_summary`       | String         | LLM-generated fact statement |
-| `category`           | Option<String> | Fact category (or null)    |
-| `identified_crime`   | Option<String> | Crime type if detected     |
-| `severity_score`     | u8             | Severity (0-10 scale)      |
-| `confidence`         | Option<f64>    | Confidence (0.0-1.0)       |
-| `created_at`         | String         | RFC3339 timestamp          |
+| Field              | Type           | Description                  |
+| ------------------ | -------------- | ---------------------------- |
+| `id`               | u64            | Unique identifier            |
+| `fingerprint`      | String         | Hash for deduplication       |
+| `filename`         | String         | Source file name             |
+| `fact_summary`     | String         | LLM-generated fact statement |
+| `category`         | Option<String> | Fact category (or null)      |
+| `identified_crime` | Option<String> | Crime type if detected       |
+| `severity_score`   | u8             | Severity (0-10 scale)        |
+| `confidence`       | Option<f64>    | Confidence (0.0-1.0)         |
+| `created_at`       | String         | RFC3339 timestamp            |

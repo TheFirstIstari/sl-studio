@@ -54,13 +54,13 @@ Returns a `DocumentMetadata` struct with detected file type, size, and basic inf
 
 ### Supported Extensions
 
-| Extension | Extractor |
-| --------- | --------- |
-| `.pdf`    | `extract_pdf` |
+| Extension                                | Extractor       |
+| ---------------------------------------- | --------------- |
+| `.pdf`                                   | `extract_pdf`   |
 | `.png`, `.jpg`, `.jpeg`, `.tiff`, `.bmp` | `extract_image` |
-| `.mp3`, `.wav`, `.m4a`, `.flac`, `.aac` | `extract_audio` |
-| `.docx`   | `extract_docx` |
-| (other)   | `"text"` source |
+| `.mp3`, `.wav`, `.m4a`, `.flac`, `.aac`  | `extract_audio` |
+| `.docx`                                  | `extract_docx`  |
+| (other)                                  | `"text"` source |
 
 ## PDF Extraction (`extract_pdf`)
 

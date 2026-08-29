@@ -110,9 +110,9 @@ The default system prompt configures the LLM for forensic analysis:
 `inference/mod.rs:6` — `get_builtin_pipelines()` returns two configurable
 analysis pipelines:
 
-| Pipeline         | Passes | Description                          |
-| ---------------- | ------ | ------------------------------------ |
-| Default Analysis | 3      | Text extraction → fact extraction → entity recognition |
+| Pipeline         | Passes | Description                                              |
+| ---------------- | ------ | -------------------------------------------------------- |
+| Default Analysis | 3      | Text extraction → fact extraction → entity recognition   |
 | Deep Forensic    | 3      | OCR extraction → fact validation → timeline construction |
 
 Each pipeline pass is defined by a `PipelinePass` struct with a prompt template,

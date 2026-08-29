@@ -67,21 +67,21 @@ The backend exposes 69 commands to the frontend, all located in `commands/mod.rs
 
 ### Command Categories
 
-| Category             | Commands                                              | Description                          |
-| -------------------- | ----------------------------------------------------- | ------------------------------------ |
-| Config/Project       | `load_config`, `save_config`, `init_project`          | Application configuration            |
-| Registry             | `start_registry`, `get_extraction_queue`              | File fingerprinting & registry       |
-| Extraction           | `extract_batch`, `get_extraction_statistics`, `get_analysis_queue` | Text extraction pipeline |
-| Facts                | `search_facts`, `export_facts_json`, `delete_facts`   | Fact search & export                 |
-| Entities             | `suggest_entity_matches`, `get_entity_relationships`  | Entity management & relationships    |
-| Evidence Chains      | `list_evidence_chains`, `create_evidence_chain`        | Chain management                     |
-| Facets               | `list_facet_presets`, `save_facet_preset`             | Search facet presets                 |
-| Pipelines            | `list_pipelines`, `save_pipeline`, `delete_pipeline`  | Analysis pipeline management         |
-| Quality              | `find_duplicate_facts`, `merge_duplicate_facts`       | Deduplication & validation           |
-| Timeline             | `get_timeline_events`                                 | Chronological fact ordering          |
-| Metadata             | `get_registry_files`, `get_cached_metadata`, `extract_metadata` | File & metadata management |
-| Stats                | `get_stats`, `get_overall_statistics`                 | Aggregate statistics                 |
-| Hardware/Model       | `detect_hardware`, `download_model`, `init_reasoner`  | System detection & inference setup   |
-| Analysis             | `analyze_batch`, `set_cancel_flag`, `get_workflow_state` | LLM analysis & workflow     |
-| Compare              | `get_project_summary`, `compare_projects`             | Cross-project comparison             |
-| Utility              | `write_file`, `create_backup`, `restore_backup`       | File I/O & backup/restore            |
+| Category        | Commands                                                           | Description                        |
+| --------------- | ------------------------------------------------------------------ | ---------------------------------- |
+| Config/Project  | `load_config`, `save_config`, `init_project`                       | Application configuration          |
+| Registry        | `start_registry`, `get_extraction_queue`                           | File fingerprinting & registry     |
+| Extraction      | `extract_batch`, `get_extraction_statistics`, `get_analysis_queue` | Text extraction pipeline           |
+| Facts           | `search_facts`, `export_facts_json`, `delete_facts`                | Fact search & export               |
+| Entities        | `suggest_entity_matches`, `get_entity_relationships`               | Entity management & relationships  |
+| Evidence Chains | `list_evidence_chains`, `create_evidence_chain`                    | Chain management                   |
+| Facets          | `list_facet_presets`, `save_facet_preset`                          | Search facet presets               |
+| Pipelines       | `list_pipelines`, `save_pipeline`, `delete_pipeline`               | Analysis pipeline management       |
+| Quality         | `find_duplicate_facts`, `merge_duplicate_facts`                    | Deduplication & validation         |
+| Timeline        | `get_timeline_events`                                              | Chronological fact ordering        |
+| Metadata        | `get_registry_files`, `get_cached_metadata`, `extract_metadata`    | File & metadata management         |
+| Stats           | `get_stats`, `get_overall_statistics`                              | Aggregate statistics               |
+| Hardware/Model  | `detect_hardware`, `download_model`, `init_reasoner`               | System detection & inference setup |
+| Analysis        | `analyze_batch`, `set_cancel_flag`, `get_workflow_state`           | LLM analysis & workflow            |
+| Compare         | `get_project_summary`, `compare_projects`                          | Cross-project comparison           |
+| Utility         | `write_file`, `create_backup`, `restore_backup`                    | File I/O & backup/restore          |

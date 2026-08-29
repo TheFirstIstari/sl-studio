@@ -24,43 +24,43 @@ pub struct AppConfig {
 
 ### ProjectConfig
 
-| Field           | Type   | Description                     |
-| --------------- | ------ | -------------------------------- |
-| `name`          | String | Project / app name               |
-| `evidence_root` | String | Evidence files directory         |
-| `registry_db`   | String | Registry database filename       |
+| Field             | Type   | Description                    |
+| ----------------- | ------ | ------------------------------ |
+| `name`            | String | Project / app name             |
+| `evidence_root`   | String | Evidence files directory       |
+| `registry_db`     | String | Registry database filename     |
 | `intelligence_db` | String | Intelligence database filename |
 
 ### ModelConfig
 
-| Field              | Type   | Description                                  |
-| ------------------ | ------ | -------------------------------------------- |
-| `source`           | String | `"huggingface"` or `"local"`                |
-| `id`               | String | Model identifier                             |
-| `mlx_model_name`   | String | MLX model name (e.g. `qwen3.5-4b-4bit`)      |
-| `dtype`            | String | Data type (`float16`, `bfloat16`)            |
-| `context_length`   | usize  | LLM context window size                      |
-| `downloaded`       | bool   | Whether the model has been pulled            |
+| Field            | Type   | Description                             |
+| ---------------- | ------ | --------------------------------------- |
+| `source`         | String | `"huggingface"` or `"local"`            |
+| `id`             | String | Model identifier                        |
+| `mlx_model_name` | String | MLX model name (e.g. `qwen3.5-4b-4bit`) |
+| `dtype`          | String | Data type (`float16`, `bfloat16`)       |
+| `context_length` | usize  | LLM context window size                 |
+| `downloaded`     | bool   | Whether the model has been pulled       |
 
 ### HardwareConfig
 
-| Field                 | Type   | Description                     |
-| --------------------- | ------ | ------------------------------- |
-| `gpu_backend`         | String | Detected GPU backend            |
-| `gpu_memory_fraction` | f64    | Fraction of GPU memory to use   |
-| `cpu_workers`         | usize  | Number of CPU workers           |
-| `auto_scale_workers`  | bool   | Auto-scale worker count          |
-| `batch_size`          | usize  | Processing batch size            |
-| `auto_scale_batch`    | bool   | Auto-scale batch size            |
-| `ocr_provider`        | String | OCR engine (`ocrs`)              |
-| `whisper_size`        | String | Whisper model size (`base`)      |
-| `whisper_model_path`  | Option | Optional whisper model path      |
+| Field                 | Type   | Description                   |
+| --------------------- | ------ | ----------------------------- |
+| `gpu_backend`         | String | Detected GPU backend          |
+| `gpu_memory_fraction` | f64    | Fraction of GPU memory to use |
+| `cpu_workers`         | usize  | Number of CPU workers         |
+| `auto_scale_workers`  | bool   | Auto-scale worker count       |
+| `batch_size`          | usize  | Processing batch size         |
+| `auto_scale_batch`    | bool   | Auto-scale batch size         |
+| `ocr_provider`        | String | OCR engine (`ocrs`)           |
+| `whisper_size`        | String | Whisper model size (`base`)   |
+| `whisper_model_path`  | Option | Optional whisper model path   |
 
 ### ProcessingConfig
 
-| Field                | Type   | Description                   |
-| -------------------- | ------ | ----------------------------- |
-| `batch_size`         | usize  | Processing batch size         |
+| Field                  | Type  | Description                      |
+| ---------------------- | ----- | -------------------------------- |
+| `batch_size`           | usize | Processing batch size            |
 | `max_image_resolution` | usize | Maximum image resolution for OCR |
 
 ## Persistence

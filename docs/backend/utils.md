@@ -32,10 +32,10 @@ File I/O is performed directly via `std::fs`:
 
 Config files and databases use paths relative to the current working directory:
 
-| Function            | Path                              |
-| ------------------- | --------------------------------- |
-| Config file         | `sl-studio-config.json` (cwd)     |
-| Database            | `sl-studio.db` (cwd)              |
+| Function    | Path                          |
+| ----------- | ----------------------------- |
+| Config file | `sl-studio-config.json` (cwd) |
+| Database    | `sl-studio.db` (cwd)          |
 
 ## Hardware Detection
 

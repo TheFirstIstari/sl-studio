@@ -30,25 +30,25 @@ All tables are created with `CREATE TABLE IF NOT EXISTS`:
 
 ### Intelligence
 
-| Column              | Type    | Description                          |
-| ------------------- | ------- | ------------------------------------ |
-| `id`                | INTEGER | Primary key (autoincrement)          |
-| `fingerprint`       | TEXT    | File fingerprint                     |
-| `filename`          | TEXT    | Source file name                     |
-| `fact_summary`      | TEXT    | Extracted fact                       |
-| `category`          | TEXT    | Crime/fact category                  |
-| `identified_crime`  | TEXT    | Specific crime type                  |
-| `severity_score`    | INTEGER | 0–10 severity rating                 |
-| `confidence`        | REAL    | Confidence (0.0–1.0)                 |
-| `quality_score`     | REAL    | Extraction quality                   |
-| `source_quote`      | TEXT    | Direct quote from source             |
-| `associated_date`   | TEXT    | Associated date                      |
-| `is_deleted`        | BOOLEAN | Soft-delete flag                     |
-| `deleted_at`        | DATETIME| Deletion timestamp                   |
-| `verification_status` | TEXT  | `unverified` / verified              |
-| `review_notes`      | TEXT    | User review notes                    |
-| `created_at`        | DATETIME| Creation timestamp                   |
-| `updated_at`        | DATETIME| Last update timestamp                |
+| Column                | Type     | Description                 |
+| --------------------- | -------- | --------------------------- |
+| `id`                  | INTEGER  | Primary key (autoincrement) |
+| `fingerprint`         | TEXT     | File fingerprint            |
+| `filename`            | TEXT     | Source file name            |
+| `fact_summary`        | TEXT     | Extracted fact              |
+| `category`            | TEXT     | Crime/fact category         |
+| `identified_crime`    | TEXT     | Specific crime type         |
+| `severity_score`      | INTEGER  | 0–10 severity rating        |
+| `confidence`          | REAL     | Confidence (0.0–1.0)        |
+| `quality_score`       | REAL     | Extraction quality          |
+| `source_quote`        | TEXT     | Direct quote from source    |
+| `associated_date`     | TEXT     | Associated date             |
+| `is_deleted`          | BOOLEAN  | Soft-delete flag            |
+| `deleted_at`          | DATETIME | Deletion timestamp          |
+| `verification_status` | TEXT     | `unverified` / verified     |
+| `review_notes`        | TEXT     | User review notes           |
+| `created_at`          | DATETIME | Creation timestamp          |
+| `updated_at`          | DATETIME | Last update timestamp       |
 
 ### Registry
 
