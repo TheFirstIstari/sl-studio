@@ -41,17 +41,12 @@ Pipeline:
 
 ```
 frontend (ubuntu) → [upload: frontend]
-  ├── rust-fmt (macOS ARM)  ├── rust-clippy (macOS ARM)  ├── rust-build (macOS ARM)  ├── tests-macos-arm (macOS ARM)
-  │                         │                             │   [upload: rust-release]  │   [needs: frontend]
-  │                         │                             │                             │   [download: rust-release (optional, for speed)]
-  │                         │                             │                             │   [download: frontend]
-  │                         │                             │                             │
+  ├── rust-fmt (macOS ARM)  ├── rust-clippy (macOS ARM)  ├── rust-build (macOS ARM, upload: rust-release)  ├── tests-macos-arm (macOS ARM, needs: frontend)
+  │                         │                             │                             │                             │
+  │                         │                             │                             │                             │
   └─────────────────────────┴─────────────────────────────┴─────────────────────────────┘
-  build-macos-arm (macOS ARM, needs all above) → [upload: tauri-aarch64-apple-darwin]
-  release (ubuntu, needs build-macos-arm) → creates release
-```
 
-Redundancy eliminated: `rust-release` artifact passes compiled output from `rust-build` to `tests-macos-arm` and `build-macos-arm`, avoiding redundant `cargo build --release` in build step.
+Redundancy eliminated: `rust-release` artifact passes compiled output from `rust-build` to `build-macos-arm` (tests run independently in parallel).
 
 ## Caching
 
