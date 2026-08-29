@@ -84,8 +84,12 @@ jobs:
             ~/.cargo/git
           key: cargo-registry-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
           restore-keys: cargo-registry-${{ runner.os }}-
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+
       - name: Format check
         run: cd src-tauri && cargo fmt --check
 
