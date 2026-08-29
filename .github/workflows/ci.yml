@@ -169,15 +169,11 @@ jobs:
 
   tests-macos-arm:
     name: Tests (macOS ARM)
-    needs: [frontend, rust-build]
+    needs: frontend
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Download rust build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: rust-release
-          path: src-tauri/target/release/
       - name: Download frontend artifact
         uses: actions/download-artifact@v4
         with:
