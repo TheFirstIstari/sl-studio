@@ -16,10 +16,9 @@ git push origin main  # REJECTED: "Changes must be made through a pull request. 
 
 ## Branch State
 
-```
-main:                     faa0039f [ahead 2] ci: restore tests parallelism
-optimise/ci-improvements: faa0039f (same commit — no divergence, no PR needed for current state)
-```
+    # Example output (will vary over time)
+    main:                     <sha> <summary>
+    optimise/ci-improvements: <sha> <summary>
 
 Branch `optimise/ci-improvements` exists but has zero divergence from `main` (all work committed to `main` before protection locked). No PR exists for it because there's nothing new to merge — the protection mechanism is already active on `main`.
 
