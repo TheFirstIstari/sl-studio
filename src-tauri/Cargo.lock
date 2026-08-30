@@ -3727,21 +3727,17 @@ dependencies = [
  "anyhow",
  "chrono",
  "num_cpus",
- "rayon",
  "reqwest",
  "rusqlite",
  "serde",
  "serde_json",
- "sha2",
  "sysinfo",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
- "thiserror 1.0.69",
  "tracing",
  "tracing-subscriber",
- "uuid",
 ]
 
 [[package]]
