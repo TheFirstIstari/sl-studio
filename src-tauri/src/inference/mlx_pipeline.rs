@@ -1,6 +1,7 @@
 // MLX pipeline for SL Studio — wraps the `rapid-mlx` CLI subprocess.
 
 use anyhow::Result;
+use reqwest::blocking::Client;
 use std::process::Child;
 use std::time::Duration;
 use tracing::info;
@@ -11,6 +12,7 @@ pub struct MlxPipeline {
     pub context_length: usize,
     pub server_url: String,
     pub child: Option<Child>,
+    pub client: Client,
 }
 
 impl MlxPipeline {
@@ -20,6 +22,7 @@ impl MlxPipeline {
             context_length,
             server_url: "http://127.0.0.1:8000".to_string(),
             child: None,
+            client: Client::new(),
         }
     }
 
@@ -34,11 +37,9 @@ impl MlxPipeline {
 
         self.child = Some(child);
 
-        // Poll the health endpoint until the server is ready (up to 30s).
-        let client = reqwest::blocking::Client::new();
         let health_url = format!("{}/health", self.server_url);
         for _ in 0..60 {
-            if let Ok(resp) = client.get(&health_url).send() {
+            if let Ok(resp) = self.client.get(&health_url).send() {
                 if resp.status().is_success() {
                     info!("rapid-mlx serve is ready at {}", self.server_url);
                     return Ok(());
@@ -60,13 +61,13 @@ impl MlxPipeline {
             max_tokens
         );
 
-        let client = reqwest::blocking::Client::new();
         let body = serde_json::json!({
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": max_tokens,
         });
 
-        let resp = client
+        let resp = self
+            .client
             .post(format!("{}/v1/chat/completions", self.server_url))
             .json(&body)
             .send()?;
